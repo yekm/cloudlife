@@ -5,6 +5,7 @@
 
 #include <math.h> // exp
 
+#include <error.h>
 
 #define GL_GLEXT_PROTOTYPES 1
 #define GL3_PROTOTYPES 1
@@ -23,110 +24,383 @@
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 //#include <GL/glut.h>
 
-struct odot {
-    int ax, ay, bx, by, cx, cy;
-};
+// https://prng.di.unimi.it/xoshiro256plusplus.c
 
-std::deque<odot> osc;
+/* This is xoshiro256++ 1.0, one of our all-purpose, rock-solid generators.
+   It has excellent (sub-ns) speed, a state (256 bits) that is large
+   enough for any parallel application, and it passes all tests we are
+   aware of.
 
-int maxodots = 1024*6;
-int filler_sleep = 100;
-int maxdots_perframe = 64;
-//float gm = -2.5;
-float gm = 3.5;
-int dots_clamped = 64;
-ImVec4 ocolor1 = ImVec4(1, 0, 0, 0);
-ImVec4 ocolor2 = ImVec4(0, 1, 0, 0);
-ImVec4 ocolor3 = ImVec4(0, 0, 1, 0);
+   For generating just floating-point numbers, xoshiro256+ is even faster.
 
-#define TEX_W 1024
-#define TEX_H 1024
+   The state must be seeded so that it is not everywhere zero. If you have
+   a 64-bit seed, we suggest to seed a splitmix64 generator and use its
+   output to fill s. */
 
-uint32_t image_data[TEX_W*TEX_H];
-
-
-//unsigned int tb = 0b011000111001110011100010000010;
-  unsigned int tb = 0b001100011100111001110001000001; // original
-//unsigned int tb = 0b001110011100111001110001000001;
-//unsigned int tb = 0b000110001100111001110001000010; // alt1
-//unsigned int tb = 0b001100010100011001110001100001;
-//                    ....|....|....|....|....|....|
-
-int ya, xa, yb, xb, yc, xc;
-
-int sh0, sh1, sh2, sh3, sh4, sh5;
-
-// constatnt shift add
-int CSA = 1;
-
-// initial constant multiplier
-#define ICM 10
-
-// shift value bit width
-#define SVBW 5
-
-void reinit() {
-    ya=0;               xa=0737777<<ICM;
-    yb=060000<<ICM;     xb=0;
-    yc=0;               xc=020000<<ICM;
-
-    std::bitset<30> t(tb);
-    std::cout << t << std::endl;
-
-    auto mask = ~(~unsigned(0) << SVBW);
-    sh0 = ((tb >> SVBW*5) & mask) + CSA;
-    sh1 = ((tb >> SVBW*4) & mask) + CSA;
-    sh2 = ((tb >> SVBW*3) & mask) + CSA;
-    sh3 = ((tb >> SVBW*2) & mask) + CSA;
-    sh4 = ((tb >> SVBW*1) & mask) + CSA;
-    sh5 = ((tb >> SVBW*0) & mask) + CSA;
-    osc.clear();
+static inline uint64_t rotl(const uint64_t x, int k) {
+	return (x << k) | (x >> (64 - k));
 }
 
+static uint64_t s[4] = {1,2,3,4};
+
+uint64_t xoshiro256(void) {
+	const uint64_t result = rotl(s[0] + s[3], 23) + s[0];
+
+	const uint64_t t = s[1] << 17;
+
+	s[2] ^= s[0];
+	s[3] ^= s[1];
+	s[1] ^= s[2];
+	s[0] ^= s[3];
+
+	s[2] ^= t;
+
+	s[3] = rotl(s[3], 45);
+
+	return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+static void
+*xrealloc(void *p, size_t size)
+{
+    void *ret;
+    if ((ret = realloc(p, size)) == NULL) {
+        error(1, errno, "out of memory");
+    }
+    return ret;
+}
+
+
+static GLFWwindow* window;
+static int sw = 1024, sh = 1024;
+
+#define DATA_SIZE  (sw * sh * 4)
+
+
+bool get_size(int *w, int *h) {
+    bool ret = false;
+    int _w, _h;
+    glfwGetFramebufferSize(window, &_w, &_h);
+    if (_w != sw || _h != sh) {
+        ret = true;
+        if (w) *w = _w;
+        if (h) *h = _h;
+    }
+    sw = _w; sh = _h;
+
+    return ret;
+}
+
+uint32_t *image_data = NULL;
+
+GLuint image_texture;
+GLuint pboIds[2];
+int pbo_index = 0;
+
+void make_pbos() {
+
+    image_data = (uint32_t*)xrealloc(image_data, DATA_SIZE);
+
+    // AUTHOR: Song Ho Ahn (song.ahn@gmail.com)
+    // http://www.songho.ca/opengl/gl_pbo.html
+    glGenTextures(1, &image_texture);
+    glBindTexture(GL_TEXTURE_2D, image_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, sw, sh, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)image_data);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenBuffers(2, pboIds);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[0]);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, DATA_SIZE, 0, GL_STREAM_DRAW);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[1]);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, DATA_SIZE, 0, GL_STREAM_DRAW);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+}
+
+void destroy_pbos() {
+    glDeleteTextures(1, &image_texture);
+    glDeleteBuffers(2, pboIds);
+}
+
+// -----------------------------------------------------------------------------
 
 void drawdot(uint32_t *p, int x, int y, double o, uint32_t c) {
-    // keep 10 bits to wrap around 1024 screen pixels
-#define SB (32-10)
-    x = (x>>SB) + TEX_W/2;
-    y = (y>>SB) + TEX_H/2;
-
-    p[ y*TEX_W + x ] = c | ((unsigned)(0xff*o)<<24);
+    p[ y*sw + x ] = c | ((unsigned)(0xff*o)<<24);
 }
 
-void update_pixels(uint32_t *p, int w, int h) {
-    memset(p, 0, w*h*4);
+void drawdot(uint32_t *p, int x, int y, uint32_t c) {
+    p[ y*sw + x ] = c;
+}
 
-    for (int i = 0; i<maxdots_perframe; ++i) {
-        ya += (xa + xb) >> sh0;
-        xa -= (ya - yb) >> sh1;
 
-        yb += (xb - xc) >> sh2;
-        xb -= (yb - yc) >> sh3;
+//////////////////////////////////////////////
 
-        yc += (xc - xa) >> sh4;
-        xc -= (yc - ya) >> sh5;
+static struct field {
+    unsigned int height;
+    unsigned int width;
+    unsigned int max_age;
+    unsigned int cell_size;
+    unsigned char *cells;
+    unsigned char *new_cells;
+    unsigned int ticks_per_frame;
+    uint32_t *image;
+} field_;
 
-        osc.emplace_back(odot{xa, ya, xb, yb, xc, yc});
-    }
+struct field *f = &field_;
 
-    if (osc.size() > maxodots)
-        osc.erase(osc.begin(), osc.end() - maxodots);
+ImVec4 clear_color = ImVec4(1, 0, 0, 1.00f);
+ImVec4 background = ImVec4(0, 0, 0, 1);
+ImVec4 foreground = ImVec4(0, 1, 0, 1);
 
-    const double N = osc.size();
-    double i = 0;
+int density = 32, cycles=0;
 
-    for (auto & oi : osc) {
-        double o = (1-std::exp(-i*gm/N))/(1-std::exp(-gm));
-        if (dots_clamped > 0) o /= 2;
-        if (i > N - dots_clamped) o = 1;
-        if (o<0) o=0;
+////////////////////////////////////////////////
 
-        drawdot(p, oi.ax, oi.ay, o, ImGui::GetColorU32(ocolor1));
-        drawdot(p, oi.bx, oi.by, o, ImGui::GetColorU32(ocolor2));
-        drawdot(p, oi.cx, oi.cy, o, ImGui::GetColorU32(ocolor3));
-        ++i;
+static void
+resize_field(unsigned int w, unsigned int h)
+{
+    int s = w * h * sizeof(unsigned char);
+    f->width = w;
+    f->height = h;
+
+    f->cells = (unsigned char*)xrealloc(f->cells, s);
+    f->new_cells = (unsigned char*)xrealloc(f->new_cells, s);
+    f->image = (uint32_t*)xrealloc(f->image, DATA_SIZE);
+    memset(f->cells, 0, s);
+    memset(f->new_cells, 0, s);
+}
+
+void init_field()
+{
+    f->height = 0;
+    f->width = 0;
+    f->cell_size = 3;
+    f->max_age = 64;
+    f->ticks_per_frame = 1;
+
+    f->cells = NULL;
+    f->new_cells = NULL;
+    f->image = NULL;
+}
+
+
+
+
+static unsigned int
+random_cell(unsigned int p)
+{
+    int r = xoshiro256() & 0xff;
+
+    if (r < p) {
+        return (1);
+    } else {
+        return (0);
     }
 }
+
+static inline unsigned char
+*cell_at(unsigned int x, unsigned int y)
+{
+    return (f->cells + x * sizeof(unsigned char) +
+                       y * f->width * sizeof(unsigned char));
+}
+
+static inline unsigned char
+*new_cell_at(unsigned int x, unsigned int y)
+{
+    return (f->new_cells + x * sizeof(unsigned char) +
+                           y * f->width * sizeof(unsigned char));
+}
+
+static void
+populate_field(unsigned int p)
+{
+    unsigned int x, y;
+
+    for (x = 0; x < f->width; x++) {
+        for (y = 0; y < f->height; y++) {
+            *cell_at(x, y) = random_cell(p);
+        }
+    }
+}
+
+static void
+refield() {
+    resize_field(sw / (1 << f->cell_size) + 2,
+                sh / (1 << f->cell_size) + 2);
+    populate_field(density);
+    memset(f->image, 0, DATA_SIZE);
+}
+
+// --------------------------------------------------
+
+static void draw_gui() {
+    bool up = false;
+
+    up |= ScrollableSliderInt("Initial density", &density, 8, 1024, "%d", 8);
+    up |= ScrollableSliderUInt("Cell size", &f->cell_size, 1, 64, "%d", 1);
+    up |= ScrollableSliderUInt("Max age", &f->max_age, 4, 256, "%d", 8);
+    ScrollableSliderUInt("Ticks per frame", &f->ticks_per_frame, 1, 128, "%d", 1);
+    up |= ImGui::ColorEdit4("Foreground", (float*)&foreground);
+    up |= ImGui::ColorEdit4("Backgroud", (float*)&background);
+    up |= ImGui::ColorEdit4("Clear color", (float*)&clear_color);
+
+    if (up) {
+        refield();
+    }
+}
+
+
+static void
+populate_edges(unsigned int p)
+{
+    unsigned int i;
+
+    for (i = f->width; i--;) {
+        *cell_at(i, 0) = random_cell(p);
+        *cell_at(i, f->height - 1) = random_cell(p);
+    }
+
+    for (i = f->height; i--;) {
+        *cell_at(f->width - 1, i) = random_cell(p);
+        *cell_at(0, i) = random_cell(p);
+    }
+}
+
+//--------------------------------------------------------------
+
+
+
+static void
+draw_field(uint32_t *p)
+{
+    unsigned int x, y;
+    unsigned int rx, ry = 0;	/* random amount to offset the dot */
+    unsigned int size = 1 << f->cell_size;
+    unsigned int mask = size - 1;
+    unsigned int fg_count, bg_count;
+    uint32_t fgc, bgc;
+
+    fgc = ImGui::GetColorU32(foreground);
+    bgc = ImGui::GetColorU32(background);
+
+    /* columns 0 and width-1 are off screen and not drawn. */
+    for (y = 1; y < f->height - 1; y++) {
+        fg_count = 0;
+        bg_count = 0;
+
+        /* rows 0 and height-1 are off screen and not drawn. */
+        for (x = 1; x < f->width - 1; x++) {
+            rx = xoshiro256();
+            ry = rx >> f->cell_size;
+            rx &= mask;
+            ry &= mask;
+
+            if (*cell_at(x, y)) {
+                drawdot(p,
+                        (short) x *size - rx - 1,
+                        (short) y *size - ry - 1,
+                        fgc);
+            } else {
+#if 1
+                drawdot(p, (short) x *size - rx - 1,
+                        (short) y *size - ry - 1,
+                        bgc);
+#endif
+            }
+        }
+    }
+}
+
+static inline unsigned int
+cell_value(unsigned char c, unsigned int age)
+{
+    if (!c) {
+        return 0;
+    } else if (c > age) {
+        return (3);
+    } else {
+        return (1);
+    }
+}
+
+static inline unsigned int
+is_alive(unsigned int x, unsigned int y)
+{
+    unsigned int count;
+    unsigned int i, j;
+    unsigned char *p;
+
+    count = 0;
+
+    for (i = x - 1; i <= x + 1; i++) {
+        for (j = y - 1; j <= y + 1; j++) {
+            if (y != j || x != i) {
+                count += cell_value(*cell_at(i, j), f->max_age);
+            }
+        }
+    }
+
+    p = cell_at(x, y);
+    if (*p) {
+        if (count == 2 || count == 3) {
+            return ((*p) + 1);
+        } else {
+            return (0);
+        }
+    } else {
+        if (count == 3) {
+            return (1);
+        } else {
+            return (0);
+        }
+    }
+}
+
+static unsigned int
+do_tick()
+{
+    unsigned int x, y;
+    unsigned int count = 0;
+    for (x = 1; x < f->width - 1; x++) {
+        for (y = 1; y < f->height - 1; y++) {
+            count += *new_cell_at(x, y) = is_alive(x, y);
+        }
+    }
+    memcpy(f->cells, f->new_cells, f->width * f->height *
+           sizeof(unsigned char));
+    return count;
+}
+
+static void
+draw_life(uint32_t *p) {
+    unsigned int count = 0;
+
+    for (int i=0; i<f->ticks_per_frame; ++i)
+        count = do_tick();
+
+    if (count < (f->height + f->width) / 4) {
+        populate_field(density);
+    }
+
+    if (cycles % (f->max_age / 2) == 0) {
+        populate_edges(density);
+        do_tick();
+        populate_edges(0);
+    }
+
+    draw_field(f->image);
+
+    memcpy(p, f->image, DATA_SIZE);
+
+    cycles++;
+}
+
 
 
 
@@ -164,33 +438,15 @@ int main(int, char**)
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(TEX_W, TEX_H, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+    window = glfwCreateWindow(sw, sh, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // vsync?
 
-    const int    DATA_SIZE       = TEX_W * TEX_H * 4; // 4 channels
-
-    GLuint image_texture;
-    GLuint pboIds[2];
-    int pbo_index = 0;
-
-    glGenTextures(1, &image_texture);
-    glBindTexture(GL_TEXTURE_2D, image_texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TEX_W, TEX_H, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)image_data);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glGenBuffers(2, pboIds);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[0]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, DATA_SIZE, 0, GL_STREAM_DRAW);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[1]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, DATA_SIZE, 0, GL_STREAM_DRAW);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    make_pbos();
+    init_field();
+    refield();
 
 
     IMGUI_CHECKVERSION();
@@ -205,10 +461,6 @@ int main(int, char**)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    ImVec4 clear_color = ImVec4(0, 0, 0, 1.00f);
-
-    reinit();
-
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -218,53 +470,43 @@ int main(int, char**)
         ImGui::NewFrame();
 
 
+
         ImGui::Begin("32 bit clone of PDP-1 Minskytron");
 
-        ScrollableSliderInt("Max dots", &maxodots, 1024, 1024*16, "%d", 256);
-        ScrollableSliderInt("Dots per frame", &maxdots_perframe, 0, 4096, "%d", 8);
-        ScrollableSliderInt("Dots clamped gamma", &dots_clamped, 0, maxodots, "%d", 8);
-        ScrollableSliderFloat("Gamma", &gm, -8, 8, "%.2f", 0.2);
-
-        if (BitField("Test word", &tb, 0))
-            reinit();
-
-        ImGui::ColorEdit3("clear color", (float*)&clear_color);
-
-        ImGui::ColorEdit3("osc1 color", (float*)&ocolor1);
-        ImGui::ColorEdit3("osc2 color", (float*)&ocolor2);
-        ImGui::ColorEdit3("osc3 color", (float*)&ocolor3);
+        draw_gui();
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
         ImGui::End();
 
-
+        if (get_size(0,0)) {
+            destroy_pbos();
+            make_pbos();
+            refield();
+        }
 
         int nexti = pbo_index;
         pbo_index = pbo_index ? 0 : 1;
         glBindTexture(GL_TEXTURE_2D, image_texture);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[pbo_index]);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, TEX_W, TEX_H, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sw, sh, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[nexti]);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, DATA_SIZE, 0, GL_STREAM_DRAW);
         uint32_t* ptr = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
         assert(ptr);
-        update_pixels(ptr, TEX_W, TEX_H);
+        draw_life(ptr);
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
         ImGui::GetBackgroundDrawList()->AddImage((void*)(intptr_t)image_texture,
-            ImVec2(0, 0), ImVec2(display_w, display_h),
-            ImVec2(0, 0), ImVec2((float)display_w/TEX_W, (float)display_h/TEX_H));
+            ImVec2(0, 0), ImVec2(sw, sh));
 
 
         ImGui::Render();
-        glViewport(0, 0, display_w, display_h);
-        glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glViewport(0, 0, sw, sh);
+        //glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+        //glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
@@ -274,8 +516,11 @@ int main(int, char**)
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    glDeleteTextures(1, &image_texture);
-    glDeleteBuffers(2, pboIds);
+    destroy_pbos();
+    free(image_data);
+    free(f->cells);
+    free(f->new_cells);
+    free(f->image);
 
     glfwDestroyWindow(window);
     glfwTerminate();

@@ -136,3 +136,7 @@ bool ScrollableSliderInt(const char* label, int* v, int v_min, int v_max, const 
     }
     return rv;
 }
+
+bool ScrollableSliderUInt(const char* label, unsigned* v, unsigned v_min, unsigned v_max, const char* format, float scrollFactor) {
+    return ScrollableSliderInt(label, (int*)v, (int)v_min, (int)v_max, format, scrollFactor);
+}

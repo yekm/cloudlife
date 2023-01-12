@@ -3,6 +3,13 @@ cmake_minimum_required(VERSION 3.16.3)
 project(imgui-cmake LANGUAGES C CXX)
 
 
+set (CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
+set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native")
+set (CMAKE_CXX_FLAGS_DEBUG "-O0 -ggdb3 -fsanitize=address")
+set (CMAKE_C_FLAGS_DEBUG "-O0 -ggdb3 -fsanitize=address")
+set (CMAKE_VERBOSE_MAKEFILE TRUE)
+
+
 # https://github.com/Pesc0/imgui-cmake
 ######### IMGUI #######################
 
@@ -35,6 +42,7 @@ target_link_libraries(IMGUI PUBLIC ${CMAKE_DL_LIBS})
 #######################################################
 
 find_package(glfw3)
+#add_subdirectory(colormap)
 
 add_executable(cloudlife)
 target_sources(cloudlife PUBLIC main.cpp imgui_elements.cpp)
