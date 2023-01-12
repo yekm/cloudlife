@@ -13,7 +13,6 @@ set (CMAKE_VERBOSE_MAKEFILE TRUE)
 # https://github.com/Pesc0/imgui-cmake
 ######### IMGUI #######################
 
-
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
 add_library(IMGUI STATIC)
 
@@ -37,14 +36,12 @@ target_include_directories( IMGUI
                             )
 
 target_link_libraries(IMGUI PUBLIC ${CMAKE_DL_LIBS})
-
-
 #######################################################
 
 find_package(glfw3)
-#add_subdirectory(colormap)
+add_subdirectory(colormap)
 
 add_executable(cloudlife)
 target_sources(cloudlife PUBLIC main.cpp imgui_elements.cpp)
-target_link_libraries(cloudlife IMGUI glfw GL)
+target_link_libraries(cloudlife IMGUI glfw GL colormap)
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

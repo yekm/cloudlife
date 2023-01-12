@@ -1,7 +1,10 @@
+#include "colormap/include/colormap/color.hpp"
 #include <cstdint>
 #include <deque>
 #include <bitset>
 #include <iostream>
+
+#include <colormap/colormap.hpp>
 
 #include <math.h> // exp
 
@@ -62,6 +65,43 @@ uint64_t xoshiro256(void) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+static int item_current_idx = 0;
+
+auto pal = colormap::palettes.at("inferno");
+
+bool draw_pal_combo() {
+    bool ret = false;
+    #if 1
+    auto pb = colormap::palettes.begin();
+    std::advance(pb, item_current_idx);
+
+    int size = colormap::palettes.size();
+    const char* combo_preview_value = pb->first.c_str();
+    if (ImGui::BeginCombo("Palette", combo_preview_value, 0))
+    {
+        auto pb = colormap::palettes.begin();
+        for (int n = 0; n < size; n++)
+        {
+            const bool is_selected = (item_current_idx == n);
+            const char * name = pb->first.c_str();
+            if (ImGui::Selectable(name, is_selected))
+            {
+                item_current_idx = n;
+                ret = true;
+            }
+
+            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+            if (is_selected)
+                ImGui::SetItemDefaultFocus();
+            std::advance(pb, 1);
+        }
+        ImGui::EndCombo();
+    }
+    #endif
+    return ret;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 static void
 *xrealloc(void *p, size_t size)
 {
@@ -173,6 +213,10 @@ resize_field(unsigned int w, unsigned int h)
     f->image = (uint32_t*)xrealloc(f->image, DATA_SIZE);
     memset(f->cells, 0, s);
     memset(f->new_cells, 0, s);
+    auto pb = colormap::palettes.begin();
+    std::advance(pb, item_current_idx);
+    pal = pb->second.rescale(0., f->max_age);
+    //pal = colormap::palettes.at("plasma").rescale(0., f->max_age);
 }
 
 void init_field()
@@ -242,13 +286,14 @@ refield() {
 static void draw_gui() {
     bool up = false;
 
-    up |= ScrollableSliderInt("Initial density", &density, 8, 1024, "%d", 8);
+    up |= ScrollableSliderInt("Initial density", &density, 8, 256, "%d", 8);
     up |= ScrollableSliderUInt("Cell size", &f->cell_size, 1, 64, "%d", 1);
     up |= ScrollableSliderUInt("Max age", &f->max_age, 4, 256, "%d", 8);
     ScrollableSliderUInt("Ticks per frame", &f->ticks_per_frame, 1, 128, "%d", 1);
     up |= ImGui::ColorEdit4("Foreground", (float*)&foreground);
     up |= ImGui::ColorEdit4("Backgroud", (float*)&background);
     up |= ImGui::ColorEdit4("Clear color", (float*)&clear_color);
+    up |= draw_pal_combo();
 
     if (up) {
         refield();
@@ -274,7 +319,13 @@ populate_edges(unsigned int p)
 
 //--------------------------------------------------------------
 
-
+uint32_t get_color_age(colormap::map<colormap::color<colormap::space::rgb>> &m, uint8_t age) {
+    auto c = m(age);
+    return  0xff000000 |
+            c.getRed().getValue() << 0 |
+            c.getGreen().getValue() << 8 |
+            c.getBlue().getValue() << 16;
+}
 
 static void
 draw_field(uint32_t *p)
@@ -301,11 +352,12 @@ draw_field(uint32_t *p)
             rx &= mask;
             ry &= mask;
 
-            if (*cell_at(x, y)) {
+            uint8_t age = *cell_at(x, y);
+            if (age) {
                 drawdot(p,
                         (short) x *size - rx - 1,
                         (short) y *size - ry - 1,
-                        fgc);
+                        get_color_age(pal, age));
             } else {
 #if 1
                 drawdot(p, (short) x *size - rx - 1,
@@ -409,6 +461,9 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
+
+
+
 int main(int, char**)
 {
     glfwSetErrorCallback(glfw_error_callback);
@@ -438,7 +493,7 @@ int main(int, char**)
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
-    window = glfwCreateWindow(sw, sh, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+    window = glfwCreateWindow(sw, sh, "Dear ImGui screensaver", NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
@@ -471,7 +526,7 @@ int main(int, char**)
 
 
 
-        ImGui::Begin("32 bit clone of PDP-1 Minskytron");
+        ImGui::Begin("Cloudlife from xscreensaver");
 
         draw_gui();
 
