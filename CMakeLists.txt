@@ -3,10 +3,11 @@ cmake_minimum_required(VERSION 3.16.3)
 project(imgui-cmake LANGUAGES C CXX)
 
 
-set (CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native")
-set (CMAKE_CXX_FLAGS_DEBUG "-O0 -ggdb3 -fsanitize=address")
+set (CMAKE_CXX_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
 set (CMAKE_C_FLAGS_DEBUG "-O0 -ggdb3 -fsanitize=address")
+set (CMAKE_CXX_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
+
 set (CMAKE_VERBOSE_MAKEFILE TRUE)
 
 
@@ -35,10 +36,11 @@ target_include_directories( IMGUI
                             PUBLIC ${IMGUI_DIR}/backends
                             )
 
-target_link_libraries(IMGUI PUBLIC ${CMAKE_DL_LIBS})
+#target_link_libraries(IMGUI PUBLIC ${CMAKE_DL_LIBS})
 #######################################################
 
 find_package(glfw3)
+
 add_subdirectory(colormap)
 
 add_executable(cloudlife)

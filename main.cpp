@@ -9,7 +9,7 @@
 #include "random.h"
 
 #include <math.h> // exp
-
+#include <unistd.h> // getopt
 #include <error.h>
 
 #define GL_GLEXT_PROTOTYPES 1
@@ -27,7 +27,6 @@
 #include <GLES2/gl2.h>
 #endif
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
-//#include <GL/glut.h>
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -323,11 +322,9 @@ draw_field(uint32_t *p)
                         (short) y *size - ry - 1,
                         get_color_age(pal, age));
             } else {
-#if 1
                 drawdot(p, (short) x *size - rx - 1,
                         (short) y *size - ry - 1,
                         bgc);
-#endif
             }
         }
     }
@@ -426,10 +423,24 @@ static void glfw_error_callback(int error, const char* description)
 }
 
 
-
-
-int main(int, char**)
+int main(int argc, char *argv[])
 {
+    int opt;
+    int vsync = 1;
+
+    while ((opt = getopt(argc, argv, "s")) != -1) {
+        switch (opt) {
+        case 's':
+            vsync = 0;
+            break;
+        default: /* '?' */
+            fprintf(stderr, "Usage: %s [-s]\n",
+                    argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;
@@ -461,7 +472,7 @@ int main(int, char**)
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // vsync?
+    glfwSwapInterval(vsync);
 
     make_pbos();
     init_field();
@@ -494,7 +505,9 @@ int main(int, char**)
 
         draw_gui();
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+                    1000.0f / ImGui::GetIO().Framerate,
+                    ImGui::GetIO().Framerate);
 
         ImGui::End();
 
