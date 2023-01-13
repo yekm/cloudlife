@@ -6,6 +6,8 @@
 
 #include <colormap/colormap.hpp>
 
+#include "random.h"
+
 #include <math.h> // exp
 
 #include <error.h>
@@ -27,42 +29,6 @@
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 //#include <GL/glut.h>
 
-// https://prng.di.unimi.it/xoshiro256plusplus.c
-
-/* This is xoshiro256++ 1.0, one of our all-purpose, rock-solid generators.
-   It has excellent (sub-ns) speed, a state (256 bits) that is large
-   enough for any parallel application, and it passes all tests we are
-   aware of.
-
-   For generating just floating-point numbers, xoshiro256+ is even faster.
-
-   The state must be seeded so that it is not everywhere zero. If you have
-   a 64-bit seed, we suggest to seed a splitmix64 generator and use its
-   output to fill s. */
-
-static inline uint64_t rotl(const uint64_t x, int k) {
-	return (x << k) | (x >> (64 - k));
-}
-
-static uint64_t s[4] = {1,2,3,4};
-
-uint64_t xoshiro256(void) {
-	const uint64_t result = rotl(s[0] + s[3], 23) + s[0];
-
-	const uint64_t t = s[1] << 17;
-
-	s[2] ^= s[0];
-	s[3] ^= s[1];
-	s[1] ^= s[2];
-	s[0] ^= s[3];
-
-	s[2] ^= t;
-
-	s[3] = rotl(s[3], 45);
-
-	return result;
-}
-
 //////////////////////////////////////////////////////////////////////////////
 
 static int item_current_idx = 0;
@@ -71,7 +37,6 @@ auto pal = colormap::palettes.at("inferno");
 
 bool draw_pal_combo() {
     bool ret = false;
-    #if 1
     auto pb = colormap::palettes.begin();
     std::advance(pb, item_current_idx);
 
@@ -97,7 +62,6 @@ bool draw_pal_combo() {
         }
         ImGui::EndCombo();
     }
-    #endif
     return ret;
 }
 
@@ -238,7 +202,7 @@ void init_field()
 static unsigned int
 random_cell(unsigned int p)
 {
-    int r = xoshiro256() & 0xff;
+    int r = xoshiro256plus() & 0xff;
 
     if (r < p) {
         return (1);
@@ -347,7 +311,7 @@ draw_field(uint32_t *p)
 
         /* rows 0 and height-1 are off screen and not drawn. */
         for (x = 1; x < f->width - 1; x++) {
-            rx = xoshiro256();
+            rx = xoshiro256plus();
             ry = rx >> f->cell_size;
             rx &= mask;
             ry &= mask;
