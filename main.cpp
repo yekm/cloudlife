@@ -1,14 +1,6 @@
-#include "colormap/include/colormap/color.hpp"
 #include <cstdint>
-#include <deque>
-#include <bitset>
-#include <iostream>
+#include <memory>
 
-#include <colormap/colormap.hpp>
-
-#include "random.h"
-
-#include <math.h> // exp
 #include <unistd.h> // getopt
 #include <error.h>
 
@@ -17,7 +9,6 @@
 
 
 #include "imgui.h"
-#include "imgui_elements.h"
 
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -28,43 +19,13 @@
 #endif
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
-//////////////////////////////////////////////////////////////////////////////
 
-static int item_current_idx = 0;
 
-auto pal = colormap::palettes.at("inferno");
+#include "cloudlife.hpp"
 
-bool draw_pal_combo() {
-    bool ret = false;
-    auto pb = colormap::palettes.begin();
-    std::advance(pb, item_current_idx);
+std::unique_ptr<Art> art;
 
-    int size = colormap::palettes.size();
-    const char* combo_preview_value = pb->first.c_str();
-    if (ImGui::BeginCombo("Palette", combo_preview_value, 0))
-    {
-        auto pb = colormap::palettes.begin();
-        for (int n = 0; n < size; n++)
-        {
-            const bool is_selected = (item_current_idx == n);
-            const char * name = pb->first.c_str();
-            if (ImGui::Selectable(name, is_selected))
-            {
-                item_current_idx = n;
-                ret = true;
-            }
 
-            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-            if (is_selected)
-                ImGui::SetItemDefaultFocus();
-            std::advance(pb, 1);
-        }
-        ImGui::EndCombo();
-    }
-    return ret;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 static void
 *xrealloc(void *p, size_t size)
 {
@@ -74,7 +35,6 @@ static void
     }
     return ret;
 }
-
 
 static GLFWwindow* window;
 static int sw = 1024, sh = 1024;
@@ -129,292 +89,6 @@ void destroy_pbos() {
     glDeleteTextures(1, &image_texture);
     glDeleteBuffers(2, pboIds);
 }
-
-// -----------------------------------------------------------------------------
-
-void drawdot(uint32_t *p, int x, int y, double o, uint32_t c) {
-    p[ y*sw + x ] = c | ((unsigned)(0xff*o)<<24);
-}
-
-void drawdot(uint32_t *p, int x, int y, uint32_t c) {
-    p[ y*sw + x ] = c;
-}
-
-
-//////////////////////////////////////////////
-
-static struct field {
-    unsigned int height;
-    unsigned int width;
-    unsigned int max_age;
-    unsigned int cell_size;
-    unsigned char *cells;
-    unsigned char *new_cells;
-    unsigned int ticks_per_frame;
-    uint32_t *image;
-} field_;
-
-struct field *f = &field_;
-
-ImVec4 clear_color = ImVec4(1, 0, 0, 1.00f);
-ImVec4 background = ImVec4(0, 0, 0, 1);
-ImVec4 foreground = ImVec4(0, 1, 0, 1);
-
-int density = 32, cycles=0;
-
-////////////////////////////////////////////////
-
-static void
-resize_field(unsigned int w, unsigned int h)
-{
-    int s = w * h * sizeof(unsigned char);
-    f->width = w;
-    f->height = h;
-
-    f->cells = (unsigned char*)xrealloc(f->cells, s);
-    f->new_cells = (unsigned char*)xrealloc(f->new_cells, s);
-    f->image = (uint32_t*)xrealloc(f->image, DATA_SIZE);
-    memset(f->cells, 0, s);
-    memset(f->new_cells, 0, s);
-    auto pb = colormap::palettes.begin();
-    std::advance(pb, item_current_idx);
-    pal = pb->second.rescale(0., f->max_age);
-    //pal = colormap::palettes.at("plasma").rescale(0., f->max_age);
-}
-
-void init_field()
-{
-    f->height = 0;
-    f->width = 0;
-    f->cell_size = 3;
-    f->max_age = 64;
-    f->ticks_per_frame = 1;
-
-    f->cells = NULL;
-    f->new_cells = NULL;
-    f->image = NULL;
-}
-
-
-
-
-static unsigned int
-random_cell(unsigned int p)
-{
-    int r = xoshiro256plus() & 0xff;
-
-    if (r < p) {
-        return (1);
-    } else {
-        return (0);
-    }
-}
-
-static inline unsigned char
-*cell_at(unsigned int x, unsigned int y)
-{
-    return (f->cells + x * sizeof(unsigned char) +
-                       y * f->width * sizeof(unsigned char));
-}
-
-static inline unsigned char
-*new_cell_at(unsigned int x, unsigned int y)
-{
-    return (f->new_cells + x * sizeof(unsigned char) +
-                           y * f->width * sizeof(unsigned char));
-}
-
-static void
-populate_field(unsigned int p)
-{
-    unsigned int x, y;
-
-    for (x = 0; x < f->width; x++) {
-        for (y = 0; y < f->height; y++) {
-            *cell_at(x, y) = random_cell(p);
-        }
-    }
-}
-
-static void
-refield() {
-    resize_field(sw / (1 << f->cell_size) + 2,
-                sh / (1 << f->cell_size) + 2);
-    populate_field(density);
-    memset(f->image, 0, DATA_SIZE);
-}
-
-// --------------------------------------------------
-
-static void draw_gui() {
-    bool up = false;
-
-    up |= ScrollableSliderInt("Initial density", &density, 8, 256, "%d", 8);
-    up |= ScrollableSliderUInt("Cell size", &f->cell_size, 1, 64, "%d", 1);
-    up |= ScrollableSliderUInt("Max age", &f->max_age, 4, 256, "%d", 8);
-    ScrollableSliderUInt("Ticks per frame", &f->ticks_per_frame, 1, 128, "%d", 1);
-    up |= ImGui::ColorEdit4("Foreground", (float*)&foreground);
-    up |= ImGui::ColorEdit4("Backgroud", (float*)&background);
-    up |= ImGui::ColorEdit4("Clear color", (float*)&clear_color);
-    up |= draw_pal_combo();
-
-    if (up) {
-        refield();
-    }
-}
-
-
-static void
-populate_edges(unsigned int p)
-{
-    unsigned int i;
-
-    for (i = f->width; i--;) {
-        *cell_at(i, 0) = random_cell(p);
-        *cell_at(i, f->height - 1) = random_cell(p);
-    }
-
-    for (i = f->height; i--;) {
-        *cell_at(f->width - 1, i) = random_cell(p);
-        *cell_at(0, i) = random_cell(p);
-    }
-}
-
-//--------------------------------------------------------------
-
-uint32_t get_color_age(colormap::map<colormap::color<colormap::space::rgb>> &m, uint8_t age) {
-    auto c = m(age);
-    return  0xff000000 |
-            c.getRed().getValue() << 0 |
-            c.getGreen().getValue() << 8 |
-            c.getBlue().getValue() << 16;
-}
-
-static void
-draw_field(uint32_t *p)
-{
-    unsigned int x, y;
-    unsigned int rx, ry = 0;	/* random amount to offset the dot */
-    unsigned int size = 1 << f->cell_size;
-    unsigned int mask = size - 1;
-    unsigned int fg_count, bg_count;
-    uint32_t fgc, bgc;
-
-    fgc = ImGui::GetColorU32(foreground);
-    bgc = ImGui::GetColorU32(background);
-
-    /* columns 0 and width-1 are off screen and not drawn. */
-    for (y = 1; y < f->height - 1; y++) {
-        fg_count = 0;
-        bg_count = 0;
-
-        /* rows 0 and height-1 are off screen and not drawn. */
-        for (x = 1; x < f->width - 1; x++) {
-            rx = xoshiro256plus();
-            ry = rx >> f->cell_size;
-            rx &= mask;
-            ry &= mask;
-
-            uint8_t age = *cell_at(x, y);
-            if (age) {
-                drawdot(p,
-                        (short) x *size - rx - 1,
-                        (short) y *size - ry - 1,
-                        get_color_age(pal, age));
-            } else {
-                drawdot(p, (short) x *size - rx - 1,
-                        (short) y *size - ry - 1,
-                        bgc);
-            }
-        }
-    }
-}
-
-static inline unsigned int
-cell_value(unsigned char c, unsigned int age)
-{
-    if (!c) {
-        return 0;
-    } else if (c > age) {
-        return (3);
-    } else {
-        return (1);
-    }
-}
-
-static inline unsigned int
-is_alive(unsigned int x, unsigned int y)
-{
-    unsigned int count;
-    unsigned int i, j;
-    unsigned char *p;
-
-    count = 0;
-
-    for (i = x - 1; i <= x + 1; i++) {
-        for (j = y - 1; j <= y + 1; j++) {
-            if (y != j || x != i) {
-                count += cell_value(*cell_at(i, j), f->max_age);
-            }
-        }
-    }
-
-    p = cell_at(x, y);
-    if (*p) {
-        if (count == 2 || count == 3) {
-            return ((*p) + 1);
-        } else {
-            return (0);
-        }
-    } else {
-        if (count == 3) {
-            return (1);
-        } else {
-            return (0);
-        }
-    }
-}
-
-static unsigned int
-do_tick()
-{
-    unsigned int x, y;
-    unsigned int count = 0;
-    for (x = 1; x < f->width - 1; x++) {
-        for (y = 1; y < f->height - 1; y++) {
-            count += *new_cell_at(x, y) = is_alive(x, y);
-        }
-    }
-    memcpy(f->cells, f->new_cells, f->width * f->height *
-           sizeof(unsigned char));
-    return count;
-}
-
-static void
-draw_life(uint32_t *p) {
-    unsigned int count = 0;
-
-    for (int i=0; i<f->ticks_per_frame; ++i)
-        count = do_tick();
-
-    if (count < (f->height + f->width) / 4) {
-        populate_field(density);
-    }
-
-    if (cycles % (f->max_age / 2) == 0) {
-        populate_edges(density);
-        do_tick();
-        populate_edges(0);
-    }
-
-    draw_field(f->image);
-
-    memcpy(p, f->image, DATA_SIZE);
-
-    cycles++;
-}
-
-
 
 
 static void glfw_error_callback(int error, const char* description)
@@ -475,9 +149,11 @@ int main(int argc, char *argv[])
     glfwSwapInterval(vsync);
 
     make_pbos();
-    init_field();
-    refield();
 
+    art.reset(new Cloudlife);
+
+    get_size(0,0);
+    art->resize(sw, sh);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -503,7 +179,7 @@ int main(int argc, char *argv[])
 
         ImGui::Begin("Cloudlife from xscreensaver");
 
-        draw_gui();
+        art->render_gui();
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                     1000.0f / ImGui::GetIO().Framerate,
@@ -514,7 +190,7 @@ int main(int argc, char *argv[])
         if (get_size(0,0)) {
             destroy_pbos();
             make_pbos();
-            refield();
+            art->resize(sw, sh);
         }
 
         int nexti = pbo_index;
@@ -527,7 +203,7 @@ int main(int argc, char *argv[])
         glBufferData(GL_PIXEL_UNPACK_BUFFER, DATA_SIZE, 0, GL_STREAM_DRAW);
         uint32_t* ptr = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
         assert(ptr);
-        draw_life(ptr);
+        art->render(ptr);
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -550,9 +226,6 @@ int main(int argc, char *argv[])
 
     destroy_pbos();
     free(image_data);
-    free(f->cells);
-    free(f->new_cells);
-    free(f->image);
 
     glfwDestroyWindow(window);
     glfwTerminate();
