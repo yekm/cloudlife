@@ -12,6 +12,8 @@ public:
     virtual void load(std::string json) {};
     virtual std::string save() { return ""; };
 
+    virtual bool override_texture_size(int &w, int &h) { return false; };
+
     void drawdot(int x, int y, double o, uint32_t c) {
         if (x+1 > w || y+1 > h) return;
         uint32_t *p = data();
