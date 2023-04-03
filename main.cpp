@@ -22,6 +22,7 @@
 
 
 #include "cloudlife.hpp"
+#include "mtron.hpp"
 
 std::unique_ptr<Art> art;
 
@@ -37,7 +38,6 @@ static void
 }
 
 static GLFWwindow* window;
-static int tex_w, tex_h, texture_size;
 static int sw = 1024, sh = 1024;
 
 
@@ -55,18 +55,11 @@ bool get_window_size(int *w, int *h) {
     return ret;
 }
 
-uint32_t *image_data = NULL;
-
 GLuint image_texture;
 GLuint pboIds[2];
 int pbo_index = 0;
 
 void make_pbos() {
-    if (!art->override_texture_size(tex_w, tex_h))
-        tex_w = sw, tex_h = sh;
-    texture_size = tex_w * tex_h * 4;
-    image_data = (uint32_t*)xrealloc(image_data, texture_size);
-
     // AUTHOR: Song Ho Ahn (song.ahn@gmail.com)
     // http://www.songho.ca/opengl/gl_pbo.html
     glGenTextures(1, &image_texture);
@@ -75,14 +68,14 @@ void make_pbos() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, sw, sh, 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)image_data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, art->tex_w(), art->tex_h(), 0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)art->texture());
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glGenBuffers(2, pboIds);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[0]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size, 0, GL_STREAM_DRAW);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, art->texture_size(), 0, GL_STREAM_DRAW);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[1]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size, 0, GL_STREAM_DRAW);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, art->texture_size(), 0, GL_STREAM_DRAW);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
@@ -149,12 +142,14 @@ int main(int argc, char *argv[])
     glfwMakeContextCurrent(window);
     glfwSwapInterval(vsync);
 
-    art.reset(new Cloudlife);
-    make_pbos();
+    //art.reset(new Cloudlife);
+    art.reset(new Minskytron);
 
 
     get_window_size(0,0);
     art->resize(sw, sh);
+
+    make_pbos();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -198,18 +193,20 @@ int main(int argc, char *argv[])
         pbo_index = pbo_index ? 0 : 1;
         glBindTexture(GL_TEXTURE_2D, image_texture);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[pbo_index]);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sw, sh, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, art->tex_w(), art->tex_h(), GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[nexti]);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size, 0, GL_STREAM_DRAW);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, art->texture_size(), 0, GL_STREAM_DRAW);
         uint32_t* ptr = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
         assert(ptr);
+
         art->render(ptr);
+
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
         ImGui::GetBackgroundDrawList()->AddImage((void*)(intptr_t)image_texture,
-            ImVec2(0, 0), ImVec2(tex_w, tex_h));
+            ImVec2(0, 0), ImVec2(art->tex_w(), art->tex_h()));
 
 
         ImGui::Render();
@@ -226,7 +223,6 @@ int main(int argc, char *argv[])
     ImGui::DestroyContext();
 
     destroy_pbos();
-    free(image_data);
 
     glfwDestroyWindow(window);
     glfwTerminate();
