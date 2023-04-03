@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -7,7 +9,7 @@ public:
     Art(std::string _name)
         : name(_name) {}
     virtual bool render_gui() = 0;
-    virtual void resize(int _w, int _h) = 0;
+    virtual void resize(int _w, int _h) {};
     virtual void render(uint32_t *p) = 0;
     virtual void load(std::string json) {};
     virtual std::string save() { return ""; };
