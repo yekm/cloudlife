@@ -9,6 +9,7 @@
 
 
 #include "imgui.h"
+#include "imgui_elements.h"
 
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -19,10 +20,11 @@
 #endif
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
-
-
 #include "cloudlife.hpp"
 #include "mtron.hpp"
+
+
+
 
 std::unique_ptr<Art> art;
 
@@ -61,6 +63,8 @@ uint32_t *image_data = NULL;
 GLuint image_texture;
 GLuint pboIds[2];
 int pbo_index = 0;
+
+ImVec4 clear_color = ImVec4(0, 0, 0, 1.00f);
 
 void make_pbos() {
     if (!art->override_texture_size(tex_w, tex_h))
@@ -158,8 +162,8 @@ int main(int argc, char *argv[])
     glfwMakeContextCurrent(window);
     glfwSwapInterval(vsync);
 
-    art.reset(new Cloudlife);
-    //art.reset(new Minskytron);
+    //art.reset(new Cloudlife);
+    art.reset(new Minskytron);
 
 
     get_window_size(0,0);
@@ -187,14 +191,17 @@ int main(int argc, char *argv[])
         ImGui::NewFrame();
 
 
+        ImGui::Begin(art->name());
 
-        ImGui::Begin("Cloudlife from xscreensaver");
+        ImGui::ColorEdit4("Clear color", (float*)&clear_color);
 
         art->render_gui();
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                     1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);
+
+        cpu_load_text();
 
         ImGui::End();
 
@@ -233,8 +240,8 @@ int main(int argc, char *argv[])
         //glViewport(0, 0, sw, sh);
         glViewport(0, 0, display_w, display_h);
 
-        //glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-        //glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+        glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);

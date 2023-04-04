@@ -140,3 +140,43 @@ bool ScrollableSliderInt(const char* label, int* v, int v_min, int v_max, const 
 bool ScrollableSliderUInt(const char* label, unsigned* v, unsigned v_min, unsigned v_max, const char* format, float scrollFactor) {
     return ScrollableSliderInt(label, (int*)v, (int)v_min, (int)v_max, format, scrollFactor);
 }
+
+
+#include <sys/resource.h>
+#include "timer.h"
+
+void cpu_load_text()
+{
+    static int c = 0;
+    static double up = 0, sp = 0;
+    static common::Timer old_t;
+    static struct rusage old_usage;
+    static double outt = 0, ostt = 0;
+    static double ru_maxrss = 0;
+
+    if (c % 120 == 0) {
+        common::Timer t;
+
+        struct rusage usage;
+        getrusage(RUSAGE_SELF, &usage);
+        double utt = usage.ru_utime.tv_sec + usage.ru_utime.tv_usec / 1e6;
+        double stt = usage.ru_stime.tv_sec + usage.ru_stime.tv_usec / 1e6;
+
+        double dt = (t - old_t).seconds();
+        up = 100.0 * (utt - outt) / dt;
+        sp = 100.0 * (stt - ostt) / dt;
+
+        printf("%.3f %.3f %.3f %.3f %.3f %.3f %.3f\n", dt,
+                up, sp, utt, stt, outt, ostt);
+
+        old_t = t;
+        outt = utt;
+        ostt = stt;
+
+        ru_maxrss = usage.ru_maxrss / 1024;
+    }
+    c++;
+
+    ImGui::Text("Usr + Sys = %.2f + %.2f = %.2f", up, sp, up+sp);
+    ImGui::Text("maxrss %.2f MB", ru_maxrss);
+}

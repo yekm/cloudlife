@@ -7,7 +7,8 @@
 class Art {
 public:
     Art(std::string _name)
-        : name(_name) {}
+        : m_name(_name) {}
+    const char * name() {return m_name.c_str();}
     virtual bool render_gui() = 0;
     virtual void resize(int _w, int _h) {};
     virtual void render(uint32_t *p) = 0;
@@ -45,5 +46,5 @@ protected:
     //uint8_t *data() { return reinterpret_cast<uint8_t*>(pixels.data()); }
     uint32_t *data() { return pixels.data(); }
     std::vector<uint32_t> pixels;
-    std::string name;
+    std::string m_name;
 };

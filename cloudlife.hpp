@@ -20,7 +20,7 @@ struct field {
 class Cloudlife : public Art {
 public:
     Cloudlife()
-        : Art("Cloudlife")
+        : Art("Cloudlife from xscreensaver")
         , f(new field) {}
     virtual bool render_gui() override;
     virtual void resize(int _w, int _h) override;
