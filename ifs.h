@@ -29,7 +29,6 @@ private:
 
     int widthb;
     int width8, height8;
-    //std::vector<unsigned int> board;
     int pscale;
 
     int lensnum = 3;

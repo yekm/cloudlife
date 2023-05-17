@@ -27,6 +27,7 @@ a groovier colouring mode.
 This version by Chris Le Sueur <thefishface@gmail.com>, Feb 2005
 Many improvements by Robby Griffin <rmg@terc.edu>, Mar 2006
 Multi-coloured mode added by Jack Grahl <j.grahl@ucl.ac.uk>, Jan 2007
+Dear ImGui port by Pavel Vasilyev <yekm@299792458.ru>, May 2023
 */
 
 #include <assert.h>
@@ -266,24 +267,18 @@ void IFS::render(uint32_t *p)
               c.getBlue().getValue() << 16;
 
 
-      //std::fill(board.begin(), board.end(), 0);
       if (brecurse)
         recurse(x, y, length - 1, i);
       else
         iterate(pow(lensnum, length - 1), i);
-      //if (npoints)
-      //  drawpoints(st);
     }
   }
   else {
 
-    //std::fill(board.begin(), board.end(), 0);
     if (brecurse)
       recurse(x, y, length, 0);
     else
       iterate(pow(lensnum, length), 0);
-    //if (npoints)
-    //  drawpoints(st);
   }
 
   for(i = 0; i < lensnum; i++) {
@@ -343,7 +338,4 @@ void IFS::resize(int _w, int _h) {
   widthb = ((w + 31) >> 5);
   width8 = w << 8;
   height8 = h << 8;
-
-  //board.clear();
-  //board.resize(widthb * h);
 }

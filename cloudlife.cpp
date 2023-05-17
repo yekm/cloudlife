@@ -1,3 +1,32 @@
+/* cloudlife by Don Marti <dmarti@zgp.org>
+ *
+ * Based on Conway's Life, but with one rule change to make it a better
+ * screensaver: cells have a max age.
+ *
+ * When a cell exceeds the max age, it counts as 3 for populating the next
+ * generation.  This makes long-lived formations explode instead of just
+ * sitting there burning a hole in your screen.
+ *
+ * Cloudlife only draws one pixel of each cell per tick, whether the cell is
+ * alive or dead.  So gliders look like little comets.
+
+ * 20 May 2003 -- now includes color cycling and a man page.
+
+ * Based on several examples from the hacks directory of:
+
+ * xscreensaver, Copyright (c) 1997, 1998, 2002 Jamie Zawinski <jwz@jwz.org>
+ *
+ * Permission to use, copy, modify, distribute, and sell this software and its
+ * documentation for any purpose is hereby granted without fee, provided that
+ * the above copyright notice appear in all copies and that both that
+ * copyright notice and this permission notice appear in supporting
+ * documentation.  No representations are made about the suitability of this
+ * software for any purpose.  It is provided "as is" without express or
+ * implied warranty.
+ 
+ * Dear ImGui port by Pavel Vasilyev <yekm@299792458.ru>, Jan 2023
+ */
+
 #include <cstdint>
 #include <algorithm>
 
