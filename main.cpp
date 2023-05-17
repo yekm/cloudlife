@@ -22,9 +22,7 @@
 
 #include "cloudlife.hpp"
 #include "mtron.hpp"
-
-
-
+#include "ifs.h"
 
 std::unique_ptr<Art> art;
 
@@ -163,12 +161,9 @@ int main(int argc, char *argv[])
     glfwSwapInterval(vsync);
 
     //art.reset(new Cloudlife);
-    art.reset(new Minskytron);
+    //art.reset(new Minskytron);
+    art.reset(new IFS);
 
-
-    get_window_size(0,0);
-    art->resize(sw, sh);
-    make_pbos();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -181,6 +176,10 @@ int main(int argc, char *argv[])
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+
+    get_window_size(0,0);
+    art->resize(sw, sh);
+    make_pbos();
 
     while (!glfwWindowShouldClose(window))
     {

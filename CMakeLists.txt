@@ -51,6 +51,7 @@ target_sources(cloudlife PUBLIC
     random.c
     cloudlife.cpp
     mtron.cpp
-    timer.cpp)
+    timer.cpp
+    ifs.cpp)
 target_link_libraries(cloudlife IMGUI glfw GL colormap)
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
