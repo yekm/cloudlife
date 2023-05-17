@@ -37,7 +37,7 @@ private:
     int maxdots_perframe = 64;
     //float gm = -2.5;
     float gm = 3.5;
-    int dots_clamped = 64;
+    int dots_clamped = 128;
     ImVec4 ocolor1 = ImVec4(1, 0, 0, 0);
     ImVec4 ocolor2 = ImVec4(0, 1, 0, 0);
     ImVec4 ocolor3 = ImVec4(0, 0, 1, 0);

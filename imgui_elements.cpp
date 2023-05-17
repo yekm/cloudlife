@@ -166,8 +166,8 @@ void cpu_load_text()
         up = 100.0 * (utt - outt) / dt;
         sp = 100.0 * (stt - ostt) / dt;
 
-        printf("%.3f %.3f %.3f %.3f %.3f %.3f %.3f\n", dt,
-                up, sp, utt, stt, outt, ostt);
+        //printf("%.3f %.3f %.3f %.3f %.3f %.3f %.3f\n", dt,
+        //         up, sp, utt, stt, outt, ostt);
 
         old_t = t;
         outt = utt;
