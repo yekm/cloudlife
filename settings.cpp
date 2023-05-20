@@ -36,3 +36,16 @@ bool PaletteSetting::RenderGui() {
     }
     return ret;
 }
+
+void PaletteSetting::rescale(uint32_t ncolours) {
+    value = value.rescale(0., ncolours);
+}
+
+uint32_t PaletteSetting::get_color(uint32_t color_n) {
+      auto c = value(color_n);
+      return 0xff000000 |
+              c.getRed().getValue() << 0 |
+              c.getGreen().getValue() << 8 |
+              c.getBlue().getValue() << 16;
+
+}

@@ -23,6 +23,7 @@
 #include "cloudlife.hpp"
 #include "mtron.hpp"
 #include "ifs.h"
+#include "vermiculate.h"
 
 std::unique_ptr<Art> art;
 
@@ -162,7 +163,8 @@ int main(int argc, char *argv[])
 
     //art.reset(new Cloudlife);
     //art.reset(new Minskytron);
-    art.reset(new IFS);
+    //art.reset(new IFS);
+    art.reset(new Vermiculate);
 
 
     IMGUI_CHECKVERSION();

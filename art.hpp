@@ -4,6 +4,13 @@
 #include <string>
 #include <vector>
 
+
+template <typename T>
+static inline void
+fill0(T &container) {
+    std::fill(container.begin(), container.end(), 0);
+}
+
 class Art {
 public:
     Art(std::string _name)
@@ -31,6 +38,8 @@ public:
 
     virtual void reinit() { resize(w, h); }
 
+    virtual ~Art() = default;
+
 protected:
     void default_resize(int _w, int _h) {
         w = _w;
@@ -38,9 +47,16 @@ protected:
         //data = (uint8_t *)xrealloc(data, w*h*sizeof(uint32_t));
         pixels.resize(w*h);
         clear();
+        /* TODO: fill square in drawdot() if pscale > 1
+        pscale = 1;
+        if (xgwa.width > 2560 || xgwa.height > 2560)
+            pscale = 3; // Retina displays
+        */
+
     }
     void clear() {
-        std::fill(pixels.begin(), pixels.end(), 0);
+        fill0(pixels);
+        //std::fill(pixels.begin(), pixels.end(), 0);
     }
     int w, h;
     //uint8_t *data() { return reinterpret_cast<uint8_t*>(pixels.data()); }
@@ -48,3 +64,4 @@ protected:
     std::vector<uint32_t> pixels;
     std::string m_name;
 };
+

@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 
+#include <stdint.h>
+
 class Setting {
 public:
     virtual bool RenderGui() = 0;
@@ -26,8 +28,11 @@ public:
     pal_t & operator*() {return value;}
 
     pal_t value = colormap::palettes.at("inferno");
+
+    void rescale(uint32_t ncolours);
+    uint32_t get_color(uint32_t color_n);
+
 private:
     int item_current_idx = 0;
-
 };
 
