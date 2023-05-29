@@ -24,6 +24,7 @@
 #include "mtron.hpp"
 #include "ifs.h"
 #include "vermiculate.h"
+#include "discrete.h"
 
 std::unique_ptr<Art> art;
 
@@ -164,7 +165,8 @@ int main(int argc, char *argv[])
     //art.reset(new Cloudlife);
     //art.reset(new Minskytron);
     //art.reset(new IFS);
-    art.reset(new Vermiculate);
+    //art.reset(new Vermiculate);
+    art.reset(new Discrete);
 
 
     IMGUI_CHECKVERSION();
@@ -197,6 +199,9 @@ int main(int argc, char *argv[])
         ImGui::ColorEdit4("Clear color", (float*)&clear_color);
 
         art->render_gui();
+
+        ImGui::Text("pixels drawn %d, discarded %d",
+            art->pixels_drawn, art->pixels_discarded);
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                     1000.0f / ImGui::GetIO().Framerate,

@@ -17,28 +17,33 @@ public:
         : m_name(_name) {}
     const char * name() {return m_name.c_str();}
     virtual bool render_gui() = 0;
-    virtual void resize(int _w, int _h) {};
+    virtual void resize(int _w, int _h) {default_resize(_w, _h);};
     virtual void render(uint32_t *p) = 0;
     virtual void load(std::string json) {};
     virtual std::string save() { return ""; };
 
     virtual bool override_texture_size(int &w, int &h) { return false; };
 
-    void drawdot(int x, int y, double o, uint32_t c) {
-        if (x+1 > w || y+1 > h) return;
-        uint32_t *p = data();
-        p[ y*w + x ] = c | ((unsigned)(0xff*o)<<24);
+    void drawdot(uint32_t x, uint32_t y, double o, uint32_t c) {
+        drawdot(x, y, c | ((unsigned)(0xff*o)<<24));
     }
 
-    void drawdot(int x, int y, uint32_t c) {
-        if (x+1 > w || y+1 > h) return;
+    void drawdot(uint32_t x, uint32_t y, uint32_t c) {
+        if (x >= w || y >= h) {
+            ++pixels_discarded;
+            return;
+        }
         uint32_t *p = data();
         p[ y*w + x ] = c;
+        ++pixels_drawn;
     }
 
     virtual void reinit() { resize(w, h); }
 
     virtual ~Art() = default;
+
+    unsigned pixels_drawn = 0;
+    unsigned pixels_discarded = 0;
 
 protected:
     void default_resize(int _w, int _h) {
@@ -56,7 +61,8 @@ protected:
     }
     void clear() {
         fill0(pixels);
-        //std::fill(pixels.begin(), pixels.end(), 0);
+        pixels_drawn = 0;
+        pixels_discarded = 0;
     }
     int w, h;
     //uint8_t *data() { return reinterpret_cast<uint8_t*>(pixels.data()); }

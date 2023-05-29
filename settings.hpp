@@ -34,5 +34,7 @@ public:
 
 private:
     int item_current_idx = 0;
+
+    double color_max = 1;
 };
 

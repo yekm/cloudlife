@@ -39,13 +39,16 @@ bool PaletteSetting::RenderGui() {
 
 void PaletteSetting::rescale(uint32_t ncolours) {
     value = value.rescale(0., ncolours);
+    color_max = ncolours;
 }
 
 uint32_t PaletteSetting::get_color(uint32_t color_n) {
-      auto c = value(color_n);
-      return 0xff000000 |
-              c.getRed().getValue() << 0 |
-              c.getGreen().getValue() << 8 |
-              c.getBlue().getValue() << 16;
+    if (color_n > color_max)
+        printf("%d>%d ", color_n, (int)color_max);
+    auto c = value(color_n);
+    return 0xff000000 |
+            c.getRed().getValue() << 0 |
+            c.getGreen().getValue() << 8 |
+            c.getBlue().getValue() << 16;
 
 }

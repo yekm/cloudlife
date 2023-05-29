@@ -1,10 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*- */
 /* discrete --- chaotic mappings */
 
-#if 0
-static const char sccsid[] = "@(#)discrete.c	5.00 2000/11/01 xlockmore";
-#endif
-
 /*-
  * Copyright (c) 1996 by Tim Auckland <tda10.geo@yahoo.com>
  *
@@ -26,49 +22,20 @@ static const char sccsid[] = "@(#)discrete.c	5.00 2000/11/01 xlockmore";
  * Map" and the "Bird in a Thornbush" fractal.
  *
  * Revision History:
+ * 27-May-2023: Dear ImGui port by Pavel Vasilyev <yekm@299792458.ru>
  * 01-Nov-2000: Allocation checks
  * 31-Jul-1997: Ported to xlockmore-4
  * 08-Aug-1996: Adapted from hop.c Copyright (c) 1991 by Patrick J. Naughton.
  */
 
-#ifdef STANDALONE
-# define MODE_discrete
-#define DEFAULTS	"*delay: 20000 \n" \
-					"*count:  4096 \n" \
-					"*cycles: 2500 \n" \
-					"*ncolors: 100 \n" \
-					"*fpsSolid: true \n" \
-				    "*ignoreRotation: True \n" \
+#include "imgui_elements.h"
+#include "discrete.h"
+#include "random.h"
+// from yarandom.h
+#define LRAND()         ((long) (xoshiro256plus() & 0x7fffffff))
+#define MAXRAND         (2147483648.0) /* unsigned 1<<31 as a float */
 
-/*				    "*lowrez: True \n" \ */
-
-# define SMOOTH_COLORS
-# define release_discrete 0
-# define discrete_handle_event 0
-# include "xlockmore.h"		/* in xscreensaver distribution */
-#else /* STANDALONE */
-# include "xlock.h"		/* in xlockmore distribution */
-#endif /* STANDALONE */
-
-#ifdef MODE_discrete
-
-ENTRYPOINT ModeSpecOpt discrete_opts =
-{0, (XrmOptionDescRec *) NULL, 0, (argtype *) NULL, (OptionStruct *) NULL};
-
-#ifdef USE_MODULES
-ModStruct   discrete_description =
-{"discrete", "init_discrete", "draw_discrete", (char *) NULL,
- "refresh_discrete", "init_discrete", "free_discrete", &discrete_opts,
- 1000, 4096, 2500, 1, 64, 1.0, "",
- "Shows various discrete maps", 0, NULL};
-
-#endif
-
-enum ftypes {
-	SQRT, BIRDIE, STANDARD, TRIG, CUBIC, HENON, AILUJ, HSHOE, DELOG
-};
-
-/*#define TEST STANDARD */
+#include <math.h>
 
 #define BIASES 18
 static enum ftypes bias[BIASES] =
@@ -82,48 +49,17 @@ static enum ftypes bias[BIASES] =
 	HENON,
 };
 
-typedef struct {
-	int         maxx;
-	int         maxy;	/* max of the screen */
-	double      a;
-	double      b;
-	double      c;
-	double      d;
-	double      e;
-	double      i;
-	double      j;		/* discrete parameters */
-	double      ic;
-	double      jc;
-	double      is;
-	double      js;
-	int         inc;
-	int         pix;
-	enum ftypes op;
-	int         count;
-	XPoint     *pointBuffer;	/* pointer for XDrawPoints */
 
-    int sqrt_sign, std_sign;
-
-} discretestruct;
-
-static discretestruct *discretes = (discretestruct *) NULL;
-
-ENTRYPOINT void
-init_discrete (ModeInfo * mi)
+void Discrete::init_discrete()
 {
+	discrete = discretestruct{};
 	double      range;
-	discretestruct *hp;
+	discretestruct *hp = &discrete;
 
-	MI_INIT (mi, discretes);
-	hp = &discretes[MI_SCREEN(mi)];
-
-	hp->maxx = MI_WIDTH(mi);
-	hp->maxy = MI_HEIGHT(mi);
-#ifdef TEST
-	hp->op = TEST;
-#else
-	hp->op = bias[LRAND() % BIASES];
-#endif
+	hp->maxx = w;
+	hp->maxy = h;
+	//hp->op = bias[LRAND() % BIASES];
+	hp->op = (ftypes)bias;
 	switch (hp->op) {
 		case HSHOE:
 			hp->ic = 0;
@@ -235,55 +171,24 @@ init_discrete (ModeInfo * mi)
 				break;
 			}
 	}
-	hp->pix = 0;
 	hp->inc = 0;
 
-	if (hp->pointBuffer == NULL) {
-		hp->pointBuffer = (XPoint *) malloc(sizeof (XPoint) * MI_COUNT(mi));
-		/* if fails will check later */
-	}
+	pal.rescale(count);
 
-	/* Clear the background. */
-	MI_CLEARWINDOW(mi);
-
-	XSetForeground(MI_DISPLAY(mi), MI_GC(mi), MI_WHITE_PIXEL(mi));
 	hp->count = 0;
     hp->sqrt_sign = 1;
     hp->std_sign = 1;
 }
 
-
-static void
-draw_discrete_1 (ModeInfo * mi)
+void Discrete::draw_discrete_1()
 {
-	Display    *dsp = MI_DISPLAY(mi);
-	Window      win = MI_WINDOW(mi);
 	double      oldj, oldi;
-	int         count = MI_COUNT(mi);
-	int         cycles = MI_CYCLES(mi);
-	int         k;
-	XPoint     *xp;
-	GC          gc = MI_GC(mi);
-	discretestruct *hp;
-
-	if (discretes == NULL)
-		return;
-	hp = &discretes[MI_SCREEN(mi)];
-	if (hp->pointBuffer == NULL)
-		return;
-
-	k = count;
-	xp = hp->pointBuffer;
+	int         k = count;
+	discretestruct *hp = &discrete;
+	unsigned x, y;
 
 	hp->inc++;
 
-	MI_IS_DRAWN(mi) = True;
-
-	if (MI_NPIXELS(mi) > 2) {
-		XSetForeground(dsp, gc, MI_PIXEL(mi, hp->pix));
-		if (++hp->pix >= MI_NPIXELS(mi))
-			hp->pix = 0;
-	}
 	while (k--) {
 		oldj = hp->j;
 		oldi = hp->i;
@@ -291,14 +196,6 @@ draw_discrete_1 (ModeInfo * mi)
 			case HSHOE:
 				{
 					int         i;
-
-#if 0
-					if (!k) {
-						XSetForeground(dsp, gc, MI_BLACK_PIXEL(mi));
-						XFillRectangle(dsp, win, gc, 0, 0, hp->maxx, hp->maxy);
-						XSetForeground(dsp, gc, MI_PIXEL(mi, hp->pix));
-					} else
-#endif
 #define HD
 #ifdef HD
 					if (k < count / 4) {
@@ -383,59 +280,53 @@ draw_discrete_1 (ModeInfo * mi)
 				hp->j = (oldj - hp->b) / (2 * hp->i);
 				break;
 		}
-		xp->x = hp->maxx / 2 + (int) ((hp->i - hp->ic) * hp->is);
-		xp->y = hp->maxy / 2 - (int) ((hp->j - hp->jc) * hp->js);
-		xp++;
+		x = hp->maxx / 2 + (int) ((hp->i - hp->ic) * hp->is);
+		y = hp->maxy / 2 - (int) ((hp->j - hp->jc) * hp->js);
+		drawdot(x, y, pal.get_color(k));
 	}
-	XDrawPoints(dsp, win, gc, hp->pointBuffer, count, CoordModeOrigin);
+
 }
 
-ENTRYPOINT void
-draw_discrete (ModeInfo * mi)
+void Discrete::render(uint32_t *p)
 {
-  discretestruct *hp = &discretes[MI_SCREEN(mi)];
-  int cycles = MI_CYCLES(mi);
-  int i;
+	discretestruct *hp = &discrete;
+	int i;
 
-  for (i = 0; i < 10; i++) {
-    draw_discrete_1 (mi);
-    hp->count++;
-  }
+	for (i = 0; i < 10; i++) {
+		draw_discrete_1();
+		hp->count++;
+	}
 
-  if (hp->count > cycles) {
-    init_discrete(mi);
-  }
-}
+	std::copy(pixels.begin(), pixels.end(), p);
 
-
-ENTRYPOINT void
-reshape_discrete(ModeInfo * mi, int width, int height)
-{
-  discretestruct *hp = &discretes[MI_SCREEN(mi)];
-  hp->maxx = width;
-  hp->maxy = height;
-  XClearWindow (MI_DISPLAY (mi), MI_WINDOW(mi));
-}
-
-ENTRYPOINT void
-free_discrete(ModeInfo * mi)
-{
-	discretestruct *hp = &discretes[MI_SCREEN(mi)];
-
-	if (hp->pointBuffer != NULL) {
-		(void) free((void *) hp->pointBuffer);
-		/* hp->pointBuffer = NULL; */
+	if (hp->count > cycles) {
+		resize(w, h);
 	}
 }
 
-#ifndef STANDALONE
-ENTRYPOINT void
-refresh_discrete(ModeInfo * mi)
+
+bool Discrete::render_gui ()
 {
-	MI_CLEARWINDOW(mi);
+	bool up = false;
+	discretestruct *hp = &discrete;
+
+	up |= ScrollableSliderInt("cycles", &cycles, 0, 1024*10, "%d", 256);
+	up |= ScrollableSliderInt("count", &count, 0, 1024*10, "%d", 256);
+	up |= ScrollableSliderInt("bias", &bias, 0, 8, "%d", 1);
+	up |= pal.RenderGui();
+
+	ImGui::Text("hp->count %d, bias %d", hp->count, hp->op);
+
+
+	if (up) {
+		resize(w, h);
+	}
+
+	return up;
 }
-#endif
 
-XSCREENSAVER_MODULE ("Discrete", discrete)
+void Discrete::resize(int _w, int _h) {
+	default_resize(_w, _h);
 
-#endif /* MODE_discrete */
+	init_discrete();
+}

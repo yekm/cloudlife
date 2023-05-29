@@ -53,6 +53,7 @@ target_sources(cloudlife PUBLIC
     mtron.cpp
     timer.cpp
     ifs.cpp
-    vermiculate.cpp)
+    vermiculate.cpp
+    discrete.cpp)
 target_link_libraries(cloudlife IMGUI glfw GL colormap)
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
