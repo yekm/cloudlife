@@ -25,6 +25,7 @@
 #include "ifs.h"
 #include "vermiculate.h"
 #include "discrete.h"
+#include "thornbird.h"
 
 std::unique_ptr<Art> art;
 
@@ -166,7 +167,8 @@ int main(int argc, char *argv[])
     //art.reset(new Minskytron);
     //art.reset(new IFS);
     //art.reset(new Vermiculate);
-    art.reset(new Discrete);
+    //art.reset(new Discrete);
+    art.reset(new Thornbird);
 
 
     IMGUI_CHECKVERSION();

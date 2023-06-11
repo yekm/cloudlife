@@ -54,6 +54,7 @@ target_sources(cloudlife PUBLIC
     timer.cpp
     ifs.cpp
     vermiculate.cpp
-    discrete.cpp)
+    discrete.cpp
+    thornbird.cpp)
 target_link_libraries(cloudlife IMGUI glfw GL colormap)
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
