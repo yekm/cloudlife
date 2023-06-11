@@ -38,29 +38,14 @@
 
 #include <math.h>
 
-#define BIASES 18
-static enum ftypes bias[BIASES] =
-{
-	STANDARD, STANDARD, STANDARD, STANDARD,
-	SQRT, SQRT, SQRT, SQRT,
-	BIRDIE, BIRDIE, BIRDIE,
-	AILUJ, AILUJ, AILUJ,
-	TRIG, TRIG,
-	CUBIC,
-	HENON,
-};
-
-
 void Discrete::init_discrete()
 {
-	pb.reset();
 	discrete = discretestruct{};
 	double      range;
 	discretestruct *hp = &discrete;
 
 	hp->maxx = w;
 	hp->maxy = h;
-	//hp->op = bias[LRAND() % BIASES];
 	hp->op = (ftypes)bias;
 	switch (hp->op) {
 		case HSHOE:
@@ -172,22 +157,6 @@ void Discrete::init_discrete()
 				hp->i = hp->j = 0.1;
 				break;
 			}
-		case THORNBIRD:
-			pb = std::make_unique<PixelBuffer>();
-			hp->b = 0.1;
-			hp->i = hp->j = 0.1;
-
-			/* select frequencies for parameter variation */
-			hp->liss.f1 = LRAND() % 5000;
-			hp->liss.f2 = LRAND() % 2000;
-
-			/* choose random 3D tumbling */
-			hp->tumble.theta = 0;
-			hp->tumble.phi = 0;
-			hp->tumble.dtheta = balance_rand(0.001);
-			hp->tumble.dphi = balance_rand(0.005);
-
-			break;
 	}
 	hp->inc = 0;
 
@@ -207,23 +176,6 @@ void Discrete::draw_discrete_1()
 	double      sint, cost, sinp, cosp;
 
 	hp->inc++;
-
-	if (hp->op == THORNBIRD) {
-			/* vary papameters */
-		hp->a = 1.99 + (0.4 * sin(hp->inc / hp->liss.f1) +
-						0.05 * cos(hp->inc / hp->liss.f2));
-		hp->c = 0.80 + (0.15 * cos(hp->inc / hp->liss.f1) +
-						0.05 * sin(hp->inc / hp->liss.f2));
-
-		/* vary view */
-		hp->tumble.theta += hp->tumble.dtheta;
-		hp->tumble.phi += hp->tumble.dphi;
-		sint = sin(hp->tumble.theta);
-		cost = cos(hp->tumble.theta);
-		sinp = sin(hp->tumble.phi);
-		cosp = cos(hp->tumble.phi);
-
-	}
 
 	while (k--) {
 		oldj = hp->j;
@@ -315,27 +267,10 @@ void Discrete::draw_discrete_1()
 					hp->i = (hp->i > 0.0) ? 0.00000001 : -0.00000001;
 				hp->j = (oldj - hp->b) / (2 * hp->i);
 				break;
-			case THORNBIRD:
-				oldj = hp->j;
-				oldi = hp->i;
-
-				hp->j = oldi;
-				hp->i = (1 - hp->c) * cos(M_PI * hp->a * oldj) + hp->c * hp->b;
-				hp->b = oldj;
-			break;
 		}
-		if (hp->op == THORNBIRD) {
-			x = (short) (hp->maxx / 2 * (1
-							+ sint*hp->j + cost*cosp*hp->i - cost*sinp*hp->b));
-			y = (short) (hp->maxy / 2 * (1
-							- cost*hp->j + sint*cosp*hp->i - sint*sinp*hp->b));
-			pb->append({x, y, pal.get_color(count - k)});
-		}
-		else {
-			x = hp->maxx / 2 + (int) ((hp->i - hp->ic) * hp->is);
-			y = hp->maxy / 2 - (int) ((hp->j - hp->jc) * hp->js);
-			drawdot(x, y, pal.get_color(count - k));
-		}
+		x = hp->maxx / 2 + (int) ((hp->i - hp->ic) * hp->is);
+		y = hp->maxy / 2 - (int) ((hp->j - hp->jc) * hp->js);
+		drawdot(x, y, pal.get_color(count - k));
 	}
 
 }
@@ -349,9 +284,6 @@ bool Discrete::render(uint32_t *p)
 		draw_discrete_1();
 		hp->count++;
 	}
-
-	//if (hp->op == THORNBIRD)
-	//	clear();
 
 	if (hp->count > cycles) {
 		resize(w, h);
@@ -369,7 +301,7 @@ bool Discrete::render_gui ()
 	ScrollableSliderInt("cycles", &cycles, 0, 1024*10, "%d", 256);
 	up |= ScrollableSliderInt("count", &count, 0, 1024*10, "%d", 256);
 	ScrollableSliderInt("iterations", &iterations, 1, 256, "%d", 1);
-	up |= ScrollableSliderInt("bias", &bias, 0, 9, "%d", 1);
+	up |= ScrollableSliderInt("bias", &bias, 0, 8, "%d", 1);
 	up |= pal.RenderGui();
 
 	ImGui::Text("hp->count %d, bias %d", hp->count, hp->op);
