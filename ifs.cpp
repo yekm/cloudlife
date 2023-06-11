@@ -241,7 +241,7 @@ IFS::iterate(int count, int p)
 /* Come on and iterate, iterate, iterate and sing... *
  * Yeah, this function just calls iterate, mutate,   *
  * and then draws everything.                        */
-void IFS::render(uint32_t *p)
+bool IFS::render(uint32_t *p)
 {
   int i;
   int partcolor, x, y;
@@ -285,7 +285,7 @@ void IFS::render(uint32_t *p)
     mutate(&lenses[i]);
   }
 
-  std::copy(pixels.begin(), pixels.end(), p);
+  return false;
 }
 
 

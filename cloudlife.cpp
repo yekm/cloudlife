@@ -23,7 +23,7 @@
  * documentation.  No representations are made about the suitability of this
  * software for any purpose.  It is provided "as is" without express or
  * implied warranty.
- 
+
  * Dear ImGui port by Pavel Vasilyev <yekm@299792458.ru>, Jan 2023
  */
 
@@ -243,7 +243,7 @@ unsigned int Cloudlife::do_tick()
     return count;
 }
 
-void Cloudlife::render(uint32_t *p) {
+bool Cloudlife::render(uint32_t *p) {
     unsigned int count = 0;
 
     for (int i=0; i<f->ticks_per_frame; ++i)
@@ -270,8 +270,7 @@ void Cloudlife::render(uint32_t *p) {
     draw_field();
     cycles++;
 
-    std::copy(pixels.begin(), pixels.end(), p);
-
+    return false;
 }
 
 

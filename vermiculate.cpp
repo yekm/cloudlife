@@ -641,7 +641,7 @@ bool Vermiculate::move (unsigned char thr)
   return (!LP->dead);
 }
 
-void Vermiculate::render (uint32_t *p)
+bool Vermiculate::render (uint32_t *p)
 {
   int had_instring = (instring != 0);
   int tick = 0;
@@ -695,7 +695,7 @@ void Vermiculate::render (uint32_t *p)
   if (loop++ < cycles)
     goto AGAIN;
 
-  std::copy(pixels.begin(), pixels.end(), p);
+  return false;
 }
 
 bool Vermiculate::render_gui ()

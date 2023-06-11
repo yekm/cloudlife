@@ -53,6 +53,7 @@ static enum ftypes bias[BIASES] =
 
 void Discrete::init_discrete()
 {
+	pb.reset();
 	discrete = discretestruct{};
 	double      range;
 	discretestruct *hp = &discrete;
@@ -172,7 +173,8 @@ void Discrete::init_discrete()
 				break;
 			}
 		case THORNBIRD:
-				hp->b = 0.1;
+			pb = std::make_unique<PixelBuffer>();
+			hp->b = 0.1;
 			hp->i = hp->j = 0.1;
 
 			/* select frequencies for parameter variation */
@@ -323,21 +325,22 @@ void Discrete::draw_discrete_1()
 			break;
 		}
 		if (hp->op == THORNBIRD) {
-				x = (short) (hp->maxx / 2 * (1
-								+ sint*hp->j + cost*cosp*hp->i - cost*sinp*hp->b));
-				y = (short) (hp->maxy / 2 * (1
-								- cost*hp->j + sint*cosp*hp->i - sint*sinp*hp->b));
+			x = (short) (hp->maxx / 2 * (1
+							+ sint*hp->j + cost*cosp*hp->i - cost*sinp*hp->b));
+			y = (short) (hp->maxy / 2 * (1
+							- cost*hp->j + sint*cosp*hp->i - sint*sinp*hp->b));
+			pb->append({x, y, pal.get_color(count - k)});
 		}
 		else {
 			x = hp->maxx / 2 + (int) ((hp->i - hp->ic) * hp->is);
 			y = hp->maxy / 2 - (int) ((hp->j - hp->jc) * hp->js);
+			drawdot(x, y, pal.get_color(count - k));
 		}
-		drawdot(x, y, pal.get_color(k));
 	}
 
 }
 
-void Discrete::render(uint32_t *p)
+bool Discrete::render(uint32_t *p)
 {
 	discretestruct *hp = &discrete;
 	int i;
@@ -347,13 +350,14 @@ void Discrete::render(uint32_t *p)
 		hp->count++;
 	}
 
-	std::copy(pixels.begin(), pixels.end(), p);
 	//if (hp->op == THORNBIRD)
 	//	clear();
 
 	if (hp->count > cycles) {
 		resize(w, h);
 	}
+
+	return false;
 }
 
 

@@ -21,7 +21,7 @@ public:
 private:
     virtual bool render_gui() override;
     //virtual void resize(int _w, int _h) override;
-    virtual void render(uint32_t *p) override;
+    virtual bool render(uint32_t *p) override;
 
     void reinit();
     void dt(uint32_t *p, int x, int y, double o, uint32_t c);

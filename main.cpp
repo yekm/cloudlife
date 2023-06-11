@@ -201,9 +201,6 @@ int main(int argc, char *argv[])
 
         bool reinit = art->gui();
 
-        ImGui::Text("pixels drawn %d, discarded %d",
-            art->pixels_drawn, art->pixels_discarded);
-
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                     1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);

@@ -38,7 +38,7 @@ void Minskytron::dt(uint32_t *p, int x, int y, double o, uint32_t c) {
     p[ y*W + x ] = c | ((unsigned)(0xff*o)<<24);
 }
 
-void Minskytron::render(uint32_t *p) {
+bool Minskytron::render(uint32_t *p) {
     //clear();
     //std::fill(p, p+TEXTURE_SIZE, 0);
     memset(p, 0, TEXTURE_SIZE);
@@ -74,7 +74,7 @@ void Minskytron::render(uint32_t *p) {
         ++i;
     }
 
-    //std::copy(pixels.begin(), pixels.end(), p);
+    return true;
 }
 
 bool Minskytron::render_gui() {

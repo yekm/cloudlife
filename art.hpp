@@ -7,6 +7,7 @@
 
 
 #include "pixelbuffer.h"
+#include "imgui.h"
 #include "imgui_elements.h"
 
 
@@ -27,14 +28,25 @@ public:
     bool gui() {
         if (pb)
             ScrollableSliderUInt("Max pixels", &pixel_buffer_maximum, 1, pixel_buffer_maximum_max, "%d", pixel_buffer_maximum/16);
-        return render_gui();
+        bool up = render_gui();
+
+        ImGui::Text("pixels drawn %d, discarded %d",
+            pixels_drawn, pixels_discarded);
+
+        if (pb)
+            ImGui::Text("pixel_buffer_size %d",
+                pb->buffer.size());
+
+        return up;
     }
     void draw(uint32_t *p) {
+        bool direct = render(p);
         if (pb) {
             pb->trunc(pixel_buffer_maximum);
             render_pixel_buffer(p);
+        } else if (!direct) {
+            std::copy(pixels.begin(), pixels.end(), p);
         }
-        render(p);
     }
     virtual void load(std::string json) {};
     virtual std::string save() { return ""; };
@@ -62,10 +74,8 @@ public:
 
     virtual ~Art() = default;
 
-    unsigned pixels_drawn = 0;
-    unsigned pixels_discarded = 0;
     unsigned frame_number = 0, clear_every = 0;
-    unsigned pixel_buffer_maximum = 1024*10, pixel_buffer_maximum_max = 1024*64;
+    unsigned pixel_buffer_maximum = 1024*10, pixel_buffer_maximum_max = 1024*1024;
 
     void clear() {
         fill0(pixels);
@@ -75,15 +85,26 @@ public:
 private:
     virtual void resize(int _w, int _h) {default_resize(_w, _h);};
     virtual bool render_gui() = 0;
-    virtual void render(uint32_t *p) = 0;
+    virtual bool render(uint32_t *p) = 0;
 
     void render_pixel_buffer(uint32_t *screen) {
+        std::fill_n(screen, w*h, 0);
+#if 1
+        auto b = pb->buffer.begin();
+        auto pbm = pb->buffer.size() > pixel_buffer_maximum ? pixel_buffer_maximum : pb->buffer.size();
+        auto end = pb->buffer.begin() + pbm;
+        for (; b != end; ++b)
+            drawdot(screen, b->x, b->y, b->color);
+#else
         for (auto &p : pb->buffer)
             drawdot(screen, p.x, p.y, p.color);
+#endif
     }
 
 
 protected:
+    unsigned pixels_drawn = 0;
+    unsigned pixels_discarded = 0;
     void default_resize(int _w, int _h) {
         w = _w;
         h = _h;
