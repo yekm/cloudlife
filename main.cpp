@@ -20,12 +20,7 @@
 #endif
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
-#include "cloudlife.hpp"
-#include "mtron.hpp"
-#include "ifs.h"
-#include "vermiculate.h"
-#include "discrete.h"
-#include "thornbird.h"
+#include "artfactory.h"
 
 std::unique_ptr<Art> art;
 
@@ -163,12 +158,9 @@ int main(int argc, char *argv[])
     glfwMakeContextCurrent(window);
     glfwSwapInterval(vsync);
 
-    //art.reset(new Cloudlife);
-    //art.reset(new Minskytron);
-    //art.reset(new IFS);
-    //art.reset(new Vermiculate);
-    //art.reset(new Discrete);
-    art.reset(new Thornbird);
+
+    ArtFactory af;
+    art = af.get_art();
 
 
     IMGUI_CHECKVERSION();
@@ -197,6 +189,14 @@ int main(int argc, char *argv[])
 
 
         ImGui::Begin(art->name());
+
+        if (af.render_gui())
+        {
+            art = af.get_art();
+            destroy_pbos();
+            make_pbos();
+            art->resized(sw, sh);
+       }
 
         ImGui::ColorEdit4("Clear color", (float*)&clear_color);
         ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 2);

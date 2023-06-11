@@ -5,10 +5,12 @@
 
 class Setting {
 public:
+    Setting(std::string n = "Combo")
+        : name(n) {}
     virtual bool RenderGui() = 0;
     virtual void Load(const std::string & json) {};
     virtual void Save(std::string &json) {};
-private:
+    std::string name;
 };
 
 
@@ -22,7 +24,7 @@ public:
     typedef colormap::map<colormap::color<colormap::space::rgb>> pal_t;
 
     PaletteSetting()
-        {  }
+        : Setting("Palette") {}
     bool RenderGui() override;
 
     pal_t & operator*() {return value;}
@@ -38,3 +40,23 @@ private:
     double color_max = 1;
 };
 
+
+#include <vector>
+#include <string>
+
+class VectorCombo : public Setting {
+public:
+    typedef std::vector<std::string> combo_container_t;
+    VectorCombo() = default;
+    VectorCombo(std::string n, combo_container_t c)
+        : Setting(n)
+        , items(c) {}
+    bool RenderGui() override;
+    void set_index(int i);
+    int get_index();
+    std::string get_value();
+private:
+    int item_current_idx = 0;
+    combo_container_t items;
+    std::string value;
+};

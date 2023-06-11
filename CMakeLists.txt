@@ -46,6 +46,7 @@ add_subdirectory(colormap)
 add_executable(cloudlife)
 target_sources(cloudlife PUBLIC
     main.cpp
+    artfactory.cpp
     settings.cpp
     imgui_elements.cpp
     random.c
