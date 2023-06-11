@@ -34,6 +34,7 @@
 // from yarandom.h
 #define LRAND()         ((long) (xoshiro256plus() & 0x7fffffff))
 #define MAXRAND         (2147483648.0) /* unsigned 1<<31 as a float */
+#define balance_rand(v)	((LRAND()/MAXRAND*(v))-((v)/2))	/* random around 0 */
 
 #include <math.h>
 
@@ -170,6 +171,21 @@ void Discrete::init_discrete()
 				hp->i = hp->j = 0.1;
 				break;
 			}
+		case THORNBIRD:
+				hp->b = 0.1;
+			hp->i = hp->j = 0.1;
+
+			/* select frequencies for parameter variation */
+			hp->liss.f1 = LRAND() % 5000;
+			hp->liss.f2 = LRAND() % 2000;
+
+			/* choose random 3D tumbling */
+			hp->tumble.theta = 0;
+			hp->tumble.phi = 0;
+			hp->tumble.dtheta = balance_rand(0.001);
+			hp->tumble.dphi = balance_rand(0.005);
+
+			break;
 	}
 	hp->inc = 0;
 
@@ -186,8 +202,26 @@ void Discrete::draw_discrete_1()
 	int         k = count;
 	discretestruct *hp = &discrete;
 	unsigned x, y;
+	double      sint, cost, sinp, cosp;
 
 	hp->inc++;
+
+	if (hp->op == THORNBIRD) {
+			/* vary papameters */
+		hp->a = 1.99 + (0.4 * sin(hp->inc / hp->liss.f1) +
+						0.05 * cos(hp->inc / hp->liss.f2));
+		hp->c = 0.80 + (0.15 * cos(hp->inc / hp->liss.f1) +
+						0.05 * sin(hp->inc / hp->liss.f2));
+
+		/* vary view */
+		hp->tumble.theta += hp->tumble.dtheta;
+		hp->tumble.phi += hp->tumble.dphi;
+		sint = sin(hp->tumble.theta);
+		cost = cos(hp->tumble.theta);
+		sinp = sin(hp->tumble.phi);
+		cosp = cos(hp->tumble.phi);
+
+	}
 
 	while (k--) {
 		oldj = hp->j;
@@ -279,9 +313,25 @@ void Discrete::draw_discrete_1()
 					hp->i = (hp->i > 0.0) ? 0.00000001 : -0.00000001;
 				hp->j = (oldj - hp->b) / (2 * hp->i);
 				break;
+			case THORNBIRD:
+				oldj = hp->j;
+				oldi = hp->i;
+
+				hp->j = oldi;
+				hp->i = (1 - hp->c) * cos(M_PI * hp->a * oldj) + hp->c * hp->b;
+				hp->b = oldj;
+			break;
 		}
-		x = hp->maxx / 2 + (int) ((hp->i - hp->ic) * hp->is);
-		y = hp->maxy / 2 - (int) ((hp->j - hp->jc) * hp->js);
+		if (hp->op == THORNBIRD) {
+				x = (short) (hp->maxx / 2 * (1
+								+ sint*hp->j + cost*cosp*hp->i - cost*sinp*hp->b));
+				y = (short) (hp->maxy / 2 * (1
+								- cost*hp->j + sint*cosp*hp->i - sint*sinp*hp->b));
+		}
+		else {
+			x = hp->maxx / 2 + (int) ((hp->i - hp->ic) * hp->is);
+			y = hp->maxy / 2 - (int) ((hp->j - hp->jc) * hp->js);
+		}
 		drawdot(x, y, pal.get_color(k));
 	}
 
@@ -292,12 +342,14 @@ void Discrete::render(uint32_t *p)
 	discretestruct *hp = &discrete;
 	int i;
 
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < iterations; i++) {
 		draw_discrete_1();
 		hp->count++;
 	}
 
 	std::copy(pixels.begin(), pixels.end(), p);
+	//if (hp->op == THORNBIRD)
+	//	clear();
 
 	if (hp->count > cycles) {
 		resize(w, h);
@@ -310,9 +362,10 @@ bool Discrete::render_gui ()
 	bool up = false;
 	discretestruct *hp = &discrete;
 
-	up |= ScrollableSliderInt("cycles", &cycles, 0, 1024*10, "%d", 256);
+	ScrollableSliderInt("cycles", &cycles, 0, 1024*10, "%d", 256);
 	up |= ScrollableSliderInt("count", &count, 0, 1024*10, "%d", 256);
-	up |= ScrollableSliderInt("bias", &bias, 0, 8, "%d", 1);
+	ScrollableSliderInt("iterations", &iterations, 1, 256, "%d", 1);
+	up |= ScrollableSliderInt("bias", &bias, 0, 9, "%d", 1);
 	up |= pal.RenderGui();
 
 	ImGui::Text("hp->count %d, bias %d", hp->count, hp->op);

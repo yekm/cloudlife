@@ -22,10 +22,10 @@ public:
     Cloudlife()
         : Art("Cloudlife from xscreensaver")
         , f(new field) {}
+private:
     virtual bool render_gui() override;
     virtual void resize(int _w, int _h) override;
     virtual void render(uint32_t *p) override;
-private:
     std::unique_ptr<struct field> f;
 
     unsigned ncolors=512;

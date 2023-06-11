@@ -34,11 +34,10 @@ class Vermiculate : public Art {
 public:
     Vermiculate()
         : Art("Vermiculate") {}
+private:
     virtual bool render_gui() override;
     virtual void resize(int _w, int _h) override;
     virtual void render(uint32_t *p) override;
-private:
-
 
   int speed = 1;
   bool erasing, cleared, autopal;

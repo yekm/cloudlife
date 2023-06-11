@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     get_window_size(0,0);
-    art->resize(sw, sh);
+    art->resized(sw, sh);
     make_pbos();
 
     while (!glfwWindowShouldClose(window))
@@ -197,8 +197,9 @@ int main(int argc, char *argv[])
         ImGui::Begin(art->name());
 
         ImGui::ColorEdit4("Clear color", (float*)&clear_color);
+        ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 2);
 
-        art->render_gui();
+        bool reinit = art->gui();
 
         ImGui::Text("pixels drawn %d, discarded %d",
             art->pixels_drawn, art->pixels_discarded);
@@ -214,7 +215,7 @@ int main(int argc, char *argv[])
         if (get_window_size(0,0)) {
             destroy_pbos();
             make_pbos();
-            art->resize(sw, sh);
+            art->resized(sw, sh);
         }
 
         int nexti = pbo_index;
@@ -229,7 +230,7 @@ int main(int argc, char *argv[])
                 0, GL_STREAM_DRAW);
         uint32_t* ptr = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
         assert(ptr);
-        art->render(ptr);
+        art->draw(ptr);
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -251,6 +252,10 @@ int main(int argc, char *argv[])
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
+
+        ++art->frame_number;
+        if (art->clear_every != 0 && art->frame_number % art->clear_every == 0)
+            art->clear();
     }
 
     ImGui_ImplOpenGL3_Shutdown();

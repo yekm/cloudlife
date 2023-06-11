@@ -19,10 +19,10 @@ class IFS : public Art {
 public:
     IFS()
         : Art("IFS") {}
+private:
     virtual bool render_gui() override;
     virtual void resize(int _w, int _h) override;
     virtual void render(uint32_t *p) override;
-private:
 
     int ncolours = 1024;
     int ccolour;
