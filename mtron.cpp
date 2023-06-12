@@ -10,7 +10,9 @@
 #include "mtron.hpp"
 
 
-void Minskytron::reinit() {
+void Minskytron::resize(int _w, int _h) {
+    tex_w = tex_h = 1 << tex_power;
+
     ya=0;               xa=0737777<<ICM;
     yb=060000<<ICM;     xb=0;
     yc=0;               xc=020000<<ICM;
@@ -32,18 +34,16 @@ void Minskytron::reinit() {
 void Minskytron::dt(uint32_t *p, int x, int y, double o, uint32_t c) {
     // keep 10 bits to wrap around 1024 screen pixels
 #define SB (32-10)
-    x = (x>>SB) + W/2;
-    y = (y>>SB) + H/2;
+    x = (x >> (32 - tex_power)) + tex_w/2;
+    y = (y >> (32 - tex_power)) + tex_h/2;
 
-    p[ y*W + x ] = c | ((unsigned)(0xff*o)<<24);
+    drawdot(p, x, y, o, c);
 }
 
 bool Minskytron::render(uint32_t *p) {
-    //clear();
-    //std::fill(p, p+TEXTURE_SIZE, 0);
-    memset(p, 0, TEXTURE_SIZE);
+    memset(p, 0, tex_w*tex_h*4);
 
-    for (int i = 0; i<maxdots_perframe; ++i) {
+    for (int i = 0; i<cycles; ++i) {
         ya += (xa + xb) >> sh0;
         xa -= (ya - yb) >> sh1;
 
@@ -80,15 +80,13 @@ bool Minskytron::render(uint32_t *p) {
 bool Minskytron::render_gui() {
     bool up = false;
 
+    up |= ScrollableSliderInt("Texture power", &tex_power, 1, 16, "%d", 1);
     ScrollableSliderInt("Max dots", &maxodots, 1024, 1024*16, "%d", 256);
-    ScrollableSliderInt("Dots per frame", &maxdots_perframe, 0, 4096, "%d", 8);
+    ScrollableSliderInt("Cycles", &cycles, 0, 4096, "%d", 8);
     ScrollableSliderInt("Dots clamped gamma", &dots_clamped, 0, maxodots, "%d", 8);
     ScrollableSliderFloat("Gamma", &gm, -8, 8, "%.2f", 0.2);
 
-    if (BitField("Test word", &tb, 0))
-        reinit();
-
-    ImGui::ColorEdit3("clear color", (float*)&clear_color);
+    up |= BitField("Test word", &tb, 0);
 
     ImGui::ColorEdit3("osc1 color", (float*)&ocolor1);
     ImGui::ColorEdit3("osc2 color", (float*)&ocolor2);

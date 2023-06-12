@@ -22,13 +22,14 @@ public:
     Art(std::string _name)
         : m_name(_name) {}
     const char * name() {return m_name.c_str();}
-    void resized(int _w, int _h) {
+    void resized(int _w, int _h) { // nb: old buffers -> forbidden to drawdot()
+        tex_w = _w, tex_h = _h;
         resize(_w, _h);
     }
     bool gui() {
         if (pb)
             ScrollableSliderUInt("Max pixels", &pixel_buffer_maximum, 1, pixel_buffer_maximum_max, "%d", pixel_buffer_maximum/16);
-        bool up = render_gui();
+        bool resize_pbo = render_gui();
 
         ImGui::Text("pixels drawn %d, discarded %d",
             pixels_drawn, pixels_discarded);
@@ -37,12 +38,12 @@ public:
             ImGui::Text("pixel_buffer_size %d",
                 pb->buffer.size());
 
-        return up;
+        return resize_pbo;
     }
     void draw(uint32_t *p) {
         bool direct = render(p);
         if (pb) {
-            pb->trunc(pixel_buffer_maximum);
+            pb->erase_old(pixel_buffer_maximum);
             render_pixel_buffer(p);
         } else if (!direct) {
             std::copy(pixels.begin(), pixels.end(), p);
@@ -50,8 +51,6 @@ public:
     }
     virtual void load(std::string json) {};
     virtual std::string save() { return ""; };
-
-    virtual bool override_texture_size(int &w, int &h) { return false; };
 
     void drawdot(uint32_t x, uint32_t y, double o, uint32_t c) {
         drawdot(x, y, c | ((unsigned)(0xff*o)<<24));
@@ -61,12 +60,16 @@ public:
         drawdot(data(), x, y, c);
     }
 
+    void drawdot(uint32_t *screen, uint32_t x, uint32_t y, double o, uint32_t c) {
+        drawdot(screen, x, y, c | ((unsigned)(0xff*o)<<24));
+    }
+
     void drawdot(uint32_t *screen, uint32_t x, uint32_t y, uint32_t c) {
-        if (x >= w || y >= h) {
+        if (x >= tex_w || y >= tex_h) {
             ++pixels_discarded;
             return;
         }
-        screen[ y*w + x ] = c;
+        screen[ y*tex_w + x ] = c;
         ++pixels_drawn;
     }
 
@@ -82,6 +85,8 @@ public:
         pixels_drawn = 0;
         pixels_discarded = 0;
     }
+
+    int tex_w, tex_h;
 private:
     virtual void resize(int _w, int _h) {default_resize(_w, _h);};
     virtual bool render_gui() = 0;

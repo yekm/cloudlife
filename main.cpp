@@ -36,7 +36,7 @@ static void
 }
 
 static GLFWwindow* window;
-static int tex_w, tex_h, texture_size;
+static int texture_size;
 static int sw = 1024, sh = 1024;
 
 
@@ -63,9 +63,7 @@ int pbo_index = 0;
 ImVec4 clear_color = ImVec4(0, 0, 0, 1.00f);
 
 void make_pbos() {
-    if (!art->override_texture_size(tex_w, tex_h))
-        tex_w = sw, tex_h = sh;
-    texture_size = tex_w * tex_h * 4;
+    texture_size = art->tex_w * art->tex_h * 4;
     image_data = (uint32_t*)xrealloc(image_data, texture_size);
 
     // AUTHOR: Song Ho Ahn (song.ahn@gmail.com)
@@ -81,7 +79,7 @@ void make_pbos() {
     glTexParameteri(GL_TEXTURE_2D,
             GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexImage2D(GL_TEXTURE_2D,
-            0, GL_RGBA, tex_w, tex_h,
+            0, GL_RGBA, art->tex_w, art->tex_h,
             0, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)image_data);
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -159,10 +157,6 @@ int main(int argc, char *argv[])
     glfwSwapInterval(vsync);
 
 
-    ArtFactory af;
-    art = af.get_art();
-
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -174,6 +168,11 @@ int main(int argc, char *argv[])
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+
+
+
+    ArtFactory af;
+    art = af.get_art();
 
     get_window_size(0,0);
     art->resized(sw, sh);
@@ -193,15 +192,19 @@ int main(int argc, char *argv[])
         if (af.render_gui())
         {
             art = af.get_art();
+            art->resized(sw, sh);
             destroy_pbos();
             make_pbos();
-            art->resized(sw, sh);
        }
 
-        ImGui::ColorEdit4("Clear color", (float*)&clear_color);
-        ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 2);
+        if (ImGui::CollapsingHeader("Clear Configuration"))
+        {
 
-        bool reinit = art->gui();
+            ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 2);
+            ImGui::ColorEdit4("Clear color", (float*)&clear_color);
+        }
+
+        bool resize_pbo = art->gui();
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                     1000.0f / ImGui::GetIO().Framerate,
@@ -211,10 +214,10 @@ int main(int argc, char *argv[])
 
         ImGui::End();
 
-        if (get_window_size(0,0)) {
+        if (get_window_size(0,0) || resize_pbo) {
+            art->resized(sw, sh);
             destroy_pbos();
             make_pbos();
-            art->resized(sw, sh);
         }
 
         int nexti = pbo_index;
@@ -222,7 +225,7 @@ int main(int argc, char *argv[])
         glBindTexture(GL_TEXTURE_2D, image_texture);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[pbo_index]);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                tex_w, tex_h, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+                art->tex_w, art->tex_h, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[nexti]);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size,
@@ -233,18 +236,12 @@ int main(int argc, char *argv[])
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-        //ImGui::GetBackgroundDrawList()->AddImage((void*)(intptr_t)image_texture,
-        //    ImVec2(0, 0), ImVec2(tex_w, tex_h));
-
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
         ImGui::GetBackgroundDrawList()->AddImage((void*)(intptr_t)image_texture,
-            ImVec2(0, 0), ImVec2(display_w, display_h),
-            ImVec2(0, 0), ImVec2((float)display_w/tex_w, (float)display_h/tex_h));
+            ImVec2(0, 0), ImVec2(sw, sh),
+            ImVec2(0, 0), ImVec2((float)sw/art->tex_w, (float)sh/art->tex_h));
 
         ImGui::Render();
-        //glViewport(0, 0, sw, sh);
-        glViewport(0, 0, display_w, display_h);
+        glViewport(0, 0, sw, sh);
 
         glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);

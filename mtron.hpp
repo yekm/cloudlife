@@ -12,18 +12,14 @@
 class Minskytron : public Art {
 public:
     Minskytron()
-        : Art("Minskytron") { reinit(); }
-    virtual bool override_texture_size(int &_w, int &_h) {
-        _w = W; _h = H;
-        return true;
-    }
+        : Art("Minskytron") {}
 
 private:
     virtual bool render_gui() override;
     //virtual void resize(int _w, int _h) override;
     virtual bool render(uint32_t *p) override;
 
-    void reinit();
+    virtual void resize(int _w, int _h) override;
     void dt(uint32_t *p, int x, int y, double o, uint32_t c);
 
     struct odot {
@@ -34,19 +30,14 @@ private:
 
     int maxodots = 1024*6;
     int filler_sleep = 100;
-    int maxdots_perframe = 64;
+    int cycles = 64;
     //float gm = -2.5;
     float gm = 3.5;
-    int dots_clamped = 64;
-    ImVec4 ocolor1 = ImVec4(1, 0, 0, 0);
+    int dots_clamped = 512;
+    ImVec4 ocolor1 = ImVec4(1, 1, 0, 0);
     ImVec4 ocolor2 = ImVec4(0, 1, 0, 0);
-    ImVec4 ocolor3 = ImVec4(0, 0, 1, 0);
-
-    int density = 32, cycles=0;
-    ImVec4 clear_color = ImVec4(1, 0, 0, 1.00f);
-    ImVec4 background = ImVec4(0, 0, 0, 1);
-    ImVec4 foreground = ImVec4(0, 1, 0, 1);
-
+    ImVec4 ocolor3 = ImVec4(0, 1, 1, 0);
+    int tex_power = 10;
 
     //unsigned int tb = 0b011000111001110011100010000010;
     unsigned int tb = 0b001100011100111001110001000001; // original
@@ -59,9 +50,6 @@ private:
 
     int sh0, sh1, sh2, sh3, sh4, sh5;
 
-    static constexpr int W = 1024;
-    static constexpr int H = 1024;
-    static constexpr int TEXTURE_SIZE = W*H*4;
     // constatnt shift add
     static constexpr int CSA = 1;
     // initial constant multiplier
