@@ -43,9 +43,7 @@ find_package(glfw3)
 
 add_subdirectory(colormap)
 
-add_executable(cloudlife)
-target_sources(cloudlife PUBLIC
-    main.cpp
+add_library(clouds OBJECT
     artfactory.cpp
     settings.cpp
     imgui_elements.cpp
@@ -57,5 +55,17 @@ target_sources(cloudlife PUBLIC
     vermiculate.cpp
     discrete.cpp
     thornbird.cpp)
+
+target_link_libraries(clouds IMGUI glfw GL colormap)
+
+add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
+add_executable(cloudtest test.cpp $<TARGET_OBJECTS:clouds>)
 target_link_libraries(cloudlife IMGUI glfw GL colormap)
+target_link_libraries(cloudtest IMGUI glfw GL colormap)
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set_target_properties(cloudtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+include(CTest)
+
+add_test(NAME CloudTest1 COMMAND cloudtest)
+add_test(NAME CloudTest2 COMMAND cloudtest -f 32 -i 8)

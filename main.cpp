@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
                     1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);
 
-        cpu_load_text();
+        cpu_load_gui();
 
         ImGui::End();
 

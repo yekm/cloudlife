@@ -145,7 +145,7 @@ bool ScrollableSliderUInt(const char* label, unsigned* v, unsigned v_min, unsign
 #include <sys/resource.h>
 #include "timer.h"
 
-void cpu_load_text()
+char * cpu_load_text()
 {
     static int c = 0;
     static double up = 0, sp = 0;
@@ -153,6 +153,7 @@ void cpu_load_text()
     static struct rusage old_usage;
     static double outt = 0, ostt = 0;
     static double ru_maxrss = 0;
+    static char text[1024*4];
 
     if (c % 120 == 0) {
         common::Timer t;
@@ -177,6 +178,14 @@ void cpu_load_text()
     }
     c++;
 
-    ImGui::Text("Usr + Sys = %.2f + %.2f = %.2f", up, sp, up+sp);
-    ImGui::Text("maxrss %.2f MB", ru_maxrss);
+    snprintf(text, sizeof(text),
+        "Usr + Sys = %.2f + %.2f = %.2f. maxrss %.2f MB",
+        up, sp, up+sp, ru_maxrss);
+
+    return text;
+}
+
+void cpu_load_gui()
+{
+    ImGui::Text(cpu_load_text());
 }

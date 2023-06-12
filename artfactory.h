@@ -43,6 +43,7 @@ class ArtFactory : public Factory<Art> {
 public:
     ArtFactory();
     std::unique_ptr<Art> get_art();
+    void cycle_art();
     bool render_gui();
 private:
     VectorCombo::combo_container_t art_items;

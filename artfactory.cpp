@@ -24,6 +24,13 @@ std::unique_ptr<Art> ArtFactory::get_art() {
     return std::unique_ptr<Art>(create(vc.get_value()));
 }
 
+void ArtFactory::cycle_art() {
+    int i = vc.get_index() + 1;
+    if (i >= art_items.size())
+        i = 0;
+    vc.set_index(i);
+}
+
 bool ArtFactory::render_gui() {
     return vc.RenderGui();
 }
