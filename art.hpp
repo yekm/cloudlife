@@ -35,7 +35,7 @@ public:
             pixels_drawn, pixels_discarded);
 
         if (pb)
-            ImGui::Text("pixel_buffer_size %d",
+            ImGui::Text("pixel_buffer_size %ld",
                 pb->buffer.size());
 
         return resize_pbo;

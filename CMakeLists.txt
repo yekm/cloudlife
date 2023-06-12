@@ -67,5 +67,5 @@ set_target_properties(cloudtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINA
 
 include(CTest)
 
-add_test(NAME CloudTest1 COMMAND cloudtest)
-add_test(NAME CloudTest2 COMMAND cloudtest -f 32 -i 8)
+add_test(NAME CloudTest1 COMMAND cloudtest -f 1024 -i 2 -r 512)
+add_test(NAME CloudTest2 COMMAND cloudtest -f 32 -i 8 -r 16)
