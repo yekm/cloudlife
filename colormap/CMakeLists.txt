@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.23.2)
+project(colormap VERSION 1.0.1 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 14)
+
+include(GNUInstallDirs)
+enable_testing()
+add_library(${PROJECT_NAME} INTERFACE)
+
+target_include_directories(${PROJECT_NAME} INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1)
+
+
+message(STATUS ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(TARGETS ${PROJECT_NAME} EXPORT colormapConfig
+    ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})
+    
+install(DIRECTORY include/colormap DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(EXPORT colormapConfig DESTINATION share/${PROJECT_NAME}/cmake)
