@@ -24,47 +24,30 @@
 
 std::unique_ptr<Art> art;
 
-
-static void
-*xrealloc(void *p, size_t size)
-{
-    void *ret;
-    if ((ret = realloc(p, size)) == NULL) {
-        error(1, errno, "out of memory");
-    }
-    return ret;
-}
-
 static GLFWwindow* window;
-static int texture_size;
 static int sw = 1024, sh = 1024;
 
-
-bool get_window_size(int *w, int *h) {
-    bool ret = false;
+bool get_window_size() {
     int _w, _h;
     glfwGetFramebufferSize(window, &_w, &_h);
-    if (_w != sw || _h != sh) {
-        ret = true;
-        if (w) *w = _w;
-        if (h) *h = _h;
-    }
+    bool resized = (_w != sw || _h != sh);
     sw = _w; sh = _h;
 
-    return ret;
+    return resized;
 }
 
-uint32_t *image_data = NULL;
+typedef uint32_t pixel_t;
+pixel_t *image_data = NULL;
+std::vector<pixel_t> image_data_vector;
+#define texture_size (art->tex_w * art->tex_h * sizeof(pixel_t))
 
 GLuint image_texture;
 GLuint pboIds[2];
 int pbo_index = 0;
 
-ImVec4 clear_color = ImVec4(0, 0, 0, 1.00f);
-
 void make_pbos() {
-    texture_size = art->tex_w * art->tex_h * 4;
-    image_data = (uint32_t*)xrealloc(image_data, texture_size);
+    image_data_vector.resize(texture_size);
+    image_data = image_data_vector.data();
 
     // AUTHOR: Song Ho Ahn (song.ahn@gmail.com)
     // http://www.songho.ca/opengl/gl_pbo.html
@@ -170,11 +153,12 @@ int main(int argc, char *argv[])
     ImGui_ImplOpenGL3_Init(glsl_version);
 
 
+    ImVec4 clear_color = ImVec4(0, 0, 0, 1.00f);
 
     ArtFactory af;
     art = af.get_art();
 
-    get_window_size(0,0);
+    get_window_size();
     art->resized(sw, sh);
     make_pbos();
 
@@ -195,12 +179,12 @@ int main(int argc, char *argv[])
             art->resized(sw, sh);
             destroy_pbos();
             make_pbos();
-       }
+        }
 
         if (ImGui::CollapsingHeader("Clear Configuration"))
         {
 
-            ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 2);
+            ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 1);
             ImGui::ColorEdit4("Clear color", (float*)&clear_color);
         }
 
@@ -214,7 +198,7 @@ int main(int argc, char *argv[])
 
         ImGui::End();
 
-        if (get_window_size(0,0) || resize_pbo) {
+        if (get_window_size() || resize_pbo) {
             art->resized(sw, sh);
             destroy_pbos();
             make_pbos();
@@ -259,7 +243,6 @@ int main(int argc, char *argv[])
     ImGui::DestroyContext();
 
     destroy_pbos();
-    free(image_data);
 
     glfwDestroyWindow(window);
     glfwTerminate();
