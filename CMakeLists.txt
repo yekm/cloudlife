@@ -3,8 +3,10 @@ cmake_minimum_required(VERSION 3.16.3)
 project(imgui-cmake LANGUAGES C CXX)
 
 
-set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native")
+set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native -flto")
 set (CMAKE_CXX_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
+set (CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -march=native -g")
+set (CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO})
 set (CMAKE_C_FLAGS_DEBUG "-O0 -ggdb3 -fsanitize=address")
 set (CMAKE_CXX_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
 
