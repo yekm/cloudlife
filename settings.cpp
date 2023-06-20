@@ -50,9 +50,7 @@ uint32_t PaletteSetting::get_color(uint32_t color_n) {
             c.getRed().getValue() << 0 |
             c.getGreen().getValue() << 8 |
             c.getBlue().getValue() << 16;
-
 }
-
 
 
 

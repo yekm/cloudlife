@@ -16,8 +16,8 @@ typedef struct {
 	double      i;
 	double      j;		/* thornbird parameters */
     struct {
-	  double  f1;
-	  double  f2;
+	  double  f1 = 500;
+	  double  f2 = 200;
 	}           liss;
     struct {
 	  double  theta;

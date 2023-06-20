@@ -86,10 +86,10 @@ bool BitField(const char* label, unsigned* bits, unsigned* hoverIndex)
     return anyPressed;
 }
 
-
-bool ScrollableSliderFloat(const char* label, float* v, float v_min, float v_max, const char* format, float scrollFactor)
+template<typename T>
+bool ScrollableSliderT(ImGuiDataType data_type, const char* label, T* v, T v_min, T v_max, const char* format, float scrollFactor)
 {
-    bool rv = ImGui::SliderFloat(label, v, v_min, v_max, format, ImGuiSliderFlags_None);
+    bool rv = ImGui::SliderScalar(label, data_type, v, &v_min, &v_max, format, ImGuiSliderFlags_None);
     ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
     if (ImGui::IsItemHovered())
     {
@@ -112,33 +112,22 @@ bool ScrollableSliderFloat(const char* label, float* v, float v_min, float v_max
     return rv;
 }
 
-bool ScrollableSliderInt(const char* label, int* v, int v_min, int v_max, const char* format, float scrollFactor)
-{
-    bool rv = ImGui::SliderInt(label, v, v_min, v_max, format, ImGuiSliderFlags_None);
-    ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
-    if (ImGui::IsItemHovered())
-    {
-        float wheel = ImGui::GetIO().MouseWheel;
-        if (wheel)
-        {
-            if (ImGui::IsItemActive())
-            {
-                ImGui::ClearActiveID();
-            }
-            else
-            {
-                *v += wheel * scrollFactor;
-                if (*v < v_min) { *v = v_min; }
-                else if (*v > v_max) { *v = v_max; }
-                rv = true;
-            }
-        }
-    }
-    return rv;
+bool ScrollableSliderInt(const char* label, int* v, int v_min, int v_max, const char* format, float scrollFactor) {
+    return ScrollableSliderT<int>(ImGuiDataType_S32, label, (int*)v, (int)v_min, (int)v_max, format, scrollFactor);
 }
 
 bool ScrollableSliderUInt(const char* label, unsigned* v, unsigned v_min, unsigned v_max, const char* format, float scrollFactor) {
-    return ScrollableSliderInt(label, (int*)v, (int)v_min, (int)v_max, format, scrollFactor);
+    return ScrollableSliderT<unsigned>(ImGuiDataType_U32, label, v, v_min, v_max, format, scrollFactor);
+}
+
+bool ScrollableSliderDouble(const char* label, double* v, double v_min, double v_max, const char* format, float scrollFactor)
+{
+    return ScrollableSliderT<double>(ImGuiDataType_Double, label, v, v_min, v_max, format, scrollFactor);
+}
+
+bool ScrollableSliderFloat(const char* label, float* v, float v_min, float v_max, const char* format, float scrollFactor)
+{
+    return ScrollableSliderT<float>(ImGuiDataType_Float, label, v, v_min, v_max, format, scrollFactor);
 }
 
 

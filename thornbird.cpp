@@ -39,8 +39,8 @@
 
 void Thornbird::init_thornbird()
 {
-	thornbird = thornbirdstruct{};
-	double      range;
+	//thornbird = thornbirdstruct{};
+	//double      range;
 	thornbirdstruct *hp = &thornbird;
 
 	count = kcount * 1024;
@@ -53,14 +53,14 @@ void Thornbird::init_thornbird()
 	hp->inc = 0;
 
 	/* select frequencies for parameter variation */
-	hp->liss.f1 = LRAND() % 5000;
-	hp->liss.f2 = LRAND() % 2000;
+	//hp->liss.f1 = LRAND() % 5000;
+	//hp->liss.f2 = LRAND() % 2000;
 
 	/* choose random 3D tumbling */
 	hp->tumble.theta = 0;
 	hp->tumble.phi = 0;
-	hp->tumble.dtheta = balance_rand(0.001);
-	hp->tumble.dphi = balance_rand(0.005);
+	//hp->tumble.dtheta = balance_rand(0.001);
+	//hp->tumble.dphi = balance_rand(0.005);
 
 	hp->count = 0;
 
@@ -129,7 +129,19 @@ bool Thornbird::render_gui ()
 	thornbirdstruct *hp = &thornbird;
 
 	ScrollableSliderInt("cycles before reinit", &cycles, 0, 1024*10, "%d", 256);
-	up |= ScrollableSliderInt("iterations kcount", &kcount, 0, 1024, "%d", 1);
+	ScrollableSliderDouble("hp->liss.f1",
+		&hp->liss.f1, 0, 5000, "%.1f", 5);
+	ScrollableSliderDouble("hp->liss.f2",
+		&hp->liss.f2, 0, 2000, "%.1f", 2);
+	ScrollableSliderDouble("hp->tumble.dtheta",
+		&hp->tumble.dtheta, -0.002, 0.002, "%.4f", 0.0001);
+	ScrollableSliderDouble("hp->tumble.dphi",
+		&hp->tumble.dphi, -0.006, 0.006, "%.4f", 0.0001);
+
+	if (ScrollableSliderInt("iterations kcount", &kcount, 0, 1024, "%d", 1)) {
+		count = kcount * 1024;
+		pal.rescale(count);
+	}
 	up |= pal.RenderGui();
 
 	ImGui::Text("hp->count %d", hp->count);
@@ -139,7 +151,7 @@ bool Thornbird::render_gui ()
 		resize(w, h);
 	}
 
-	return up;
+	return false;
 }
 
 void Thornbird::resize(int _w, int _h) {
