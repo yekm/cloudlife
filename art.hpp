@@ -89,7 +89,7 @@ public:
     int tex_w, tex_h;
 private:
     virtual void resize(int _w, int _h) {default_resize(_w, _h);};
-    virtual bool render_gui() = 0;
+    virtual bool render_gui() {return false;}
     virtual bool render(uint32_t *p) = 0;
 
     void render_pixel_buffer(uint32_t *screen) {

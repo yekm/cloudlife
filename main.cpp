@@ -87,9 +87,12 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
+char info[1024*4];
 
 int main(int argc, char *argv[])
 {
+    unsigned frate = 0;
+
     int opt;
     int vsync = 1;
 
@@ -168,6 +171,7 @@ int main(int argc, char *argv[])
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
+
         ImGui::NewFrame();
 
 
@@ -190,11 +194,16 @@ int main(int argc, char *argv[])
 
         bool resize_pbo = art->gui();
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                    1000.0f / ImGui::GetIO().Framerate,
-                    ImGui::GetIO().Framerate);
+        if (art->frame_number % 120 == 0)
+        {
+            char *ti = info;
+            ti += cpu_load_text_now(info);
+            ti += sprintf(ti, "\n%.3f ms/frame (%.1f FPS)",
+                1000.0f / ImGui::GetIO().Framerate,
+                ImGui::GetIO().Framerate);
 
-        cpu_load_gui();
+        }
+        ImGui::Text(info);
 
         ImGui::End();
 
@@ -204,12 +213,15 @@ int main(int argc, char *argv[])
             make_pbos();
         }
 
+
         int nexti = pbo_index;
         pbo_index = pbo_index ? 0 : 1;
         glBindTexture(GL_TEXTURE_2D, image_texture);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[pbo_index]);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                 art->tex_w, art->tex_h, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        //glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
 
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[nexti]);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size,
@@ -220,13 +232,14 @@ int main(int argc, char *argv[])
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
+
         ImGui::GetBackgroundDrawList()->AddImage((void*)(intptr_t)image_texture,
             ImVec2(0, 0), ImVec2(sw, sh),
             ImVec2(0, 0), ImVec2((float)sw/art->tex_w, (float)sh/art->tex_h));
 
         ImGui::Render();
-        glViewport(0, 0, sw, sh);
 
+        glViewport(0, 0, sw, sh);
         glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

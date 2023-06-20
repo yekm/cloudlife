@@ -6,6 +6,7 @@
 #include "vermiculate.h"
 #include "discrete.h"
 #include "thornbird.h"
+#include "onepixel.h"
 
 
 ArtFactory::ArtFactory() {
@@ -15,6 +16,7 @@ ArtFactory::ArtFactory() {
     add_art<Vermiculate>("Vermiculate");
     add_art<Discrete>("Discrete");
     add_art<Thornbird>("Thornbird");
+    add_art<OnePixel>("OnePixel");
 
     vc = VectorCombo("Art", art_items);
     vc.set_index(1);
