@@ -34,7 +34,8 @@ class Thornbird : public Art {
 public:
     Thornbird()
         : Art("thornbird --- continuously varying Thornbird set") {
-			pb = std::make_unique<PixelBuffer>();
+			//pb = std::make_unique<PixelBuffer>();
+			use_pixel_buffer = true;
 			pixel_buffer_maximum = 1024*512;
 		}
 private:

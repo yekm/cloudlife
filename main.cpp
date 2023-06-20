@@ -95,11 +95,15 @@ int main(int argc, char *argv[])
 
     int opt;
     int vsync = 1;
+    char *artarg = NULL; // TODO:
 
-    while ((opt = getopt(argc, argv, "s")) != -1) {
+    while ((opt = getopt(argc, argv, "sa:")) != -1) {
         switch (opt) {
         case 's':
             vsync = 0;
+            break;
+        case 'a':
+            artarg = optarg;
             break;
         default: /* '?' */
             fprintf(stderr, "Usage: %s [-s]\n",
@@ -159,6 +163,7 @@ int main(int argc, char *argv[])
     ImVec4 clear_color = ImVec4(0, 0, 0, 1.00f);
 
     ArtFactory af;
+    if (artarg) {} // TODO:
     art = af.get_art();
 
     get_window_size();

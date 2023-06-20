@@ -102,7 +102,7 @@ void Thornbird::draw_thornbird_1()
 		y = (short) (hp->maxy / 2 * (1
 						- cost*hp->j + sint*cosp*hp->i - sint*sinp*hp->b));
 
-		pb->append({x, y, pal.get_color(count - k)});
+		drawdot(x, y, pal.get_color(count - k));
 	}
 
 	hp->inc++;

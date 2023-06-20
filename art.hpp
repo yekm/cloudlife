@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <algorithm>
 
 
 #include "pixelbuffer.h"
@@ -23,10 +24,19 @@ public:
         : m_name(_name) {}
     const char * name() {return m_name.c_str();}
     void resized(int _w, int _h) { // nb: old buffers -> forbidden to drawdot()
+        if (use_pixel_buffer && !pb)
+            pb = std::make_unique<PixelBuffer>();
         tex_w = _w, tex_h = _h;
         resize(_w, _h);
     }
     bool gui() {
+        if (ImGui::Checkbox("Force use pixel buffer", &use_pixel_buffer)) {
+            if (use_pixel_buffer)
+                pb = std::make_unique<PixelBuffer>();
+            else
+                pb.reset();
+        }
+
         if (pb)
             ScrollableSliderUInt("Max pixels", &pixel_buffer_maximum, 1, pixel_buffer_maximum_max, "%d", pixel_buffer_maximum/16);
         bool resize_pbo = render_gui();
@@ -69,8 +79,17 @@ public:
             ++pixels_discarded;
             return;
         }
-        screen[ y*tex_w + x ] = c;
+
+        if (pb)
+            pb->append({x, y, c});
+        else
+            really_drawdot(screen, x, y, c);
+
         ++pixels_drawn;
+    }
+
+    void really_drawdot(uint32_t *screen, uint32_t x, uint32_t y, uint32_t c) {
+        screen[ y*tex_w + x ] = c;
     }
 
     virtual void reinit() { resize(w, h); }
@@ -95,19 +114,20 @@ private:
     void render_pixel_buffer(uint32_t *screen) {
         std::fill_n(screen, w*h, 0);
 #if 1
-        auto b = pb->buffer.begin();
-        auto pbm = pb->buffer.size() > pixel_buffer_maximum ? pixel_buffer_maximum : pb->buffer.size();
-        auto end = pb->buffer.begin() + pbm;
-        for (; b != end; ++b)
-            drawdot(screen, b->x, b->y, b->color);
+        auto pbm = std::min<uint64_t>(pb->buffer.size(), pixel_buffer_maximum);// ? pixel_buffer_maximum : pb->buffer.size();
+        std::for_each_n(pb->buffer.begin(), pbm, [&](PixelBuffer::Pixel & p) {
+            really_drawdot(screen, p.x, p.y, p.color);
+        });
 #else
         for (auto &p : pb->buffer)
             drawdot(screen, p.x, p.y, p.color);
 #endif
     }
 
+    std::unique_ptr<PixelBuffer> pb;
 
 protected:
+    bool use_pixel_buffer = false;
     unsigned pixels_drawn = 0;
     unsigned pixels_discarded = 0;
     void default_resize(int _w, int _h) {
@@ -128,7 +148,6 @@ protected:
     uint32_t *data() { return pixels.data(); }
     std::vector<uint32_t> pixels;
     std::string m_name;
-    std::unique_ptr<PixelBuffer> pb;
 
 };
 

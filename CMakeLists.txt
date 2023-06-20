@@ -59,6 +59,7 @@ add_library(clouds OBJECT
     thornbird.cpp)
 
 target_link_libraries(clouds IMGUI glfw GL colormap)
+#set_property(TARGET clouds PROPERTY CXX_STANDARD 17)
 
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
 add_executable(cloudtest test.cpp $<TARGET_OBJECTS:clouds>)
