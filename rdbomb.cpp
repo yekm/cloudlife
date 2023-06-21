@@ -10,7 +10,7 @@
  * the above copyright notice appear in all copies and that both that
  * copyright notice and this permission notice appear in supporting
  * documentation.  No representations are made about the suitability of this
- * software for any purpose.  It is provided "as is" without express or 
+ * software for any purpose.  It is provided "as is" without express or
  * implied warranty.
  *
  * And remember: X Windows is to graphics hacking as roman numerals are to
@@ -19,47 +19,14 @@
 
 #include <math.h>
 
-#include "screenhack.h"
-#include "xshm.h"
+#include "rdbomb.h"
+#include "random.h"
 
-/* costs ~6% speed */
-#define dither_when_mapped 1
-
-struct state {
-  Display *dpy;
-  Window window;
-
-  int ncolors;
-  XColor *colors;
-  Visual *visual;
-#if dither_when_mapped
-  unsigned char *mc;
-#endif
-  Colormap cmap;
-  int mapped;
-  int pdepth;
-
-  int frame, epoch_time;
-  unsigned short *r1, *r2, *r1b, *r2b;
-  int width, height, npix;
-  int radius;
-  int reaction;
-  int diffusion;
-
-  char *pd;
-  int array_width, array_height;
-
-  XShmSegmentInfo shm_info;
-
-  GC gc;
-  XImage *image;
-  double array_x, array_y;
-  double array_dx, array_dy;
-  XWindowAttributes xgwa;
-  int delay;
-};
-
-static void random_colors(struct state *st);
+// random from yarandom.h returns unsigend int
+#define random xoshiro256plus
+//static inline unsigned int random() {
+//  return xoshiro256plus();
+//}
 
 /* -----------------------------------------------------------
    pixel hack, 8-bit pixel grid, first/next frame interface
@@ -82,11 +49,11 @@ static void random_colors(struct state *st);
 #define BELLRAND(x) (((random()%(x)) + (random()%(x)) + (random()%(x)))/3)
 
 /* returns number of pixels that the pixack produces.  called once. */
-static void
-pixack_init(struct state *st, int *size_h, int *size_v) 
+void RDbomb::pixack_init()
 {
-  st->width  = get_integer_resource (st->dpy, "width",  "Integer");
-  st->height = get_integer_resource (st->dpy, "height", "Integer");
+  RDbomb * st = this;
+  //st->width  = get_integer_resource (st->dpy, "width",  "Integer");
+  //st->height = get_integer_resource (st->dpy, "height", "Integer");
 
   if (st->width <= 0 && st->height <= 0 && (R & 1))
     st->width = st->height = 64 + BELLRAND(512);
@@ -94,41 +61,33 @@ pixack_init(struct state *st, int *size_h, int *size_v)
   if (st->width  <= 0) st->width  = 64 + BELLRAND(512);
   if (st->height <= 0) st->height = 64 + BELLRAND(512);
 
-  if (st->width  > st->xgwa.width)  st->width  = st->xgwa.width;
-  if (st->height > st->xgwa.height) st->height = st->xgwa.height;
+  //if (st->width  > w)  st->width  = w;
+  //if (st->height > h) st->height = h;
 
   /* jwz: when (and only when) XSHM is in use on an SGI 8-bit visual,
      we get shear unless st->width is a multiple of 4.  I don't understand
      why.  This is undoubtedly the wrong fix... */
-  if (visual_depth (st->xgwa.screen, st->xgwa.visual) == 8)
-    st->width &= ~0x7;
+  //if (visual_depth (st->xgwa.screen, st->xgwa.visual) == 8)
+  //  st->width &= ~0x7;
 
   /* don't go there */
   if (st->width < 10) st->width = 10;
   if (st->height < 10) st->height = 10;
-  st->epoch_time = get_integer_resource (st->dpy, "epoch", "Integer");
+  //st->epoch_time = get_integer_resource (st->dpy, "epoch", "Integer");
   st->npix = (st->width + 2) * (st->height + 2);
-  st->r1 = (unsigned short *) malloc(sizeof(unsigned short) * st->npix);
-  st->r2 = (unsigned short *) malloc(sizeof(unsigned short) * st->npix);
-  st->r1b = (unsigned short *) malloc(sizeof(unsigned short) * st->npix);
-  st->r2b = (unsigned short *) malloc(sizeof(unsigned short) * st->npix);
-
-  if (!st->r1 || !st->r2 || !st->r1b || !st->r2b) {
-    fprintf(stderr, "not enough memory for %d pixels.\n", st->npix);
-    exit(1);
-  }
-
-  *size_h = st->width;
-  *size_v = st->height;
+  st->r1.resize(st->npix);
+  st->r2.resize(st->npix);
+  st->r1b.resize(st->npix);
+  st->r2b.resize(st->npix);
 }
 
 #define test_pattern_hyper 0
 
 
 /* returns the pixels.  called many times. */
-static void
-pixack_frame(struct state *st, char *pix_buf) 
+void RDbomb::pixack_frame()
 {
+  RDbomb * st = this;
   int i, j;
   int w2 = st->width + 2;
   unsigned short *t;
@@ -137,22 +96,21 @@ pixack_frame(struct state *st, char *pix_buf)
     sleep(1);
 #endif
 
-  if (!(st->frame%st->epoch_time)) {
+  if (!(st->frame_number%st->epoch_time)) {
     int s;
-	  
+
     for (i = 0; i < st->npix; i++) {
       /* equilibrium */
       st->r1[i] = 65500;
       st->r2[i] = 11;
     }
 
-    random_colors(st);
+    //random_colors(st);
 
-    XSetWindowBackground(st->dpy, st->window, st->colors[255 % st->ncolors].pixel);
-    XClearWindow(st->dpy, st->window);
+    //XSetWindowBackground(st->dpy, st->window, st->colors[255 % st->ncolors].pixel);
+    //XClearWindow(st->dpy, st->window);
 
     s = w2 * (st->height/2) + st->width/2;
-    st->radius = get_integer_resource (st->dpy, "radius", "Integer");
     {
       int maxr = st->width/2-2;
       int maxr2 = st->height/2-2;
@@ -165,9 +123,7 @@ pixack_frame(struct state *st, char *pix_buf)
     for (i = -st->radius; i < (st->radius+1); i++)
       for (j = -st->radius; j < (st->radius+1); j++)
 	st->r2[s + i + j*w2] = mx - (R&63);
-    st->reaction = get_integer_resource (st->dpy, "reaction", "Integer");
     if (st->reaction < 0 || st->reaction > 2) st->reaction = R&1;
-    st->diffusion = get_integer_resource (st->dpy, "diffusion", "Integer");
     if (st->diffusion < 0 || st->diffusion > 2)
       st->diffusion = (R%5) ? ((R%3)?0:1) : 2;
     if (2 == st->reaction && 2 == st->diffusion)
@@ -187,14 +143,14 @@ pixack_frame(struct state *st, char *pix_buf)
   }
   for (i = 0; i < st->height; i++) {
     int ii = i + 1;
-    char *q = pix_buf + st->width * i;
-    short *qq = ((short *) pix_buf) + st->width * i;
+    //char *q = pix_buf + st->width * i;
+    //short *qq = ((short *) pix_buf) + st->width * i;
 /*  long  *qqq = ((long *) pix_buf) + st->width * i;  -- crashes on Alpha */
-    int   *qqq = ((int  *) pix_buf) + st->width * i;
-    unsigned short *i1 = st->r1 + 1 + w2 * ii;
-    unsigned short *i2 = st->r2 + 1 + w2 * ii;
-    unsigned short *o1 = st->r1b + 1 + w2 * ii;
-    unsigned short *o2 = st->r2b + 1 + w2 * ii;
+    //int   *qqq = ((int  *) pix_buf) + st->width * i;
+    unsigned short *i1 = st->r1 .data() + 1 + w2 * ii;
+    unsigned short *i2 = st->r2 .data() + 1 + w2 * ii;
+    unsigned short *o1 = st->r1b.data() + 1 + w2 * ii;
+    unsigned short *o2 = st->r2b.data() + 1 + w2 * ii;
     for (j = 0; j < st->width; j++) {
 #if test_pattern_hyper
       int r1 = (i * j + (st->frame&127)*frame)&65535;
@@ -251,7 +207,7 @@ pixack_frame(struct state *st, char *pix_buf)
 
       /* this is terrible.  here i want to assume ncolors = 256.
 	 should lose double indirection */
-
+#if 0
       if (st->mapped)
 #if dither_when_mapped
 	q[j] = st->colors[st->mc[r1]  % st->ncolors].pixel;
@@ -274,124 +230,47 @@ pixack_frame(struct state *st, char *pix_buf)
 #endif
       else
 	abort();
-    }
-  }
-  t = st->r1; st->r1 = st->r1b; st->r1b = t;
-  t = st->r2; st->r2 = st->r2b; st->r2b = t;  
-}
+#endif
 
-
-/* ------------- xscreensaver rendering -------------- */
-
-static const char *rd_defaults [] = {
-  ".background:	black",
-  ".foreground:	white",
-  "*fpsSolid:	true",
-  "*width:	0",                     /* tried to use -1 but it complained */
-  "*height:	0",
-  "*epoch:	40000",
-  "*reaction:	-1",
-  "*diffusion:	-1",
-  "*radius:	-1",
-  "*speed:	0.0",
-  "*size:	1.0",
-  "*delay:	30000",
-  "*colors:	255",
-#ifdef HAVE_XSHM_EXTENSION
-  "*useSHM:	True",
+#if dither_when_mapped
+  drawdot(i, j, pal.get_color(r1));
+	//qqq[j] = st->colors[st->mc[r1] % st->ncolors].pixel;
 #else
-  "*useSHM:	False",
+	qqq[j] = st->colors[(r1>>8) % st->ncolors].pixel;
 #endif
-#ifdef HAVE_MOBILE
-  "*ignoreRotation: True",
-#endif
-  0
-};
+    }
 
-static XrmOptionDescRec rd_options [] = {
-  { "-width",		".width",	XrmoptionSepArg, 0 },
-  { "-height",		".height",	XrmoptionSepArg, 0 },
-  { "-epoch",		".epoch",	XrmoptionSepArg, 0 },
-  { "-reaction",	".reaction",	XrmoptionSepArg, 0 },
-  { "-diffusion",	".diffusion",	XrmoptionSepArg, 0 },
-  { "-radius",		".radius",	XrmoptionSepArg, 0 },
-  { "-speed",		".speed",	XrmoptionSepArg, 0 },
-  { "-size",		".size",	XrmoptionSepArg, 0 },
-  { "-delay",		".delay",	XrmoptionSepArg, 0 },
-  { "-ncolors",		".colors",	XrmoptionSepArg, 0 },
-  { "-shm",		".useSHM",	XrmoptionNoArg, "True" },
-  { "-no-shm",		".useSHM",	XrmoptionNoArg, "False" },
-  { 0, 0, 0, 0 }
-};
-
-
-static void
-random_colors(struct state *st)
-{
-  memset(st->colors, 0, st->ncolors*sizeof(*st->colors));
-  make_smooth_colormap (st->xgwa.screen, st->visual, st->cmap,
-                        st->colors, &st->ncolors,
-			True, 0, True);
-  if (st->ncolors <= 2) {
-    mono_p = True;
-    st->ncolors = 2;
-    st->colors[0].flags = DoRed|DoGreen|DoBlue;
-    st->colors[0].red = st->colors[0].green = st->colors[0].blue = 0;
-    XAllocColor(st->dpy, st->cmap, &st->colors[0]);
-    st->colors[1].flags = DoRed|DoGreen|DoBlue;
-    st->colors[1].red = st->colors[1].green = st->colors[1].blue = 0xFFFF;
-    XAllocColor(st->dpy, st->cmap, &st->colors[1]);
   }
 
-  /* Scale it up so that there are exactly 255 colors -- that keeps the
-     animation speed consistent, even when there aren't many allocatable
-     colors, and prevents the -mono mode from looking like static. */
-  if (st->ncolors != 255) {
-    int i, n = 255;
-    double scale = (double) st->ncolors / (double) (n+1);
-    XColor *c2 = (XColor *) malloc(sizeof(*c2) * (n+1));
-    for (i = 0; i < n; i++)
-      c2[i] = st->colors[(int) (i * scale)];
-    free(st->colors);
-    st->colors = c2;
-    st->ncolors = n;
-  }
-
+  std::swap(st->r1, st->r1b);
+  std::swap(st->r2, st->r2b);
+  //t = st->r1; st->r1 = st->r1b; st->r1b = t;
+  //t = st->r2; st->r2 = st->r2b; st->r2b = t;
 }
-
 
 /* should factor into RD-specfic and compute-every-pixel general */
-static void *
-rd_init (Display *dpy, Window win)
+void RDbomb::rd_init ()
 {
-  struct state *st = (struct state *) calloc (1, sizeof(*st));
-  XGCValues gcv;
-  int vdepth;
+  RDbomb * st = this;
+  //int vdepth;
 
-  st->dpy = dpy;
-  st->window = win;
-
-  st->delay = get_integer_resource (st->dpy, "delay", "Float");
-
-  XGetWindowAttributes (st->dpy, win, &st->xgwa);
-  st->visual = st->xgwa.visual;
-  pixack_init(st, &st->width, &st->height);
+  pixack_init();
   {
-    double s = get_float_resource (st->dpy, "size", "Float");
-    double p = get_float_resource (st->dpy, "speed", "Float");
+    double s = size;
+    double p = speed;
     if (s < 0.0 || s > 1.0)
       s = 1.0;
     s = sqrt(s);
-    st->array_width = st->xgwa.width * s;
-    st->array_height = st->xgwa.height * s;
+    st->array_width = w * s;
+    st->array_height = h * s;
     if (s < 0.99) {
       st->array_width = (st->array_width / st->width) * st->width;
       st->array_height = (st->array_height / st->height) * st->height;
     }
     if (st->array_width < st->width) st->array_width = st->width;
     if (st->array_height < st->height) st->array_height = st->height;
-    st->array_x = (st->xgwa.width - st->array_width)/2;
-    st->array_y = (st->xgwa.height - st->array_height)/2;
+    st->array_x = (w - st->array_width)/2;
+    st->array_y = (h - st->array_height)/2;
     st->array_dx = p;
     st->array_dy = .31415926 * p;
 
@@ -401,9 +280,13 @@ rd_init (Display *dpy, Window win)
 
   }
   st->npix = (st->width + 2) * (st->height + 2);
+
+  st->pdepth = 32;
+#if 0
 /*  gcv.function = GXcopy;*/
-  st->gc = XCreateGC(st->dpy, win, 0 /*GCFunction*/, &gcv);
-  vdepth = visual_depth(DefaultScreenOfDisplay(st->dpy), st->xgwa.visual);
+  //st->gc = XCreateGC(st->dpy, win, 0 /*GCFunction*/, &gcv);
+  //vdepth = visual_depth(DefaultScreenOfDisplay(st->dpy), st->xgwa.visual);
+  vdepth = 32;
 
   /* This code only deals with pixmap depths of 1, 8, 16, and 32.
      Therefore, we assume that those depths will be supported by the
@@ -448,7 +331,6 @@ rd_init (Display *dpy, Window win)
         st->pdepth = 16;
       free (pfv);
     }
-
   st->cmap = st->xgwa.colormap;
   st->ncolors = get_integer_resource (st->dpy, "colors", "Integer");
 
@@ -481,13 +363,13 @@ rd_init (Display *dpy, Window win)
   st->pd = st->image->data;
 
   return st;
+#endif
 }
 
-static unsigned long
-rd_draw (Display *dpy, Window win, void *closure)
+bool RDbomb::render(uint32_t *p)
 {
-  struct state *st = (struct state *) closure;
-  Bool bump = False;
+  RDbomb *st = this;
+  bool bump = false;
 
   /* Let's compute N frames at once. This speeds up the progress of
      the animation and the seething, but doesn't appreciably affect the
@@ -497,33 +379,35 @@ rd_draw (Display *dpy, Window win, void *closure)
   for (ii = 0; ii < chunk; ii++) {
 
   int i, j;
-  pixack_frame(st, st->pd);
+  pixack_frame();
+#if 0
   if (ii == chunk-1) {  /* Only need to putimage on the final frame */
   for (i = 0; i < st->array_width; i += st->width)
     for (j = 0; j < st->array_height; j += st->height)
       put_xshm_image(st->dpy, st->window, st->gc, st->image, 0, 0, i+st->array_x, j+st->array_y,
                      st->width, st->height, &st->shm_info);
   }
+#endif
 
   st->array_x += st->array_dx;
   st->array_y += st->array_dy;
   if (st->array_x < 0) {
     st->array_x = 0;
     st->array_dx = -st->array_dx;
-    bump = True;
-  } else if (st->array_x > (st->xgwa.width - st->array_width)) {
-    st->array_x = (st->xgwa.width - st->array_width);
+    bump = true;
+  } else if (st->array_x > (w - st->array_width)) {
+    st->array_x = (w - st->array_width);
     st->array_dx = -st->array_dx;
-    bump = True;
+    bump = true;
   }
   if (st->array_y < 0) {
     st->array_y = 0;
     st->array_dy = -st->array_dy;
-    bump = True;
-  } else if (st->array_y > (st->xgwa.height - st->array_height)) {
-    st->array_y = (st->xgwa.height - st->array_height);
+    bump = true;
+  } else if (st->array_y > (h - st->array_height)) {
+    st->array_y = (h - st->array_height);
     st->array_dy = -st->array_dy;
-    bump = True;
+    bump = true;
   }
 
   if (bump) {
@@ -534,37 +418,36 @@ rd_draw (Display *dpy, Window win, void *closure)
     }
   }
 
-  st->frame++;
+  //st->frame++;
   }
 
-  return st->delay;
+  return false;
 }
 
-static void
-rd_reshape (Display *dpy, Window window, void *closure, 
-                 unsigned int w, unsigned int h)
+bool RDbomb::render_gui()
 {
+	bool up = false;
+
+	ScrollableSliderInt("ncolors", &ncolors, 1, 1024*4, "%d", 256);
+  ScrollableSliderDouble("size", &size, 0, 10, "%.2f", 0.1);
+  ScrollableSliderDouble("speed", &speed, 0, 10, "%.2f", 0.1);
+  ScrollableSliderInt("epoch_time", &epoch_time, 128, 1024*100, "%d", 1024);
+  ScrollableSliderInt("radius", &radius, -10, 10, "%d", 1);
+  ScrollableSliderInt("reaction", &reaction, -10, 10, "%d", 1);
+  ScrollableSliderInt("diffusion", &diffusion, -10, 10, "%d", 1);
+
+
+	pal.RenderGui();
+
+	if (up) {
+		resize(w, h);
+	}
+
+	return false;
 }
 
-static Bool
-rd_event (Display *dpy, Window window, void *closure, XEvent *event)
-{
-  return False;
+void RDbomb::resize(int _w, int _h) {
+  default_resize(_w, _h);
+  pal.rescale(ncolors);
+  rd_init();
 }
-
-static void
-rd_free (Display *dpy, Window window, void *closure)
-{
-  struct state *st = (struct state *) closure;
-  free (st->r1);
-  free (st->r2);
-  free (st->r1b);
-  free (st->r2b);
-  free (st->colors);
-  free (st->mc);
-  XFreeGC (dpy, st->gc);
-  destroy_xshm_image (dpy, st->image, &st->shm_info);
-  free (st);
-}
-
-XSCREENSAVER_MODULE_2 ("RDbomb", rdbomb, rd)

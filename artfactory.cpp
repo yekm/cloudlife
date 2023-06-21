@@ -7,6 +7,7 @@
 #include "discrete.h"
 #include "thornbird.h"
 #include "onepixel.h"
+#include "rdbomb.h"
 
 
 ArtFactory::ArtFactory() {
@@ -17,6 +18,7 @@ ArtFactory::ArtFactory() {
     add_art<Discrete>("Discrete");
     add_art<Thornbird>("Thornbird");
     add_art<OnePixel>("OnePixel");
+    add_art<RDbomb>("RDbomb");
 
     vc = VectorCombo("Art", art_items);
     vc.set_index(1);

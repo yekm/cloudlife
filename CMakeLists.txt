@@ -56,7 +56,8 @@ add_library(clouds OBJECT
     ifs.cpp
     vermiculate.cpp
     discrete.cpp
-    thornbird.cpp)
+    thornbird.cpp
+    rdbomb.cpp)
 
 target_link_libraries(clouds IMGUI glfw GL colormap)
 #set_property(TARGET clouds PROPERTY CXX_STANDARD 17)
