@@ -23,22 +23,17 @@ private:
 #if dither_when_mapped
     unsigned char *mc;
 #endif
-    //Colormap cmap;
     int ncolors = 65535;
-    double size = 1.0;
-    double speed = 0.0;
-
+    int iterations = 3;
 
     int mapped;
     int pdepth;
 
-    //int frame;
-    int epoch_time = 40000;
     std::vector<unsigned short> r1, r2, r1b, r2b;
-    int width = 0, height = 0, npix;
-    int radius = -1;
-    int reaction = -1;
-    int diffusion = -1;
+    int width = 512, height = 512, npix;
+    int radius = 8;
+    int reaction = 1;
+    int diffusion = 1;
 
     char *pd;
     int array_width, array_height;

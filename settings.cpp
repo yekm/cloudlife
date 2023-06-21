@@ -34,6 +34,10 @@ bool PaletteSetting::RenderGui() {
         }
         ImGui::EndCombo();
     }
+
+    if (ret)
+        rescale(color_max);
+
     return ret;
 }
 

@@ -27,6 +27,7 @@ public:
         if (use_pixel_buffer && !pb)
             pb = std::make_unique<PixelBuffer>();
         tex_w = _w, tex_h = _h;
+        frame_number = 0;
         resize(_w, _h);
     }
     bool gui() {
@@ -96,7 +97,7 @@ public:
 
     virtual ~Art() = default;
 
-    unsigned frame_number = 0, clear_every = 0;
+    unsigned frame_number = 0, clear_every = 0, max_kframes = 0;
     unsigned pixel_buffer_maximum = 1024*10, pixel_buffer_maximum_max = 1024*1024;
 
     void clear() {

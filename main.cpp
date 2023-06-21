@@ -194,6 +194,7 @@ int main(int argc, char *argv[])
         {
 
             ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 1);
+            ScrollableSliderUInt("Max 1k frames before reinit", &art->max_kframes, 0, 1024, "%d", 1);
             ImGui::ColorEdit4("Clear color", (float*)&clear_color);
         }
 
@@ -212,6 +213,8 @@ int main(int argc, char *argv[])
 
         ImGui::End();
 
+        if (art->max_kframes)
+            resize_pbo |= art->frame_number > art->max_kframes*1024;
         if (get_window_size() || resize_pbo) {
             art->resized(sw, sh);
             destroy_pbos();
