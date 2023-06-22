@@ -25,6 +25,7 @@ private:
 #endif
     int ncolors = 65535;
     int iterations = 3;
+    int init_type = 0;
 
     int mapped;
     int pdepth;

@@ -65,10 +65,27 @@ void RDbomb::pixack_init() {
   }
 
   s = w2 * (st->height / 2) + st->width / 2;
-  for (int i = -st->radius; i < (st->radius + 1); i++)
-    for (int j = -st->radius; j < (st->radius + 1); j++)
-      st->r2[s + i + j * w2] = mx - (R & 63);
+  switch(init_type) {
+  case 0:
+    for (int i = -st->radius; i < (st->radius + 1); i++)
+      for (int j = -st->radius; j < (st->radius + 1); j++)
+        st->r2[s + i + j * w2] = mx - (R & 63);
+    break;
+  case 1:
+    st->r2[s + -st->radius + -st->radius * w2] = mx - (R & 63);
+    st->r2[s + -st->radius +  st->radius * w2] = mx - (R & 63);
+    st->r2[s +  st->radius + -st->radius * w2] = mx - (R & 63);
+    st->r2[s +  st->radius +  st->radius * w2] = mx - (R & 63);
+    break;
+  case 2:
+    for (int i = -st->radius; i < (st->radius + 1); i++)
+      for (int j = -st->radius; j < (st->radius + 1); j++)
+        if (R%1024 == 0)
+          st->r2[s + i + j * w2] = mx - (R & 63);
+    break;
+  }
 }
+
 
 #define test_pattern_hyper 0
 
@@ -241,6 +258,7 @@ bool RDbomb::render_gui() {
   ScrollableSliderInt("ncolors", &ncolors, 1, 1024 * 4, "%d", 256);
   ScrollableSliderInt("iterations", &iterations, 0, 16, "%d", 1);
   up |= ScrollableSliderInt("radius", &radius, 0, std::min(width, height)/2-2, "%d", 1);
+  up |= ScrollableSliderInt("init type", &init_type, 0, 2, "%d", 1);
   ScrollableSliderInt("reaction", &reaction, 0, 2, "%d", 1);
   ScrollableSliderInt("diffusion", &diffusion, 0, 2, "%d", 1);
 
