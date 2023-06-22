@@ -35,6 +35,12 @@ void ArtFactory::cycle_art() {
     vc.set_index(i);
 }
 
+void ArtFactory::set_art(unsigned a) {
+    if (a >= art_items.size())
+        a = 0;
+    vc.set_index(a);
+}
+
 bool ArtFactory::render_gui() {
     return vc.RenderGui();
 }

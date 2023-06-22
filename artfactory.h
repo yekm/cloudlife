@@ -44,6 +44,7 @@ public:
     ArtFactory();
     std::unique_ptr<Art> get_art();
     void cycle_art();
+    void set_art(unsigned a);
     bool render_gui();
 private:
     VectorCombo::combo_container_t art_items;
