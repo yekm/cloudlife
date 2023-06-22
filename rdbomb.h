@@ -30,7 +30,7 @@ private:
     int pdepth;
 
     std::vector<unsigned short> r1, r2, r1b, r2b;
-    int width = 512, height = 512, npix;
+    int width = 256, height = 256, npix;
     int radius = 8;
     int reaction = 1;
     int diffusion = 1;
