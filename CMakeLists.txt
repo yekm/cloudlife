@@ -46,6 +46,7 @@ find_package(glfw3)
 add_subdirectory(colormap)
 
 add_library(clouds OBJECT
+    art.cpp
     artfactory.cpp
     settings.cpp
     imgui_elements.cpp

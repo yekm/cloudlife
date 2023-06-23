@@ -24,6 +24,8 @@
 #include "random.h"
 #include "rdbomb.h"
 
+#include "imgui_elements.h"
+
 // random from yarandom.h returns unsigend int
 #define random xoshiro256plus
 
