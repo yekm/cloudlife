@@ -7,6 +7,10 @@
 
 
 bool PaletteSetting::RenderGui() {
+    ImGui::Checkbox("invert", &invert);
+    ImGui::SameLine(0, 1);
+
+
     bool ret = false;
     auto pb = colormap::palettes.begin();
     std::advance(pb, item_current_idx);
@@ -49,6 +53,20 @@ void PaletteSetting::rescale(uint32_t ncolours) {
 uint32_t PaletteSetting::get_color(uint32_t color_n) {
     if (color_n > color_max)
         printf("%d>%d ", color_n, (int)color_max);
+    if (invert)
+        color_n = color_max - color_n;
+    auto c = value(color_n);
+    return 0xff000000 |
+            c.getRed().getValue() << 0 |
+            c.getGreen().getValue() << 8 |
+            c.getBlue().getValue() << 16;
+}
+
+uint32_t PaletteSetting::get_colorf(float color_n) {
+    if (color_n > color_max)
+        printf("%f>%d ", color_n, (int)color_max);
+    if (invert)
+        color_n = color_max - color_n;
     auto c = value(color_n);
     return 0xff000000 |
             c.getRed().getValue() << 0 |

@@ -23,8 +23,11 @@ class PaletteSetting : public Setting {
 public:
     typedef colormap::map<colormap::color<colormap::space::rgb>> pal_t;
 
-    PaletteSetting()
-        : Setting("Palette") {}
+    PaletteSetting(std::string pname = "inferno")
+        : Setting("Palette") {
+            value = colormap::palettes.at(pname);
+            rescale(color_max);
+        }
     bool RenderGui() override;
 
     pal_t & operator*() {return value;}
@@ -33,11 +36,13 @@ public:
 
     void rescale(uint32_t ncolours);
     uint32_t get_color(uint32_t color_n);
+    uint32_t get_colorf(float color_n);
 
 private:
     int item_current_idx = 0;
 
     double color_max = 1;
+    bool invert = false;
 };
 
 
