@@ -58,7 +58,17 @@ add_library(clouds OBJECT
     vermiculate.cpp
     discrete.cpp
     thornbird.cpp
-    rdbomb.cpp)
+    rdbomb.cpp
+    acidwarp/acidwarp.c
+    acidwarp/lut.c
+    acidwarp/palinit.c
+    acidwarp/bit_map.c
+    acidwarp/rolnfade.c
+    acidwarp/warp_text.c
+    acidwarp.cpp
+    )
+
+target_include_directories(clouds PRIVATE .)
 
 target_link_libraries(clouds IMGUI glfw GL colormap)
 #set_property(TARGET clouds PROPERTY CXX_STANDARD 17)

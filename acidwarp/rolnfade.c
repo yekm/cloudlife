@@ -5,8 +5,6 @@
 #include "acidwarp.h"
 #include "rolnfade.h"
 #include "palinit.h"
-#include <vga.h>
-#include <vgagl.h>
 
 int RedRollDirection = 0, GrnRollDirection = 0, BluRollDirection = 0;
 UINT FadeCompleteFlag = 0;
@@ -46,7 +44,7 @@ void rollMainPalArrayAndLoadDACRegs(UCHAR *MainPalArray)
 {
         maybeInvertSubPalRollDirection();
         roll_rgb_palArray(MainPalArray);
-        gl_setpalettecolors(0, 255, MainPalArray);
+        //gl_setpalettecolors(0, 255, MainPalArray);
 }
 
 
@@ -102,7 +100,7 @@ void rolNFadMainPalAry2RndTargNLdDAC(UCHAR *MainPalArray, UCHAR *TargetPalArray)
 	maybeInvertSubPalRollDirection();
 	roll_rgb_palArray (  MainPalArray);
 	roll_rgb_palArray (TargetPalArray);
-        gl_setpalettecolors(0, 256, MainPalArray);
+        //gl_setpalettecolors(0, 256, MainPalArray);
 }
 
 /**********************************************************************************/

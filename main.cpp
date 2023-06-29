@@ -45,6 +45,8 @@ GLuint image_texture;
 GLuint pboIds[2];
 int pbo_index = 0;
 
+// GL_CLAMP_TO_EDGE, GL_CLAMP_TO_BORDER, GL_MIRRORED_REPEAT, GL_REPEAT, GL_MIRROR_CLAMP_TO_EDGE
+
 void make_pbos() {
     image_data_vector.resize(texture_size);
     image_data = image_data_vector.data();

@@ -8,6 +8,7 @@
 #include "thornbird.h"
 #include "onepixel.h"
 #include "rdbomb.h"
+#include "acidwarp.h"
 
 
 ArtFactory::ArtFactory() {
@@ -19,6 +20,7 @@ ArtFactory::ArtFactory() {
     add_art<Thornbird>("Thornbird");
     add_art<OnePixel>("OnePixel");
     add_art<RDbomb>("RDbomb");
+    add_art<AcidWarp>("AcidWarp");
 
     vc = VectorCombo("Art", art_items);
     vc.set_index(1);

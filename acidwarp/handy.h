@@ -18,11 +18,14 @@ typedef enum {FALSE, TRUE} BOOL;
 #include <time.h>
 #include <stdio.h> /* Needed for NULL * */
 #include <stdlib.h>
-#define RANDOMIZE() (srand((UINT)time( (time_t *)NULL )))
-#define RANDOM(a) (rand()%(a))
+//#define RANDOMIZE() (srand((UINT)time( (time_t *)NULL )))
+//#define RANDOM(a) (rand()%(a))
+#include <stdint.h>
+uint64_t xoshiro256plus(void);
+#define RANDOM(a) (xoshiro256plus()%(a))
 
 /* Mini-benchmarking tools. Only one second accuracy */
-time_t __HANDY_BENCH;
+//time_t __HANDY_BENCH;
 #define START() (__HANDY_BENCH = time (& __HANDY_BENCH))
 #define MARK()  ((long)time ((time_t *)0) - __HANDY_BENCH)
 
