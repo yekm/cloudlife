@@ -186,6 +186,7 @@ void cpu_load_gui()
     ImGui::Text(cpu_load_text());
 }
 
+#if 0
 using namespace ImGui;
 
 // https://github.com/ocornut/imgui/issues/694#issuecomment-1004190040
@@ -245,3 +246,4 @@ static bool palettePanel(const char *title, const ImVec4* colors, int nColors, c
 	}
 	return false;
 }
+#endif

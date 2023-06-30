@@ -63,6 +63,7 @@ bool AcidWarp::render(uint32_t *p) {
       frame = 0, acid_state = FADE_OUT;
     break;
   case FADE_OUT:
+    // FIXME: something wrong with rolFade*, draw a pallete in imgui, see whats going on
     if (fade_dir)
       rolNFadeBlkMainPalArrayNLoadDAC(MainPalArray);
     else
