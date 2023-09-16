@@ -1,0 +1,12 @@
+Every program deserves a TODO file, so here it is, in order of priority:
+
+Support more than 256 color screen modes
+Create a man page for it
+Make a good palette routine
+Convert to GGI 
+Make it a real screen savior
+Convert to a module for xlock
+Complete the other LSD (Light Show Deluxe) modules
+Conform to standard C tabbing styles
+Make a version for Win32S
+

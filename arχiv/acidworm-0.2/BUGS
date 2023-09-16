@@ -1,0 +1,3 @@
+Some of the worm position code can make SVGALIB crash, most notable is when
+random worm placement is selected. 
+  

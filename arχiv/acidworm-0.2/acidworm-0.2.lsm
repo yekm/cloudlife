@@ -1,0 +1,17 @@
+Begin3
+Title:		acidworm - SVGALib screen saver eye candy 
+Version:	0.2
+Entered-date:	17DEC96
+Description:	Acidwarp-like SVGALib program to be used as a screen saver.
+                Variable size and number of worms, various color cyclers, from
+                320x200x256 to 1280x1024x256 supported. Hicolor support to be
+                added soon. Enjoy!
+Keywords:	acidwarp SVGALib screensaver eyecandy linux
+Author:		tiensivu@pilot.msu.edu (Aaron Tiensivu)
+Maintained-by:	tiensivu@pilot.msu.edu (Aaron Tiensivu)
+Primary-site:	sunsite.unc.edu /pub/Linux/apps/graphics/hacks
+		13kB acidworm-0.2.tar.gz
+		1kB  acidworm-0.2.lsm
+Alternate-site:	http://www.msu.edu/user/tiensivu 
+Copying-policy:	Freely distributable/useable, GPL 
+End

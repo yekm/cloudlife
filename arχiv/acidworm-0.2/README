@@ -1,0 +1,53 @@
+
+Acidworm 0.2 - By Aaron Tiensivu - tiensivu@pilot.msu.edu 
+Gross hack of Eric P. Scott's 'worm' program              
+Inspired by Acidwarp and other eyecandy programs          
+
+If you like it, tell me. If you hate it, tell me.         
+If it gives you epileptic seisures, enjoy!                
+If not, try the Robotron color scheme, it's worse than Mary Hart's voice.
+
+I originally planned to wait until this program was properly written to release
+it, but some friends have been pressuring me to send it out and about, so here
+it is, for all to see. 
+
+This will be part of a package called LSD - Light Show Deluxe, or Luscious 
+Screen Designs, or Laser Show Dynamic. It's more fun making up acronyms than
+writing it. 
+
+I also plan to make a diagnostic program like Microsoft's MSD for Linux, and
+it will be called LSD. Linux System Diagnostics. Ha ha. 
+
+Much like Jiffy Pop, more fun to run than it is to make, or something like
+that. You get the picture. 
+
+Just a standard disclaimer here: If the program breaks your computer, you are
+left with the pieces. I'm not responsible for whatever it does. I could bore
+you with legal mumbo-jumbo, but that would go against the spirit of the program.
+
+Another personal disclaimer: I've never done, and never plan to take, acid.
+This program is merely entertainment and free spirited. I'm sure this will
+freak out plenty of Deadheads and Phish-heads. 
+
+I collect programs like this. Personal favorites include Ambience, Timeless, 
+Acidwarp, Plasmatic, Morph-3d, JCL-Plasma, Lorre, and Mindwarp. If you find
+a neat-o-keen program not listed here, please send it to me. 
+
+If you get a chance, check out my web-page. I'm very proud of it and it has
+some cool music related items on it. 
+
+The latest version of this program will be posted on there always.
+
+http://www.msu.edu/user/tiensivu
+
+Suggested command line parameters (personal favorites):
+acidworm -g 13 -l 1024 -n 256 -p 6 
+acidworm -g 5  -l 6    -n 1024 
+acidworm -g 11 -l 2    -n 4096
+acidworm -s 1
+acidworm -g 10 -l 512  -n 128
+acidworm -h
+
+The provided binary was compiled with GCC 2.7.2.1 + bug patches, libc 5.4.17,
+Linux pre-2.1.16 and SVGALib 1.2.10 on Lucretia, an AMD 586-133 at 160mhz. 
+
