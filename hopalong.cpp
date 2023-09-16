@@ -47,118 +47,22 @@ static const char sccsid[] = "@(#)hop.c	5.00 2000/11/01 xlockmore";
  * 23-Mar-1988: Coded HOPALONG routines from Scientific American Sept. 86 p. 14.
  *              Hopalong was attributed to Barry Martin of Aston University
  *              (Birmingham, England)
+ * 
+ * 
+ * Dear ImGui port by Pavel Vasilyev <yekm@299792458.ru>, Sep 2023
  */
 
 
-#ifdef STANDALONE
-#define MODE_hop
-#define DEFAULTS	"*delay: 10000 \n" \
-					"*count: 1000 \n" \
-					"*cycles: 2500 \n" \
-					"*ncolors: 200 \n" \
-					"*fpsSolid: true \n" \
-					"*ignoreRotation: True \n" \
+#include "imgui_elements.h"
+#include "hopalong.h"
+#include "random.h"
+// from yarandom.h
+#define LRAND()         ((long) (xoshiro256plus() & 0x7fffffff))
+#define MAXRAND         (2147483648.0) /* unsigned 1<<31 as a float */
+#define balance_rand(v)	((LRAND()/MAXRAND*(v))-((v)/2))	/* random around 0 */
 
-# define SMOOTH_COLORS
-# define reshape_hop 0
-# define release_hop 0
-# define hop_handle_event 0
-# include "xlockmore.h"		/* in xscreensaver distribution */
-#else /* STANDALONE */
-# include "xlock.h"		/* in xlockmore distribution */
-#endif /* STANDALONE */
+#include <math.h>
 
-#ifdef MODE_hop
-
-#define DEF_MARTIN "False"
-#define DEF_POPCORN "False"
-#define DEF_EJK1 "False"
-#define DEF_EJK2 "False"
-#define DEF_EJK3 "False"
-#define DEF_EJK4 "False"
-#define DEF_EJK5 "False"
-#define DEF_EJK6 "False"
-#define DEF_RR "False"
-#define DEF_JONG "False"
-#define DEF_SINE "False"
-
-static Bool martin;
-static Bool popcorn;
-static Bool ejk1;
-static Bool ejk2;
-static Bool ejk3;
-static Bool ejk4;
-static Bool ejk5;
-static Bool ejk6;
-static Bool rr;
-static Bool jong;
-static Bool sine;
-
-static XrmOptionDescRec opts[] =
-{
-	{"-martin", ".hop.martin", XrmoptionNoArg, "on"},
-	{"+martin", ".hop.martin", XrmoptionNoArg, "off"},
-	{"-popcorn", ".hop.popcorn", XrmoptionNoArg, "on"},
-	{"+popcorn", ".hop.popcorn", XrmoptionNoArg, "off"},
-	{"-ejk1", ".hop.ejk1", XrmoptionNoArg, "on"},
-	{"+ejk1", ".hop.ejk1", XrmoptionNoArg, "off"},
-	{"-ejk2", ".hop.ejk2", XrmoptionNoArg, "on"},
-	{"+ejk2", ".hop.ejk2", XrmoptionNoArg, "off"},
-	{"-ejk3", ".hop.ejk3", XrmoptionNoArg, "on"},
-	{"+ejk3", ".hop.ejk3", XrmoptionNoArg, "off"},
-	{"-ejk4", ".hop.ejk4", XrmoptionNoArg, "on"},
-	{"+ejk4", ".hop.ejk4", XrmoptionNoArg, "off"},
-	{"-ejk5", ".hop.ejk5", XrmoptionNoArg, "on"},
-	{"+ejk5", ".hop.ejk5", XrmoptionNoArg, "off"},
-	{"-ejk6", ".hop.ejk6", XrmoptionNoArg, "on"},
-	{"+ejk6", ".hop.ejk6", XrmoptionNoArg, "off"},
-	{"-rr", ".hop.rr", XrmoptionNoArg, "on"},
-	{"+rr", ".hop.rr", XrmoptionNoArg, "off"},
-	{"-jong", ".hop.jong", XrmoptionNoArg, "on"},
-	{"+jong", ".hop.jong", XrmoptionNoArg, "off"},
-	{"-sine", ".hop.sine", XrmoptionNoArg, "on"},
-	{"+sine", ".hop.sine", XrmoptionNoArg, "off"}
-};
-static argtype vars[] =
-{
-	{&martin,  "martin",  "Martin",  DEF_MARTIN,  t_Bool},
-	{&popcorn, "popcorn", "Popcorn", DEF_POPCORN, t_Bool},
-	{&ejk1, "ejk1", "EJK1", DEF_EJK1, t_Bool},
-	{&ejk2, "ejk2", "EJK2", DEF_EJK2, t_Bool},
-	{&ejk3, "ejk3", "EJK3", DEF_EJK3, t_Bool},
-	{&ejk4, "ejk4", "EJK4", DEF_EJK4, t_Bool},
-	{&ejk5, "ejk5", "EJK5", DEF_EJK5, t_Bool},
-	{&ejk6, "ejk6", "EJK6", DEF_EJK6, t_Bool},
-	{&rr,   "rr",   "RR",   DEF_RR,   t_Bool},
-	{&jong, "jong", "Jong", DEF_JONG, t_Bool},
-	{&sine, "sine", "Sine", DEF_SINE, t_Bool}
-};
-static OptionStruct desc[] =
-{
-	{"-/+martin", "turn on/off sqrt format"},
-	{"-/+popcorn", "turn on/off Clifford A. Pickover's popcorn format"},
-	{"-/+ejk1", "turn on/off ejk1 format"},
-	{"-/+ejk2", "turn on/off ejk2 format"},
-	{"-/+ejk3", "turn on/off ejk3 format"},
-	{"-/+ejk4", "turn on/off ejk4 format"},
-	{"-/+ejk5", "turn on/off ejk5 format"},
-	{"-/+ejk6", "turn on/off ejk6 format"},
-	{"-/+rr",   "turn on/off rr format"},
-	{"-/+jong", "turn on/off jong format"},
-	{"-/+sine", "turn on/off sine format"}
-};
-
-ENTRYPOINT ModeSpecOpt hop_opts =
-{sizeof opts / sizeof opts[0], opts, sizeof vars / sizeof vars[0], vars, desc};
-
-#ifdef USE_MODULES
-ModStruct   hop_description =
-{"hop", "init_hop", "draw_hop", (char *) NULL,
- "refresh_hop", "init_hop", "free_hop", &hop_opts,
- 10000, 1000, 2500, 1, 64, 1.0, "",
- "Shows real plane iterated fractals", 0, NULL};
-
-#endif
 
 #define MARTIN 0
 #define POPCORN 7
@@ -177,68 +81,15 @@ ModStruct   hop_description =
 #define OPS 11
 #endif
 
-typedef struct {
-	int         centerx, centery;	/* center of the screen */
-	double      a, b, c, d;
-	double      i, j;	/* hopalong parameters */
-	int         inc;
-	int         pix;
-	int         op;
-	int         count;
-	int         scale;
-	int         bufsize;
-	XRectangle *pointBuffer;
-} hopstruct;
 
-static hopstruct *hops = (hopstruct *) NULL;
-
-ENTRYPOINT void
-init_hop(ModeInfo * mi)
+void Hopalong::init_hop()
 {
-	Display    *display = MI_DISPLAY(mi);
-	GC          gc = MI_GC(mi);
+	hopstruct *hp = &hps;
 	double      range;
-	hopstruct  *hp;
 
-	MI_INIT (mi, hops);
-	hp = &hops[MI_SCREEN(mi)];
-
-    hp->scale = 1;
-    if (MI_WIDTH(mi) > 2560 || MI_HEIGHT(mi) > 2560)
-      hp->scale *= 3;  /* Retina displays */
-    /* We aren't increasing the spacing between the pixels, just the size. */
-
-	hp->centerx = MI_WIDTH(mi) / 2;
-	hp->centery = MI_HEIGHT(mi) / 2;
+	hp->centerx = w / 2;
+	hp->centery = h / 2;
 	/* Make the other operations less common since they are less interesting */
-	if (MI_IS_FULLRANDOM(mi)) {
-		hp->op = NRAND(OPS);
-	} else {
-		if (martin)
-			hp->op = MARTIN;
-		else if (popcorn)
-			hp->op = POPCORN;
-		else if (ejk1)
-			hp->op = EJK1;
-		else if (ejk2)
-			hp->op = EJK2;
-		else if (ejk3)
-			hp->op = EJK3;
-		else if (ejk4)
-			hp->op = EJK4;
-		else if (ejk5)
-			hp->op = EJK5;
-		else if (ejk6)
-			hp->op = EJK6;
-		else if (rr)
-			hp->op = RR;
-		else if (jong)
-			hp->op = JONG;
-		else if (sine)
-			hp->op = SINE;
-		else
-			hp->op = NRAND(OPS);
-	}
 
 	range = sqrt((double) hp->centerx * hp->centerx +
 	     (double) hp->centery * hp->centery) / (1.0 + LRAND() / MAXRAND);
@@ -259,8 +110,7 @@ init_hop(ModeInfo * mi)
 			else
 				hp->c = 0.0;
 #endif
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "sqrt a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
+			//(void) fprintf(stdout, "sqrt a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
 			break;
 		case EJK1:
 #ifdef XMARTIN
@@ -271,8 +121,7 @@ init_hop(ModeInfo * mi)
 			hp->c = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 40.0;
 #endif
 			hp->b = (LRAND() / MAXRAND) * 0.4;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "ejk1 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
+			//(void) fprintf(stdout, "ejk1 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
 			break;
 		case EJK2:
 #ifdef XMARTIN
@@ -286,8 +135,7 @@ init_hop(ModeInfo * mi)
 			hp->c = pow(10.0, (LRAND() / MAXRAND) * 9.0);
 			if (LRAND() & 1)
 				hp->c = -hp->c;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "ejk2 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
+			//(void) fprintf(stdout, "ejk2 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
 			break;
 		case EJK3:
 #ifdef XMARTIN
@@ -298,8 +146,7 @@ init_hop(ModeInfo * mi)
 			hp->c = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 70.0;
 #endif
 			hp->b = (LRAND() / MAXRAND) * 0.35 + 0.5;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "ejk3 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
+			//(void) fprintf(stdout, "ejk3 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
 			break;
 		case EJK4:
 #ifdef XMARTIN
@@ -310,8 +157,7 @@ init_hop(ModeInfo * mi)
 			hp->c = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 200.0;
 #endif
 			hp->b = (LRAND() / MAXRAND) * 9.0 + 1.0;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "ejk4 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
+			//(void) fprintf(stdout, "ejk4 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
 			break;
 		case EJK5:
 #ifdef XMARTIN
@@ -322,8 +168,7 @@ init_hop(ModeInfo * mi)
 			hp->c = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 200.0;
 #endif
 			hp->b = (LRAND() / MAXRAND) * 0.3 + 0.1;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "ejk5 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
+			//(void) fprintf(stdout, "ejk5 a=%g, b=%g, c=%g\n", hp->a, hp->b, hp->c);
 			break;
 		case EJK6:
 #ifdef XMARTIN
@@ -332,8 +177,7 @@ init_hop(ModeInfo * mi)
 			hp->a = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 30.0;
 #endif
 			hp->b = (LRAND() / MAXRAND) + 0.5;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "ejk6 a=%g, b=%g\n", hp->a, hp->b);
+			//(void) fprintf(stdout, "ejk6 a=%g, b=%g\n", hp->a, hp->b);
 			break;
 		case RR:
 #ifdef XMARTIN
@@ -346,27 +190,21 @@ init_hop(ModeInfo * mi)
 			hp->c = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 20.0;
 #endif
 			hp->d = (LRAND() / MAXRAND) * 0.9;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "rr a=%g, b=%g, c=%g, d=%g\n",
-					       hp->a, hp->b, hp->c, hp->d);
+			//(void) fprintf(stdout, "rr a=%g, b=%g, c=%g, d=%g\n", hp->a, hp->b, hp->c, hp->d);
 			break;
 		case POPCORN:
 			hp->a = 0.0;
 			hp->b = 0.0;
 			hp->c = ((LRAND() / MAXRAND) * 2.0 - 1.0) * 0.24 + 0.25;
 			hp->inc = 100;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "popcorn a=%g, b=%g, c=%g, d=%g\n",
-					       hp->a, hp->b, hp->c, hp->d);
+			//(void) fprintf(stdout, "popcorn a=%g, b=%g, c=%g, d=%g\n", hp->a, hp->b, hp->c, hp->d);
 			break;
 		case JONG:
 			hp->a = ((LRAND() / MAXRAND) * 2.0 - 1.0) * M_PI;
 			hp->b = ((LRAND() / MAXRAND) * 2.0 - 1.0) * M_PI;
 			hp->c = ((LRAND() / MAXRAND) * 2.0 - 1.0) * M_PI;
 			hp->d = ((LRAND() / MAXRAND) * 2.0 - 1.0) * M_PI;
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "jong a=%g, b=%g, c=%g, d=%g\n",
-					       hp->a, hp->b, hp->c, hp->d);
+			//(void) fprintf(stdout, "jong a=%g, b=%g, c=%g, d=%g\n", hp->a, hp->b, hp->c, hp->d);
 			break;
 		case SINE:	/* MARTIN2 */
 #ifdef XMARTIN
@@ -374,52 +212,27 @@ init_hop(ModeInfo * mi)
 #else
 			hp->a = M_PI + ((LRAND() / MAXRAND) * 2.0 - 1.0) * 0.7;
 #endif
-			if (MI_IS_VERBOSE(mi))
-				(void) fprintf(stdout, "sine a=%g\n", hp->a);
+			//(void) fprintf(stdout, "sine a=%g\n", hp->a);
 			break;
 	}
-	if (MI_NPIXELS(mi) > 2)
-		hp->pix = NRAND(MI_NPIXELS(mi));
-	hp->bufsize = MI_COUNT(mi);
 
-	if (hp->pointBuffer == NULL) {
-		if ((hp->pointBuffer = (XRectangle *) malloc(hp->bufsize *
-				sizeof (*hp->pointBuffer))) == NULL)
-			return;
-	}
-
-	MI_CLEARWINDOW(mi);
-
-	XSetForeground(display, gc, MI_WHITE_PIXEL(mi));
 	hp->count = 0;
 }
 
 
-ENTRYPOINT void
-draw_hop(ModeInfo * mi)
+void Hopalong::draw_hop()
 {
 	double      oldj, oldi;
-	XRectangle *xp;
-	int         k;
-	hopstruct  *hp;
+	int         k = count;
+	hopstruct  *hp = &hps;
 
-	if (hops == NULL)
-		return;
-	hp = &hops[MI_SCREEN(mi)];
+	typedef struct {
+		int x, y;
+	} point;
+	point p;
+	point *xp = &p;
 
-
-	if (hp->pointBuffer == NULL)
-		return;
-	xp = hp->pointBuffer;
-	k = hp->bufsize;
-
-	MI_IS_DRAWN(mi) = True;
 	hp->inc++;
-	if (MI_NPIXELS(mi) > 2) {
-		XSetForeground(MI_DISPLAY(mi), MI_GC(mi), MI_PIXEL(mi, hp->pix));
-		if (++hp->pix >= MI_NPIXELS(mi))
-			hp->pix = 0;
-	}
 	while (k--) {
 		oldj = hp->j;
 		switch (hp->op) {
@@ -506,8 +319,8 @@ draw_hop(ModeInfo * mi)
 					}
 					tempi = hp->i - HVAL * sin(hp->j + tan(3.0 * hp->j));
 					tempj = hp->j - HVAL * sin(hp->i + tan(3.0 * hp->i));
-					xp->x = hp->centerx + (int) (MI_WIDTH(mi) / 40 * tempi);
-					xp->y = hp->centery + (int) (MI_HEIGHT(mi) / 40 * tempj);
+					xp->x = hp->centerx + (int) (w / 40 * tempi);
+					xp->y = hp->centery + (int) (h / 40 * tempj);
 					hp->i = tempi;
 					hp->j = tempj;
 				}
@@ -530,33 +343,60 @@ draw_hop(ModeInfo * mi)
 				xp->y = hp->centery - (int) (hp->i - hp->j);
 				break;
 		}
-        xp->width = xp->height = hp->scale;
-		xp++;
-	}
-	XFillRectangles(MI_DISPLAY(mi), MI_WINDOW(mi), MI_GC(mi),
-		    hp->pointBuffer, hp->bufsize);
-	if (++hp->count > MI_CYCLES(mi)) {
-		init_hop(mi);
+        //xp->width = xp->height = hp->scale;
+		//xp++;
+		drawdot(xp->x, xp->y, pal.get_color(count - k));
 	}
 }
 
-ENTRYPOINT void
-free_hop(ModeInfo * mi)
-{
-	hopstruct  *hp = &hops[MI_SCREEN(mi)];
 
-	if (hp->pointBuffer != NULL)
-		(void) free((void *) hp->pointBuffer);
+bool Hopalong::render(uint32_t *p)
+{
+	hopstruct *hp = &hps;
+	int i;
+
+	for (i = 0; i < iterations; i++) {
+		draw_hop();
+		hp->count++;
+	}
+
+	if (hp->count > cycles) {
+		resize(w, h);
+	}
+
+	return false;
 }
 
-#ifndef STANDALONE
-ENTRYPOINT void
-refresh_hop(ModeInfo * mi)
+
+bool Hopalong::render_gui ()
 {
-	MI_CLEARWINDOW(mi);
+	bool up = false;
+	hopstruct *hp = &hps;
+
+	ScrollableSliderInt("cycles limit", &cycles, 0, 1024*10, "%d", 256);
+	ScrollableSliderInt("iterations per frame", &iterations, 1, 256, "%d", 1);
+	up |= ScrollableSliderInt("op", &hp->op, 0, 10, "%d", 1);
+	if (ScrollableSliderInt("iterations kcount", &kcount, 0, 1024, "%d", 1)) {
+		count = kcount * 1024;
+		pal.rescale(count);
+	}
+
+	up |= pal.RenderGui();
+
+	ImGui::Text("hp->count %d, op %d", hp->count, hp->op);
+
+
+	if (up) {
+		resize(w, h);
+	}
+
+	return up;
 }
-#endif
 
-XSCREENSAVER_MODULE_2 ("Hopalong", hopalong, hop)
+void Hopalong::resize(int _w, int _h) {
+	default_resize(_w, _h);
 
-#endif /* MODE_hop */
+	pal.rescale(count);
+
+	init_hop();
+}

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16.3)
 project(imgui-cmake LANGUAGES C CXX)
 
 
-set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native -flto")
+set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native -flto=auto")
 set (CMAKE_CXX_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
 set (CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -march=native -g")
 set (CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO})
@@ -67,6 +67,7 @@ add_library(clouds OBJECT
     acidwarp/warp_text.c
     acidwarp.cpp
     acidworm.cpp
+    hopalong.cpp
     )
 
 target_include_directories(clouds PRIVATE .)

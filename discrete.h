@@ -43,8 +43,8 @@ private:
     virtual bool render_gui() override;
     virtual void resize(int _w, int _h) override;
     virtual bool render(uint32_t *p) override;
-    virtual void init_discrete();
-
+    
+	void init_discrete();
     void draw_discrete_1();
     discretestruct discrete = {};
 

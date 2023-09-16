@@ -68,3 +68,21 @@ Multi-coloured mode added by Jack Grahl <j.grahl@ucl.ac.uk>, Jan 2007
  *  The full program, with documentation, is available at:
  *    http://freshmeat.net/projects/fdm
 ```
+
+### Hopalong
+```
+ * Copyright (c) 1991 by Patrick J. Naughton.
+
+ * 24-Jun-1997: EJK and RR functions stolen from xmartin2.2
+ *              Ed Kubaitis <ejk@ux2.cso.uiuc.edu> ejk functions and xmartin
+ *              Renaldo Recuerdo rr function, generalized exponent version
+ *              of the Barry Martin's square root function
+ * 27-Jul-1995: added Peter de Jong's hop from Scientific American
+ *              July 87 p. 111.  Sometimes they are amazing but there are a
+ *              few duds (I did not see a pattern in the parameters).
+ * 09-Dec-1994: added Barry Martin's sine hop
+ * 23-Mar-1988: Coded HOPALONG routines from Scientific American Sept. 86 p. 14.
+ *              Hopalong was attributed to Barry Martin of Aston University
+ *              (Birmingham, England)
+
+```

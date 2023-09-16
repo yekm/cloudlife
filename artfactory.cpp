@@ -10,6 +10,7 @@
 #include "rdbomb.h"
 #include "acidwarp.h"
 #include "acidworm.h"
+#include "hopalong.h"
 
 
 ArtFactory::ArtFactory() {
@@ -23,6 +24,7 @@ ArtFactory::ArtFactory() {
     add_art<RDbomb>("RDbomb");
     add_art<AcidWarp>("AcidWarp");
     add_art<AcidWorm>("AcidWorm");
+    add_art<Hopalong>("Hopalong");
 
     vc = VectorCombo("Art", art_items);
     vc.set_index(1);
