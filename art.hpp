@@ -10,10 +10,17 @@
 #include "pixelbuffer.h"
 
 
+template <int N, typename T>
+static inline void
+fillN(T &container) {
+    std::fill(container.begin(), container.end(),
+        static_cast<typename T::value_type>(N));
+}
+
 template <typename T>
 static inline void
 fill0(T &container) {
-    std::fill(container.begin(), container.end(), 0);
+    fillN<0, T>(container);
 }
 
 class Art {
@@ -50,6 +57,7 @@ public:
     void drawdot(uint32_t *screen, uint32_t x, uint32_t y, uint32_t c);
 
     void really_drawdot(uint32_t *screen, uint32_t x, uint32_t y, uint32_t c) {
+        //printf("%x ", c);
         screen[ y*tex_w + x ] = c;
     }
 

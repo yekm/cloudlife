@@ -66,6 +66,7 @@ add_library(clouds OBJECT
     acidwarp/rolnfade.c
     acidwarp/warp_text.c
     acidwarp.cpp
+    acidworm.cpp
     )
 
 target_include_directories(clouds PRIVATE .)

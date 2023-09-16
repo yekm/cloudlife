@@ -9,6 +9,7 @@
 #include "onepixel.h"
 #include "rdbomb.h"
 #include "acidwarp.h"
+#include "acidworm.h"
 
 
 ArtFactory::ArtFactory() {
@@ -21,6 +22,7 @@ ArtFactory::ArtFactory() {
     add_art<OnePixel>("OnePixel");
     add_art<RDbomb>("RDbomb");
     add_art<AcidWarp>("AcidWarp");
+    add_art<AcidWorm>("AcidWorm");
 
     vc = VectorCombo("Art", art_items);
     vc.set_index(1);

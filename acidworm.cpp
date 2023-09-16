@@ -10,11 +10,15 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
-#include <vga.h>
-#include <vgagl.h>
 #include <math.h>
 
-static unsigned char pal[256 * 3];
+#include "imgui_elements.h"
+#include "acidworm.h"
+
+#include "random.h"
+#define random xoshiro256plus
+
+static unsigned char pal[257 * 3];
  
 static struct options {
   int nopts;
@@ -112,323 +116,122 @@ static struct options {
 
 const char *LSD_module = "acidworm";
 
-static int initialized = 0;
-
 static short 
   xinc[] = 
     {1,  1,  1,  0, -1, -1, -1,  0},
   yinc[] = 
     {-1,  0,  1,  1,  1,  0, -1, -1};
 
-static struct
-worm 
-{
-  int orientation, head;
-  short *xpos, *ypos;
-} *worm;
-
-void onsig(int ignore);
 void setcustompalette(int color_cycle);
 void shiftpalette(void);
-void bail(const char *string); 
-void printStrArray(char *strArray[]);
 
-int main(argc, argv)
-	int argc;
-	char **argv;
-{
-	extern char *optarg;
-	struct worm *w;
+static uint32_t pal_rgb(int i) {
+  if (i >= 256)
+    printf("%d ", i);
+  return 0xff000000 |
+         (pal[i*3+0]*4) << 0 |
+         (pal[i*3+1]*4) << 8 |
+         (pal[i*3+2]*4) << 16;
+}
+
+
+void AcidWorm::gl_setpixel(int x, int y, int ci) {
+  auto c = pal_rgb(ci);
+  drawdot(x, y, c);
+}
+
+bool AcidWorm::render(uint32_t *) {
+	worm_t *w;
 	struct options *op;
-	short *ip;
 
-	register int 
-	x = 0,
-	y = 0;
+	int x = 0, y = 0;
 
 	unsigned int tmp1,tmp2;
 
 	int 
-	framecount = 0,
-	max_x = 0,
-	max_y = 0,
 	max_color = 0,
-	last = 0,
-	bottom = 0,
 	ch = 0,
-	length = 0,
-	number = 0,
-	color_cycle = 0,
-        sync = 0,
-	vga_mode = 0,
-	exitprogram = 0,
 	h = 0,
 	n = 0, 
-        position = 0,
-        position2= 0;
- 
-	short **ref;
-        char *mpp;
+  //position = 0,
+  position2= 0;
 
-        const char *header = "\nAcidWorm version 0.2 - By Aaron Tiensivu - [12/05/96] - SpunkMunky International\n";
-	char *usage[] = { 
-          "usage:   acidworm [-l #] [-n #] [-g #] [-c #] [-p #] [-s #]\n",
-          "default: acidworm -l 100 -n 256 -g 10 -c 1 -p 1 -s 0\n\n", 
-          " -l: Length of worms -> 2 to 1024 segments\n",
-          " -n: Number of worms\n",
-          " -c: Color cycling    -> 0:None 1:RGB 2:DiMonoCromny 3:WavyRave 4:Robotron\n",
-          " -p: Worm placement   -> 0:Random 1:Center 2:UL 3:UR 4:LL 5:LR 6:Combo of 0-5\n",
-          " -s: Wait for retrace -> 0:No 1:Yes\n", 
-          " -g: Graphics mode (as of SVGALib 1.2.10)\n",
-          "      5: 320x200x256  ",
-          "10: 640x480x256\n",
-          "     11: 800x600x256  ",
-          "12: 1024x768x256\n",
-          "     13: 1280x1024x256\n\n",
-          " If GSVGAMODE is set, the graphic mode specified will be used.\n",
-          " (e.g. under bash, 'export GSVGAMODE=G1280x1024x256' \n\n","" };
+  //const char *header = "\nAcidWorm version 0.2 - By Aaron Tiensivu - [12/05/96] - SpunkMunky International\n";
 
-	/* Set-up signal handling */
-        (void)signal(SIGHUP, onsig);
-        (void)signal(SIGINT, onsig);
-        (void)signal(SIGQUIT, onsig);
-        (void)signal(SIGSTOP, onsig);
-        (void)signal(SIGTSTP, onsig);
-        (void)signal(SIGTERM, onsig);
-        (void)signal(SIGSEGV, onsig);
+  if (color_cycle)
+    shiftpalette();
 
-        /* Default worm length, number, and color cycling mode */
-        length = 100;
-        number = 256;
-        color_cycle = 1; /* Normal color cycling     */
-        position = 1;    /* Centered worm placement  */
-        sync = 0;        /* Don't wait - full blast  */
+  for (n = 0, w = &worm[0]; n < number; n++, w++) {
 
-        /* Parse command line options */
-        while ((ch = getopt(argc, argv, "fc:g:l:n:t:p:?:h:s:")) != EOF)
-        switch(ch) {
-        case 'c':
-          if ((color_cycle = atoi(optarg)) > 4)
-            bail("invalid color cycle value [0 = off / 1,2,3,4 = on]");
+    if ((x = w->xpos[h = w->head]) < 0) {
+      if (position < 6)
+        position2 = position;
+      else
+        position2 = (random() % 6);
 
-          break;
-        case 'g':
-          /* This doesn't check for an upper bounds,
-           * new modes could be added to SVGALib in the future */
-
-          if ((vga_mode = atoi(optarg)) < 0)
-            bail("invalid graphics mode specified");
-
-          break;
-        case 'l':
-          if ((length = atoi(optarg)) < 2 || length > 1024)
-            bail("invalid worm length [2 thru 1024 only]");
-
-          break;
-        case 'n':
-          if ((number = atoi(optarg)) < 1)
-            bail("invalid number of worms");
-
-          break;
-        case 'p':
-          if ( (position = atoi(optarg)) < 0 || position > 6)
-            bail("invalid position given");
-
-          break;
-        case 's':
-          if ( (sync = atoi(optarg)) < 0 || sync > 1)
-            bail("invalid sync specification");
-          
+      switch (position2) {
+      case 0:
+        tmp1 = ((random() % last) + 1);
+        tmp2 = ((random() % bottom) + 1);
         break;
-        case '?':
-        case 'h':
-        default: /* For -? and -h, etc */
-          printf(header);
-          printStrArray(usage);
-          bail("Have a nice day. 8-]");
-        }
+      case 1:
+        tmp1 = (last / 2);
+        tmp2 = (bottom / 2);
+        break;
+      case 2:
+        tmp1 = tmp2 = 1;
+        break;
+      case 3:
+        tmp1 = last-1;
+        tmp2 = 1;
+        break;
+      case 4:
+        tmp1 = 1;
+        tmp2 = bottom-1;
+        break;
+      case 5:
+        tmp1 = last - 1;
+        tmp2 = bottom - 1;
+        break;
+      }
+      gl_setpixel(x = w->xpos[h] = tmp1, y = w->ypos[h] = tmp2, n%256);
+      ref[y][x]++;
+    } else
+      y = w->ypos[h];
 
-	/* This ugly and super-anal, but it works    */
-        /* I want to know where it fails             */        
+    if (++h == length)
+      h = 0;
+    if (w->xpos[w->head = h] >= 0) {
+      int x1, y1;
 
-        if (vga_init() == 0)
-        {
-          initialized = 1;
-
-          /* Check for a default SVGALib graphics mode */
-          /* Not defined? Default to 640x480x256       */
-
-          if (vga_mode == 0)
-          {
-            vga_mode = vga_getdefaultmode();
-            if (vga_mode == -1)
-              vga_mode = (G640x480x256);
-          }
-
-          if ( vga_hasmode(vga_mode) )
-          {
-            if ( vga_setmode(vga_mode) == 0 )
-            {
-              if ( gl_setcontextvga(vga_mode) == 0 )
-              {
-                max_x     = vga_getxdim();
-                max_y     = vga_getydim();
-                max_color = vga_getcolors();
-
-                if (max_color < 256)
-                  color_cycle = 0; 
-
-                setcustompalette(color_cycle);
-
-                last      = (max_x - 1);
-                bottom    = (max_y - 1);
-
-              }
-              else
-              {
-                bail("SVGALib error - gl_setcontextvga() failed!");
-              }
-            }
-            else
-            {
-              bail("SVGALib error - vga_setmode() failed!");
-            }
-          }
-          else
-          {
-            bail("SVGALib error - vga_hasmode() failed!");
-          }
-        }
-        else
-        {
-          bail("SVGALib error - vga_init() failed!");
-        }
-
-	/* Allocate memory */
-        if ( (!(worm = (struct worm *)malloc((u_int)number *
-	   sizeof(struct worm))) || !(mpp = malloc((u_int)1024))) ||
-           (!(ip = (short *)malloc((u_int)(max_x * max_y * sizeof(short))))) ||
-           (!(ref = (short **)malloc((u_int)(max_y * sizeof(short *))))) )
-		bail("Not enough memory for worms (part 1)");
-
-	for (n = 0; n < max_y; ++n)
-        {
-	  ref[n] = ip;
-	  ip += max_x;
-	}
-	for (ip = ref[0], n = max_y * max_x; --n >= 0;)
-	  *ip++ = 0;
-	for (n = number, w = &worm[0]; --n >= 0; w++) 
-        {
-	  w->orientation = w->head = 0;
-	  if (!(ip = (short *)malloc((u_int)(length * sizeof(short)))))
-	    bail("Not enough memory for worms (part 2)");
-	  w->xpos = ip;
-	  for (x = length; --x >= 0;)
-	    *ip++ = -1;
-	  if (!(ip = (short *)malloc((u_int)(length * sizeof(short)))))
-	    bail("Not enough memory for worms (part 2)");
-	  w->ypos = ip;
-	  for (y = length; --y >= 0;)
-	    *ip++ = -1;
-	}
-
-	while (exitprogram == 0) 
-        {
-	  framecount++;
-          if ( (framecount % 100) == 0 )
-            exitprogram = vga_getkey();
-
-          if (color_cycle) shiftpalette(); 
-
-          if (sync) vga_waitretrace();
-
-	  for (n = 0, w = &worm[0]; n < number; n++, w++) 
-          {
-
-            if ((x = w->xpos[h = w->head]) < 0)
-            {
-              if (position < 6)
-                position2 = position;
-              else 
-                position2 = (random() % 6);
-
-              switch (position2) 
-              {
-                case 0:
-                  tmp1 = ( (random() % last  ) + 1);
-                  tmp2 = ( (random() % bottom) + 1);
-                  break;
-                case 1:
-                  tmp1 = (last / 2);
-                  tmp2 = (bottom / 2);
-                  break;
-                case 2:
-                  tmp1 = tmp2 = 1;
-                  break;
-                case 3: 
-                  tmp1 = last;
-                  tmp2 = 0;
-                  break; 
-                case 4:
-                  tmp1 = 0; 
-                  tmp2 = bottom;
-                  break;
-                case 5:
-                  tmp1 = last - 1;
-                  tmp2 = bottom - 1;
-                  break;
-              }      
-              gl_setpixel(x = w->xpos[h] = tmp1,
-                          y = w->ypos[h] = tmp2,
-                          n);
-              ref[y][x]++;
-            }
-            else y = w->ypos[h];
-            if (++h == length)  h = 0;
-	    if (w->xpos[w->head = h] >= 0)
-            {
-              int x1, y1;
-
-              x1 = w->xpos[h];
-              y1 = w->ypos[h]; 
-              if (--ref[y1][x1] == 0) gl_setpixel(x1, y1, 0);
-            }
-            op = &(!x ? (!y ? upleft : (y == bottom ? lowleft : left)) : (x == last ? (!y ? upright : (y == bottom ? lowright : right)) : (!y ? upper : (y == bottom ? lower : normal))))[w->orientation];
-            switch (op->nopts) 
-            {
-              case 1:
-                w->orientation = op->opts[0];
-                break;
-              default:
-                w->orientation = op->opts[(int)random() % op->nopts];
-            }
-            gl_setpixel(x += xinc[w->orientation],
-                        y += yinc[w->orientation],
-                        n                             );
-            ref[w->ypos[h] = y][w->xpos[h] = x]++;
-          }
-        }
-       
-      /* Restore text mode and exit sanely */
-      vga_setmode(TEXT);
-      printf(header); 
-      printf("Execute 'acidworm -h' for detailed command line options\n");  
-      exit(0);
+      x1 = w->xpos[h];
+      y1 = w->ypos[h];
+      if (--ref[y1][x1] == 0)
+        gl_setpixel(x1, y1, 0);
     }
 
-void onsig(int ignore)
-{
-  vga_setmode(TEXT);
-  exit(0);
-}
+    op = &(!x ? (!y ? upleft : (y == bottom ? lowleft : left))
+              : (x == last
+                      ? (!y ? upright : (y == bottom ? lowright : right))
+                      : (!y ? upper
+                            : (y == bottom ? lower
+                                          : normal))))[w->orientation];
+    switch (op->nopts) {
+    case 1:
+      w->orientation = op->opts[0];
+      break;
+    case 0:
+      w->orientation = 0;
+      break;
+    default:
+      //w->orientation = op->opts[random() % op->nopts];
+      w->orientation = op->opts[((unsigned)random()) % op->nopts];
+    }
+    gl_setpixel(x += xinc[w->orientation], y += yinc[w->orientation], n%256);
+    ref[w->ypos[h] = y][w->xpos[h] = x]++;
+  }
 
-void bail(const char *string)
-{
-  if (initialized)
-    vga_setmode(TEXT);
-  printf("%s: %s \n", LSD_module , string);
-  exit(0);  
+  return false;
 }
 
 /* This routine screams 'rewrite me' */
@@ -436,7 +239,7 @@ void bail(const char *string)
 
 void setcustompalette(int color_cycle)
 {
-  register int i;
+  int i;
   int r1,r2,r3;
   int r4,r5,r6;
 
@@ -526,29 +329,73 @@ void setcustompalette(int color_cycle)
     default:
       break;
   }
-  gl_setpalette(pal);
+  //gl_setpalette(pal);
 }
 
 /* These last two functions are taken from Acidwarp */
 void shiftpalette()
 {
   int temp;
-  register int x;
+  int x;
   int color = (int)(random() % 3);
 
     temp = pal[3+color];
     for(x=1; x < (256) ; ++x)
       pal[x*3+color] = pal[(x*3)+3+color];
     pal[((256)*3)-3+color] = temp;
-  gl_setpalette(pal);
+  //gl_setpalette(pal);
 }
 
-void printStrArray(char *strArray[])
-{
-  /* Prints an array of strings.  The array is terminated with a null string.     */
-  char **strPtr;
+bool AcidWorm::render_gui() {
+  bool up = false, re = false;
 
-  for (strPtr = strArray; **strPtr; ++strPtr)
-    printf ("%s", *strPtr);
+  re |= ScrollableSliderInt("color_cycle", &color_cycle, 0, 4, "%d", 1);
+  re |= ScrollableSliderInt("length", &length, 2, 1024, "%d", 1);
+  re |= ScrollableSliderInt("number", &number, 0, 1024, "%d", 8);
+  re |= ScrollableSliderInt("position", &position, 0, 6, "%d", 1);
+  //ImGui::Checkbox("fade_dir", &fade_dir);
+
+  if (re) {
+  }
+
+  //pal.RenderGui();
+
+  //ImGui::Text("state:%d frame:%d", acid_state, frame);
+
+  up = re;
+  return up;
 }
 
+void AcidWorm::resize(int _w, int _h) {
+	//worm_t *wrm;
+
+  default_resize(_w, _h);
+  
+  last      = (_w - 1);
+  bottom    = (_h - 1);
+  max_x = tex_w;
+  max_y = tex_h;
+
+  worm.resize(number);
+  //mpp.resize(1024);
+  _ip.resize(max_x * max_y); ip = _ip.data();
+  ref.resize(max_y);
+  fill0(ref);
+
+  for (int n = 0; n < max_y; ++n) {
+    ref[n] = ip;
+    ip += max_x;
+  }
+
+  auto wrm = &worm[0];
+
+  for (int n = number; --n >= 0; wrm++) {
+    wrm->xpos.resize(length);
+    wrm->ypos.resize(length);
+    fillN<-1>(wrm->xpos);
+    fillN<-1>(wrm->ypos);
+  }
+
+  setcustompalette(color_cycle);
+
+}

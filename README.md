@@ -10,6 +10,13 @@ ACID WARP (c)Copyright 1992, 1993 by Noah Spurrier
 Ported to Linux by Steven Wills
 ```
 
+### AcidWorm
+```
+/* Acidworm 0.2 - By Aaron Tiensivu - tiensivu@pilot.msu.edu */
+/* Gross hack of Eric P. Scott's 'worm' program              */
+/* Inspired by Acidwarp and other eyecandy programs          */
+```
+
 ### RDbomb
 ```
  *  reaction/diffusion textures
