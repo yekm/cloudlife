@@ -65,6 +65,8 @@ void Art::clear() {
     fill0(m_pixels);
     pixels_drawn = 0;
     pixels_discarded = 0;
+    if (pb)
+        pb->buffer.clear();
 }
 
 void Art::render_pixel_buffer(uint32_t* screen) {

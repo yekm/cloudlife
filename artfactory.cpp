@@ -11,6 +11,7 @@
 #include "acidwarp.h"
 #include "acidworm.h"
 #include "hopalong.h"
+#include "attractor.h"
 
 
 ArtFactory::ArtFactory() {
@@ -25,6 +26,7 @@ ArtFactory::ArtFactory() {
     add_art<AcidWarp>("AcidWarp");
     add_art<AcidWorm>("AcidWorm");
     add_art<Hopalong>("Hopalong");
+    add_art<Attractor>("Attractor");
 
     vc = VectorCombo("Art", art_items);
     vc.set_index(1);

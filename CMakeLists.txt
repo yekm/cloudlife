@@ -68,6 +68,7 @@ add_library(clouds OBJECT
     acidwarp.cpp
     acidworm.cpp
     hopalong.cpp
+    attractor.cpp
     )
 
 target_include_directories(clouds PRIVATE .)
