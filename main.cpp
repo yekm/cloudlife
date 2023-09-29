@@ -22,6 +22,27 @@
 
 #include "artfactory.h"
 
+
+const char* vertexShaderSource = R"(
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+    void main()
+    {
+        gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    }
+)";
+
+const char* fragmentShaderSource = R"(
+    #version 330 core
+    out vec4 fragColor;
+    uniform vec4 vertexColor;
+    void main()
+    {
+        fragColor = vertexColor;
+    }
+)";
+
+
 std::unique_ptr<Art> art;
 
 static GLFWwindow* window;
@@ -45,9 +66,52 @@ GLuint image_texture;
 GLuint pboIds[2];
 int pbo_index = 0;
 
+GLuint shaderProgram;
+
 // GL_CLAMP_TO_EDGE, GL_CLAMP_TO_BORDER, GL_MIRRORED_REPEAT, GL_REPEAT, GL_MIRROR_CLAMP_TO_EDGE
 
+void init_shaders() {
+    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+    // check for shader compile errors
+    int success;
+    char infoLog[512];
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+    }
+    // fragment shader
+    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+    // check for shader compile errors
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+    }
+    // link shaders
+    shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    // check for linking errors
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+    }
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+}
+
 void make_pbos() {
+    return;
     image_data_vector.resize(texture_size);
     image_data = image_data_vector.data();
 
@@ -79,6 +143,7 @@ void make_pbos() {
 }
 
 void destroy_pbos() {
+    return;
     glDeleteTextures(1, &image_texture);
     glDeleteBuffers(2, pboIds);
 }
@@ -161,8 +226,13 @@ int main(int argc, char *argv[])
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
+    init_shaders();
+
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable( GL_BLEND );
 
     ImVec4 clear_color = ImVec4(0, 0, 0, 1.00f);
+    ImVec4 vertex_color = ImVec4(1, 0.5, 0.2, 1.00f);
 
     ArtFactory af;
     if (artarg != -1)
@@ -176,6 +246,9 @@ int main(int argc, char *argv[])
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+
+        glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -199,6 +272,7 @@ int main(int argc, char *argv[])
             ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 1);
             ScrollableSliderUInt("Max 1k frames before reinit", &art->max_kframes, 0, 1024, "%d", 1);
             ImGui::ColorEdit4("Clear color", (float*)&clear_color);
+            ImGui::ColorEdit4("Vertex color", (float*)&vertex_color);
         }
 
         bool resize_pbo = art->gui();
@@ -224,7 +298,11 @@ int main(int argc, char *argv[])
             make_pbos();
         }
 
-
+        glUseProgram(shaderProgram);
+        int vertexColorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
+        glUniform4f(vertexColorLocation, vertex_color.x, vertex_color.y, vertex_color.z, vertex_color.w);
+        art->draw(0);
+#if 0
         int nexti = pbo_index;
         pbo_index = pbo_index ? 0 : 1;
         glBindTexture(GL_TEXTURE_2D, image_texture);
@@ -243,16 +321,14 @@ int main(int argc, char *argv[])
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-
         ImGui::GetBackgroundDrawList()->AddImage((void*)(intptr_t)image_texture,
             ImVec2(0, 0), ImVec2(sw, sh),
             ImVec2(0, 0), ImVec2((float)sw/art->tex_w, (float)sh/art->tex_h));
+#endif
 
         ImGui::Render();
 
         glViewport(0, 0, sw, sh);
-        glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-        glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
@@ -267,6 +343,8 @@ int main(int argc, char *argv[])
     ImGui::DestroyContext();
 
     destroy_pbos();
+
+glDeleteProgram(shaderProgram);
 
     glfwDestroyWindow(window);
     glfwTerminate();

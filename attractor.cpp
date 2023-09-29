@@ -40,11 +40,10 @@ void Attractor::draw()
 
 bool Attractor::render(uint32_t *p)
 {
-	int points_per_frame = 1024*128;
 	int x, y;
 	double oldi, oldj;
 
-	for (int i=0; i < points_per_frame && count < pixel_buffer_maximum; ++i, ++count) {
+	for (int i=0; i < frame_vertex_target() && count < vertex_buffer_maximum(); ++i, ++count) {
 		oldj = aj;
 		oldi = ai + inc;
 		aj = a - ai;
@@ -55,7 +54,8 @@ bool Attractor::render(uint32_t *p)
 		x = w/2 + (int) (ai + aj);
 		y = h/2 - (int) (ai - aj);
 
-		drawdot(x, y, pal.get_color((pixel_buffer_maximum - count)>>2));
+		drawdot(x, y, pal.get_color((vertex_buffer_maximum() - count)>>2));
+		//pb->adot((float)x/w-.5, (float)y/h-.5);
 	}
 
 	return false;
@@ -83,7 +83,7 @@ bool Attractor::render_gui ()
 
 	up |= pal.RenderGui();
 
-	//ImGui::Text("count %d, op %d", count, op);
+	ImGui::Text("count %d", count);
 
 
 	if (up) {
@@ -96,7 +96,7 @@ bool Attractor::render_gui ()
 void Attractor::resize(int _w, int _h) {
 	default_resize(_w, _h);
 
-	pal.rescale(pixel_buffer_maximum >> 2);
+	pal.rescale(vertex_buffer_maximum() >> 2);
 	count = 0;
 
 	//clear();

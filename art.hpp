@@ -8,6 +8,7 @@
 
 
 #include "pixelbuffer.h"
+#include "vertexbuffer.h"
 
 
 template <int N, typename T>
@@ -66,8 +67,20 @@ public:
 
     virtual ~Art() = default;
 
+
     unsigned frame_number = 0, clear_every = 0, max_kframes = 0;
     unsigned pixel_buffer_maximum = 1024*10, pixel_buffer_maximum_max = 1024*1024;
+
+    unsigned vertex_buffer_maximum_k = 1024;
+    unsigned frame_vertex_target_k = 16;
+
+    unsigned vertex_buffer_maximum() const {
+        return vertex_buffer_maximum_k * 1024;
+    }
+    unsigned frame_vertex_target() const {
+        return frame_vertex_target_k * 1024;
+    }
+
 
     /* clears m_pixels */
     void clear();
@@ -81,12 +94,14 @@ private:
     virtual bool render(uint32_t *p) = 0;
 
     void render_pixel_buffer(uint32_t *screen);
-    std::unique_ptr<PixelBuffer> pb;
 
     uint32_t *data() { return m_pixels.data(); }
 
 protected:
+    std::unique_ptr<PixelBuffer> pb;
+    std::unique_ptr<VertexBuffer> vb;
     bool use_pixel_buffer = false;
+    bool use_vertex_buffer = true;
     unsigned pixels_drawn = 0;
     unsigned pixels_discarded = 0;
     void default_resize(int _w, int _h);

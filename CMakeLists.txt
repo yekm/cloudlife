@@ -13,6 +13,13 @@ set (CMAKE_CXX_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
 set (CMAKE_VERBOSE_MAKEFILE TRUE)
 
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+# https://github.com/JoeyDeVries/LearnOpenGL/tree/master/cmake/modules
+find_package(GLFW3 REQUIRED)
+set (OpenGL_GL_PREFERENCE GLVND)
+find_package(OpenGL REQUIRED)
+
+
 # https://github.com/Pesc0/imgui-cmake
 ######### IMGUI #######################
 
@@ -41,8 +48,6 @@ target_include_directories( IMGUI
 #target_link_libraries(IMGUI PUBLIC ${CMAKE_DL_LIBS})
 #######################################################
 
-find_package(glfw3)
-
 add_subdirectory(colormap)
 
 add_library(clouds OBJECT
@@ -50,6 +55,7 @@ add_library(clouds OBJECT
     artfactory.cpp
     settings.cpp
     imgui_elements.cpp
+    vertexbuffer.cpp
     random.c
     cloudlife.cpp
     mtron.cpp
@@ -78,8 +84,8 @@ target_link_libraries(clouds IMGUI glfw GL colormap)
 
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
 add_executable(cloudtest test.cpp $<TARGET_OBJECTS:clouds>)
-target_link_libraries(cloudlife IMGUI glfw GL colormap)
-target_link_libraries(cloudtest IMGUI glfw GL colormap)
+target_link_libraries(cloudlife IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES} colormap)
+target_link_libraries(cloudtest IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES} colormap)
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set_target_properties(cloudtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
