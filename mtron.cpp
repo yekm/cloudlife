@@ -12,6 +12,7 @@
 
 void Minskytron::resize(int _w, int _h) {
     tex_w = tex_h = 1 << tex_power;
+    easel->set_texture_size(tex_w, tex_h);
 
     ya=0;               xa=0737777<<ICM;
     yb=060000<<ICM;     xb=0;

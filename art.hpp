@@ -7,8 +7,8 @@
 #include <algorithm>
 
 
-#include "pixelbuffer.h"
-#include "vertexbuffer.h"
+#include "easelplane.h"
+#include "easelvertex.h"
 
 
 template <int N, typename T>
@@ -27,7 +27,11 @@ fill0(T &container) {
 class Art {
 public:
     Art(std::string _name)
-        : m_name(_name) {}
+        : m_name(_name)
+    {
+        if (!easel)
+            easel = std::make_unique<EaselPlane>();
+    }
     const char * name();
 
     /* called when main window is resized and if reinit needed.
@@ -44,22 +48,18 @@ public:
     virtual void load(std::string json) {};
     virtual std::string save() { return ""; };
 
-    void drawdot(uint32_t x, uint32_t y, double o, uint32_t c) {
+    void drawdot(uint32_t *p, int32_t x, int32_t y, double o, uint32_t c) {
+        drawdot(x, y, o, c);
+    }
+    void drawdot(int32_t x, int32_t y, double o, uint32_t c) {
         drawdot(x, y, c | ((unsigned)(0xff*o)<<24));
     }
-    void drawdot(uint32_t x, uint32_t y, uint32_t c) {
-        drawdot(data(), x, y, c);
-    }
-    void drawdot(uint32_t *screen, uint32_t x, uint32_t y, double o, uint32_t c) {
-        drawdot(screen, x, y, c | ((unsigned)(0xff*o)<<24));
+    void drawdot(uint32_t *p, int32_t x, int32_t y, uint32_t c) {
+        drawdot(x,y,c);
     }
 
-    /* don't really draws a dot if pixel buffer is used */
-    void drawdot(uint32_t *screen, uint32_t x, uint32_t y, uint32_t c);
-
-    void really_drawdot(uint32_t *screen, uint32_t x, uint32_t y, uint32_t c) {
-        //printf("%x ", c);
-        screen[ y*tex_w + x ] = c;
+    void drawdot(int32_t x, int32_t y, uint32_t c) {
+        easel->drawdot(x,y,c);
     }
 
     /* deprecated? */
@@ -71,15 +71,6 @@ public:
     unsigned frame_number = 0, clear_every = 0, max_kframes = 0;
     unsigned pixel_buffer_maximum = 1024*10, pixel_buffer_maximum_max = 1024*1024;
 
-    unsigned vertex_buffer_maximum_k = 1024;
-    unsigned frame_vertex_target_k = 16;
-
-    unsigned vertex_buffer_maximum() const {
-        return vertex_buffer_maximum_k * 1024;
-    }
-    unsigned frame_vertex_target() const {
-        return frame_vertex_target_k * 1024;
-    }
 
 
     /* clears m_pixels */
@@ -95,18 +86,17 @@ private:
 
     void render_pixel_buffer(uint32_t *screen);
 
-    uint32_t *data() { return m_pixels.data(); }
+    //uint32_t *data() { return m_pixels.data(); }
 
 protected:
-    std::unique_ptr<PixelBuffer> pb;
-    std::unique_ptr<VertexBuffer> vb;
-    bool use_pixel_buffer = false;
-    bool use_vertex_buffer = true;
-    unsigned pixels_drawn = 0;
-    unsigned pixels_discarded = 0;
     void default_resize(int _w, int _h);
+
+    std::unique_ptr<Easel> easel;
     int w, h;
-    std::vector<uint32_t> m_pixels;
     std::string m_name;
+
+    EaselPlane* plane() const {
+        return dynamic_cast<EaselPlane*>(easel.get());
+    }
 };
 

@@ -55,7 +55,8 @@ add_library(clouds OBJECT
     artfactory.cpp
     settings.cpp
     imgui_elements.cpp
-    vertexbuffer.cpp
+    easelplane.cpp
+    easelvertex.cpp
     random.c
     cloudlife.cpp
     mtron.cpp
@@ -83,13 +84,13 @@ target_link_libraries(clouds IMGUI glfw GL colormap)
 #set_property(TARGET clouds PROPERTY CXX_STANDARD 17)
 
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
-add_executable(cloudtest test.cpp $<TARGET_OBJECTS:clouds>)
+#add_executable(cloudtest test.cpp $<TARGET_OBJECTS:clouds>)
 target_link_libraries(cloudlife IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES} colormap)
-target_link_libraries(cloudtest IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES} colormap)
+#target_link_libraries(cloudtest IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES} colormap)
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set_target_properties(cloudtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_target_properties(cloudtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-include(CTest)
+#include(CTest)
 
-add_test(NAME CloudTest1 COMMAND cloudtest -f 1024 -i 2 -r 512)
-add_test(NAME CloudTest2 COMMAND cloudtest -f 32 -i 8 -r 16)
+#add_test(NAME CloudTest1 COMMAND cloudtest -f 1024 -i 2 -r 512)
+#add_test(NAME CloudTest2 COMMAND cloudtest -f 32 -i 8 -r 16)

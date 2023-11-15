@@ -380,7 +380,7 @@ void AcidWorm::resize(int _w, int _h) {
   //mpp.resize(1024);
   _ip.resize(max_x * max_y); ip = _ip.data();
   ref.resize(max_y);
-  fill0(ref);
+  #warning "fill0(ref);"
 
   for (int n = 0; n < max_y; ++n) {
     ref[n] = ip;

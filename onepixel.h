@@ -6,8 +6,8 @@ class OnePixel : public Art {
 public:
     OnePixel()
         : Art("One pixel benchmark") {
-            use_pixel_buffer = true;
-            pixel_buffer_maximum = 1024*512;
+            //use_pixel_buffer = true;
+            //pixel_buffer_maximum = 1024*512;
         }
 private:
     //virtual bool render_gui() override {};

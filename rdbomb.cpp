@@ -46,6 +46,7 @@
 void RDbomb::pixack_init() {
   tex_w = width;
   tex_h = height;
+  easel->set_texture_size(tex_w, tex_h);
   npix = (width + 2) * (height + 2);
   r1.resize(npix);
   r2.resize(npix);
