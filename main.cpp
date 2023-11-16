@@ -148,8 +148,6 @@ int main(int argc, char *argv[])
         {
             art = af.get_art();
             art->resized(sw, sh);
-            //destroy_pbos();
-            //make_pbos();
         }
 
         if (ImGui::CollapsingHeader("Clear Configuration"))
@@ -159,7 +157,7 @@ int main(int argc, char *argv[])
             ImGui::ColorEdit4("Clear color", (float*)&clear_color);
         }
 
-        bool resize_pbo = art->gui();
+        art->gui();
 
         if (art->frame_number % 120 == 0)
         {
@@ -174,15 +172,11 @@ int main(int argc, char *argv[])
 
         ImGui::End();
 
-        if (art->max_kframes)
-            resize_pbo |= art->frame_number > art->max_kframes*1024;
-        if (get_window_size() || resize_pbo) {
+        if (get_window_size()) {
             art->resized(sw, sh);
-            //destroy_pbos();
-            //make_pbos();
         }
 
-        art->draw(0);
+        art->draw();
 
         ImGui::Render();
 
@@ -192,7 +186,6 @@ int main(int argc, char *argv[])
 
         glfwSwapBuffers(window);
 
-        ++art->frame_number;
         if (art->clear_every != 0 && art->frame_number % art->clear_every == 0)
             art->clear();
     }

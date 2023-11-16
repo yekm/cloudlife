@@ -37,7 +37,7 @@ class Discrete : public Art {
 public:
     Discrete()
         : Art("discrete --- chaotic mappings") {
-			pixel_buffer_maximum = 1024*128;
+			useVertex();
 		}
 private:
     virtual bool render_gui() override;

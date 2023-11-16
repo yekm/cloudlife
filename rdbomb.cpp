@@ -44,9 +44,7 @@
 
 /* returns number of pixels that the pixack produces.  called once. */
 void RDbomb::pixack_init() {
-  tex_w = width;
-  tex_h = height;
-  easel->set_texture_size(tex_w, tex_h);
+  easel->set_texture_size(width, height);
   npix = (width + 2) * (height + 2);
   r1.resize(npix);
   r2.resize(npix);
@@ -274,7 +272,7 @@ bool RDbomb::render_gui() {
 }
 
 void RDbomb::resize(int _w, int _h) {
-  default_resize(width, height);
+  clear();
   pal.rescale(ncolors);
   rd_init();
 }

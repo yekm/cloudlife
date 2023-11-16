@@ -3,16 +3,14 @@
 #include <vector>
 
 #include "settings.hpp"
-
+#include "easelvertex.h"
 
 
 class Attractor : public Art {
 public:
     Attractor()
         : Art("strange attractors") {
-            easel = std::make_unique<EaselVertex>();
-			//use_pixel_buffer = true;
-			//pixel_buffer_maximum = 1024*1024;
+            useVertex();
 		}
 
 private:

@@ -113,18 +113,18 @@ void EaselVertex::render() {
 
     unsigned maxv = vertex_buffer_maximum();
     if (m_vertices.size() > 0) {
-    unsigned offset = total_vertices;
-    if (offset > maxv) {
-        offset = total_vertices%maxv;
-    }
-    unsigned offset_n = offset - m_vertices.size()/3;
-    unsigned offset_b = offset_n*3*sizeof(float);
-    //printf("[%d %d]", offset, m_vertices.size()/3);
-    //printf("%.2f_%.2f ", m_vertices.at(0), m_vertices.at(1));
-    //fflush(stdout);
+        unsigned offset = total_vertices;
+        if (offset > maxv) {
+            offset = total_vertices % maxv;
+        }
+        unsigned offset_n = offset - m_vertices.size() / 3;
+        unsigned offset_b = offset_n * 3 * sizeof(float);
+        //printf("[%d %d]", offset, m_vertices.size()/3);
+        //printf("%.2f_%.2f ", m_vertices.at(0), m_vertices.at(1));
+        //fflush(stdout);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, offset_b, m_vertices.size()*sizeof(float), m_vertices.data());
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferSubData(GL_ARRAY_BUFFER, offset_b, m_vertices.size()*sizeof(float), m_vertices.data());
     }
 
     glBindVertexArray(vao);
@@ -142,6 +142,7 @@ void EaselVertex::gui() {
         create_vertex_buffer();
     }
     ScrollableSliderUInt("Frame vertex target", &frame_vertex_target_k, 1, vertex_buffer_maximum_k, "%d", 8);
+    ImGui::Text("total vertices %lx", total_vertices);
 }
 
 void EaselVertex::dab(float x, float y) {
@@ -150,6 +151,8 @@ void EaselVertex::dab(float x, float y) {
     m_vertices.push_back(0);
     ++total_vertices;
     // TODO: handle total_vertices overflow
+    // if (total_vertices > vertex_buffer_maximum()*2)
+    //  total_vertices -= vertex_buffer_maximum();
 }
 
 /*
@@ -159,6 +162,10 @@ void EaselVertex::dab(uint32_t x, uint32_t y, uint32_t c) {
 */
 
 void EaselVertex::drawdot(int32_t x, int32_t y, uint32_t c) {
+    dab((float)x/w-0.5, (float)y/h-0.5);
+}
+
+void EaselVertex::drawdot(float x, float y) {
     dab((float)x/w-0.5, (float)y/h-0.5);
 }
 

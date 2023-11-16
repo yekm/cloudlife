@@ -1,6 +1,13 @@
 #pragma once
 #include "easel.h"
 
+#include "imgui.h"
+
+#define GL_GLEXT_PROTOTYPES 1
+#define GL3_PROTOTYPES 1
+#include <GLFW/glfw3.h> // Will drag system OpenGL headers
+
+
 class EaselVertex : public Easel {
 public:
     EaselVertex();
@@ -8,6 +15,7 @@ public:
 
     void dab(float x, float y);
     void drawdot(int32_t x, int32_t y, uint32_t c) override;
+    void drawdot(float x, float y); // non virtual
 
     virtual void render() override;
     virtual void clear() override;
@@ -21,6 +29,6 @@ private:
     unsigned vao, vbo;
     std::vector<float> m_vertices;
     GLuint shaderProgram;
-    ImVec4 vertex_color = ImVec4(1, 0.5, 0.2, 0.1f);
+    ImVec4 vertex_color = ImVec4(1, 0.5, 0.2, 0.05f);
 
 };

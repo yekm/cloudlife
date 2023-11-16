@@ -91,9 +91,9 @@ IFS::lensmatrix(Lens *l)
   l->ub = -1024.0 * l->s * sin(l->r);
   l->uc = -l->ub;
   l->ud = l->ua;
-  l->utx = 131072.0 * w * (l->s * (sin(l->r) - cos(l->r))
+  l->utx = 131072.0 * easel->w * (l->s * (sin(l->r) - cos(l->r))
 				   + l->tx / 16 + 1);
-  l->uty = -131072.0 * h * (l->s * (sin(l->r) + cos(l->r))
+  l->uty = -131072.0 * easel->h * (l->s * (sin(l->r) + cos(l->r))
 				     + l->ty / 16 - 1);
 }
 
@@ -250,8 +250,8 @@ bool IFS::render(uint32_t *p)
   ccolour %= ncolours;
 
   /* calculate and draw points for this frame */
-  x = w << 7;
-  y = h << 7;
+  x = easel->w << 7;
+  y = easel->h << 7;
 
   clear();
 
@@ -306,7 +306,7 @@ bool IFS::render_gui() {
     up |= pal.RenderGui();
 
     if (up) {
-        resize(w, h);
+        resize(easel->w, easel->h);
     }
 
     return up;
@@ -315,10 +315,10 @@ bool IFS::render_gui() {
 void IFS::resize(int _w, int _h) {
   int i;
 
-  default_resize(_w, _h);
+  clear();
 
   pscale = 1;
-  if (w > 2560 || h > 2560)
+  if (easel->w > 2560 || easel->h > 2560)
     pscale *= 3;  /* Retina displays */
   /* We aren't increasing the spacing between the pixels, just the size. */
 
@@ -335,7 +335,7 @@ void IFS::resize(int _w, int _h) {
   *pal = (*pal).rescale(0., ncolours);
   current_color = ImGui::GetColorU32(foreground);
 
-  widthb = ((w + 31) >> 5);
-  width8 = w << 8;
-  height8 = h << 8;
+  widthb = ((easel->w + 31) >> 5);
+  width8 = easel->w << 8;
+  height8 = easel->h << 8;
 }

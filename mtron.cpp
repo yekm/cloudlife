@@ -11,8 +11,7 @@
 
 
 void Minskytron::resize(int _w, int _h) {
-    tex_w = tex_h = 1 << tex_power;
-    easel->set_texture_size(tex_w, tex_h);
+    easel->set_texture_size(1 << tex_power, 1 << tex_power);
 
     ya=0;               xa=0737777<<ICM;
     yb=060000<<ICM;     xb=0;
@@ -35,14 +34,14 @@ void Minskytron::resize(int _w, int _h) {
 void Minskytron::dt(uint32_t *p, int x, int y, double o, uint32_t c) {
     // keep 10 bits to wrap around 1024 screen pixels
 #define SB (32-10)
-    x = (x >> (32 - tex_power)) + tex_w/2;
-    y = (y >> (32 - tex_power)) + tex_h/2;
+    x = (x >> (32 - tex_power)) + easel->w/2;
+    y = (y >> (32 - tex_power)) + easel->h/2;
 
     drawdot(p, x, y, o, c);
 }
 
 bool Minskytron::render(uint32_t *p) {
-    memset(p, 0, tex_w*tex_h*4);
+    memset(p, 0, easel->w * easel->h * 4);
 
     for (int i = 0; i<cycles; ++i) {
         ya += (xa + xb) >> sh0;

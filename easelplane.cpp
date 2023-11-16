@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "imgui.h"
+
 // GL_CLAMP_TO_EDGE, GL_CLAMP_TO_BORDER, GL_MIRRORED_REPEAT, GL_REPEAT, GL_MIRROR_CLAMP_TO_EDGE
 
 int EaselPlane::texture_size() {
@@ -98,4 +100,9 @@ void EaselPlane::drawdot(int32_t x, int32_t y, uint32_t c) {
 
     m_plane[ y*w + x ] = c;
     ++pixels_drawn;
+}
+
+void EaselPlane::gui() {
+    ImGui::Text("pixels drawn %d, discarded %d",
+        pixels_drawn, pixels_discarded);
 }

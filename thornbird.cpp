@@ -45,8 +45,8 @@ void Thornbird::init_thornbird()
 
 	count = kcount * 1024;
 
-	hp->maxx = w;
-	hp->maxy = h;
+	hp->maxx = easel->w;
+	hp->maxy = easel->h;
 	hp->b = 0.1;
 	hp->i = hp->j = 0.1;
 
@@ -116,7 +116,7 @@ bool Thornbird::render(uint32_t *p)
 	hp->count++;
 
 	if (hp->count > cycles) {
-		resize(w, h);
+		resize(easel->w, easel->h);
 	}
 
 	return false;
@@ -148,14 +148,14 @@ bool Thornbird::render_gui ()
 
 
 	if (up) {
-		resize(w, h);
+		resize(easel->w, easel->h);
 	}
 
 	return false;
 }
 
 void Thornbird::resize(int _w, int _h) {
-	default_resize(_w, _h);
+	clear();
 
 	init_thornbird();
 }

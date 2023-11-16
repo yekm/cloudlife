@@ -21,9 +21,9 @@ typedef struct {
 class Hopalong : public Art {
 public:
     Hopalong()
-        : Art("hopalong --- real plane fractals") {
-			pixel_buffer_maximum = 1024*128;
-		}
+    : Art("hopalong --- real plane fractals") {
+        useVertex();
+    }
 
 private:
     virtual bool render_gui() override;

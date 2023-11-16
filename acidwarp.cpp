@@ -116,7 +116,7 @@ void AcidWarp::resize(int _w, int _h) {
   initPalArray(MainPalArray, pal_num);
   initPalArray(TargetPalArray, pal_num);
 
-  buf_graf.resize(tex_w*tex_h);
+  buf_graf.resize(easel->w * easel->h);
   fill0(buf_graf);
 
   //default_resize(width, height);

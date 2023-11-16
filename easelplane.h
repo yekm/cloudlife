@@ -1,6 +1,11 @@
 #pragma once
 #include "easel.h"
 
+#define GL_GLEXT_PROTOTYPES 1
+#define GL3_PROTOTYPES 1
+#include <GLFW/glfw3.h> // Will drag system OpenGL headers
+
+
 class EaselPlane : public Easel {
 public:
     EaselPlane();
@@ -11,7 +16,7 @@ public:
 
     virtual void render() override;
     //virtual void clear() override;
-    //virtual void gui() override;
+    virtual void gui() override;
     virtual void reset() override;
 
 private:
@@ -31,4 +36,3 @@ private:
     int pbo_index = 0;
     std::vector<uint32_t> m_plane;
 };
-

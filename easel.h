@@ -1,23 +1,7 @@
 #pragma once
 #include <vector>
-//#include <deque>
 #include <stdint.h>
 
-#include "imgui.h"
-
-#define GL_GLEXT_PROTOTYPES 1
-#define GL3_PROTOTYPES 1
-#include <GLFW/glfw3.h> // Will drag system OpenGL headers
-
-
-#if 0
-// attempt to make drawdot call not virtual
-enum class Etype { PLANE, PIXEL, VERTEX };
-template<Etype E = Etype::VERTEX>
-class Easel {
-public:
-};
-#endif
 
 class Easel {
 public:
@@ -48,7 +32,7 @@ public:
     // TODO: ugly pieces from plane easel, move to a better place
     void set_window_size(int _w, int _h) {
         ww = _w; wh = _h;
-        w = _w; h = _h; // TODO: or do set_texture_size() in Art::default_resize?
+        //w = _w; h = _h; // TODO: or do set_texture_size() in Art::default_resize?
         reset();
     }
     void set_texture_size(int _w, int _h) {
@@ -58,6 +42,9 @@ public:
     int w, h;
     int ww, wh;
 };
+
+class EaselPlane;
+class EaselVertex;
 
 
 // deprecated

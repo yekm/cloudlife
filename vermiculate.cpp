@@ -29,9 +29,9 @@
 #define dtor 0.0174532925        /*  pi / degs2; */
 #define tailmax (thrmax * 2 + 1)
 #define tmodes '7'
-#define ymax (h - 1)
+#define ymax (easel->h - 1)
 #define ymin 0
-#define xmax (w - 1)
+#define xmax (easel->w - 1)
 #define xmin 0
 #define SPEEDINC 10
 #define SPEEDMAX 1000
@@ -125,13 +125,13 @@ Vermiculate::sp (int x, int y, uint32_t c)
     color = 0;
   drawdot(x, y, color);
 
-  point[(w * y) + x] = c;
+  point[(easel->w * y) + x] = c;
 }
 
 int
 Vermiculate::gp (int x, int y)
 {
-  return point[(w * y) + x];
+  return point[(easel->w * y) + x];
 }
 
 void
@@ -140,8 +140,8 @@ Vermiculate::redraw (int x, int y, int width, int height)
   int xc, yc;
   for (xc = x; xc <= x + width - 1; xc++)
     for (yc = y; yc <= y + height - 1; yc++)
-      if (point[w * yc + xc] != 0)
-        sp (xc, yc, point[w * yc + xc]);
+      if (point[easel->w * yc + xc] != 0)
+        sp (xc, yc, point[easel->w * yc + xc]);
 }
 
 void
@@ -149,7 +149,7 @@ Vermiculate::palupdate (bool forceUpdate)
 {
   if (forceUpdate || *instring == 0)
     {
-      redraw (xmin, ymin, w, h);
+      redraw (xmin, ymin, easel->w, easel->h);
     }
 }
 
@@ -334,8 +334,8 @@ Vermiculate::newonscreen (unsigned char thr)
   LP->reclen = (LP->little) ?
         random1 (10) + 5 : random1 (rlmax - 30) + 30;
   LP->deg = random1 (degs);
-  LP->y = random1 (h);
-  LP->x = random1 (w);
+  LP->y = random1 (easel->h);
+  LP->x = random1 (easel->w);
   LP->recpos = 0;
   LP->turnco = 2;
   LP->turnsize = random1 (4) + 2;
@@ -710,7 +710,7 @@ bool Vermiculate::render_gui ()
 	// TODO: select instring
 
     if (up) {
-        resize(w, h);
+        resize(easel->w, easel->h);
     }
 
     return up;
@@ -719,8 +719,8 @@ bool Vermiculate::render_gui ()
 
 void Vermiculate::resize (int _w, int _h)
 {
-  default_resize(_w, _h);
-  point.resize(w*h);
+  clear();
+  point.resize(easel->w*easel->h);
   fill0(point);
   reset_p = 1;
   instring = 0;

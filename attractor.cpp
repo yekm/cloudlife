@@ -13,12 +13,14 @@
 
 void Attractor::init()
 {
+/*
 	int centerx, centery;
-	centerx = w / 2;
-	centery = h / 2;
+	centerx = easel->w / 2;
+	centery = easel->h / 2;
 	
 	double range = sqrt((double) centerx * centerx +
 	     (double) centery * centery) / (1.0 + LRAND() / MAXRAND);
+*/
 	ai = aj = 0.0;
 	/*
 	inc = (int) ((LRAND() / MAXRAND) * 200) - 100;
@@ -45,7 +47,7 @@ bool Attractor::render(uint32_t *p)
 
 	auto ftarget = easel->frame_vertex_target();
 	auto vbmax = easel->vertex_buffer_maximum();
-	for (int i=0; i < ftarget && count < vbmax; ++i, ++count) {
+	for (int i=0; i < ftarget /*&& count < vbmax*/; ++i, ++count) {
 		oldj = aj;
 		oldi = ai + inc;
 		aj = a - ai;
@@ -53,10 +55,12 @@ bool Attractor::render(uint32_t *p)
 					    ?  sqrt(fabs(b * oldi - c))
 					    : -sqrt(fabs(b * oldi - c))
 					);
-		x = w/2 + (int) (ai + aj);
-		y = h/2 - (int) (ai - aj);
+		//x = easel->w/2 + (int) (ai + aj);
+		//y = easel->h/2 - (int) (ai - aj);
 
-		drawdot(x, y, 0);
+		drawdot((ai + aj)/easel->w, (ai - aj)/easel->h);
+		//drawdot((float)x/w-.5, (float)y/h-.5);
+		//drawdot(x, y, 0);
 		//drawdot(x, y, pal.get_color((vertex_buffer_maximum() - count)>>2));
 		//pb->adot((float)x/w-.5, (float)y/h-.5);
 	}
@@ -90,14 +94,14 @@ bool Attractor::render_gui ()
 
 
 	if (up) {
-		resize(w, h);
+		resize(easel->w, easel->h);
 	}
 
 	return false;
 }
 
 void Attractor::resize(int _w, int _h) {
-	default_resize(_w, _h);
+	clear();
 
 	pal.rescale(easel->vertex_buffer_maximum() >> 2);
 	count = 0;

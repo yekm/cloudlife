@@ -369,18 +369,18 @@ bool AcidWorm::render_gui() {
 void AcidWorm::resize(int _w, int _h) {
 	//worm_t *wrm;
 
-  default_resize(_w, _h);
+  clear();
   
-  last      = (_w - 1);
-  bottom    = (_h - 1);
-  max_x = tex_w;
-  max_y = tex_h;
+  last      = (easel->w - 1);
+  bottom    = (easel->h - 1);
+  max_x = easel->w;
+  max_y = easel->h;
 
   worm.resize(number);
   //mpp.resize(1024);
   _ip.resize(max_x * max_y); ip = _ip.data();
   ref.resize(max_y);
-  #warning "fill0(ref);"
+  fill0(ref);
 
   for (int n = 0; n < max_y; ++n) {
     ref[n] = ip;

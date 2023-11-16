@@ -63,6 +63,9 @@ static const char sccsid[] = "@(#)hop.c	5.00 2000/11/01 xlockmore";
 
 #include <math.h>
 
+#define w easel->w
+#define h easel->h
+
 
 #define MARTIN 0
 #define POPCORN 7

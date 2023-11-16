@@ -84,19 +84,18 @@ void Cloudlife::populate_field(unsigned int p)
 }
 
 void Cloudlife::resize(int _w, int _h) {
-    default_resize(_w, _h);
-
-    if (f->height != h / (1 << f->cell_size) + 2 ||
-        f->width != w / (1 << f->cell_size) + 2) {
+    clear();
+    if (f->height != easel->h / (1 << f->cell_size) + 2 ||
+        f->width != easel->w / (1 << f->cell_size) + 2) {
         refield();
     }
 }
 
 void Cloudlife::refield() {
-    resize_field(w / (1 << f->cell_size) + 2,
-                h / (1 << f->cell_size) + 2);
+    resize_field(easel->w / (1 << f->cell_size) + 2,
+                easel->h / (1 << f->cell_size) + 2);
     populate_field(density);
-    default_resize(w, h); // clear pixels
+    clear();
 }
 
 bool Cloudlife::render_gui() {

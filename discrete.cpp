@@ -44,8 +44,8 @@ void Discrete::init_discrete()
 	double      range;
 	discretestruct *hp = &discrete;
 
-	hp->maxx = w;
-	hp->maxy = h;
+	hp->maxx = easel->w;
+	hp->maxy = easel->h;
 	hp->op = (ftypes)bias;
 	switch (hp->op) {
 		case HSHOE:
@@ -286,7 +286,7 @@ bool Discrete::render(uint32_t *p)
 	}
 
 	if (hp->count > cycles) {
-		resize(w, h);
+		resize(easel->w, easel->h);
 	}
 
 	return false;
@@ -308,14 +308,14 @@ bool Discrete::render_gui ()
 
 
 	if (up) {
-		resize(w, h);
+		resize(easel->w, easel->h);
 	}
 
 	return up;
 }
 
 void Discrete::resize(int _w, int _h) {
-	default_resize(_w, _h);
+	clear();
 
 	init_discrete();
 }

@@ -7,8 +7,9 @@
 #include <algorithm>
 
 
-#include "easelplane.h"
-#include "easelvertex.h"
+#include "easel.h"
+//#include "easelplane.h"
+//#include "easelvertex.h"
 
 
 template <int N, typename T>
@@ -26,12 +27,7 @@ fill0(T &container) {
 
 class Art {
 public:
-    Art(std::string _name)
-        : m_name(_name)
-    {
-        if (!easel)
-            easel = std::make_unique<EaselPlane>();
-    }
+    Art(std::string _name);
     const char * name();
 
     /* called when main window is resized and if reinit needed.
@@ -42,7 +38,7 @@ public:
     bool gui();
 
     /* draws a picture into tex_w x tex_h uint32_t RGBA memory buffer */
-    void draw(uint32_t *p);
+    void draw();
 
     /* TODO: load store of current gui configns */
     virtual void load(std::string json) {};
@@ -62,23 +58,15 @@ public:
         easel->drawdot(x,y,c);
     }
 
-    /* deprecated? */
-    virtual void reinit() { resize(w, h); }
+    void drawdot(float x, float y);
 
     virtual ~Art() = default;
 
 
     unsigned frame_number = 0, clear_every = 0, max_kframes = 0;
-    unsigned pixel_buffer_maximum = 1024*10, pixel_buffer_maximum_max = 1024*1024;
 
-
-
-    /* clears m_pixels */
     void clear();
 
-    /* in order to use custom texture size this variables must be overwritten
-     * on each resize(). make_pbo() in main() uses this variables */
-    int tex_w, tex_h;
 private:
     virtual void resize(int _w, int _h) { default_resize(_w, _h); };
     virtual bool render_gui() {return false;}
@@ -86,17 +74,17 @@ private:
 
     void render_pixel_buffer(uint32_t *screen);
 
-    //uint32_t *data() { return m_pixels.data(); }
-
 protected:
     void default_resize(int _w, int _h);
 
     std::unique_ptr<Easel> easel;
-    int w, h;
-    std::string m_name;
+    EaselPlane * ep = nullptr;
+    EaselVertex * ev = nullptr;
+    void usePlane();
+    void useVertex();
+    EaselPlane* eplane() const;
+    EaselVertex* evertex() const;
 
-    EaselPlane* plane() const {
-        return dynamic_cast<EaselPlane*>(easel.get());
-    }
+    std::string m_name;
 };
 
