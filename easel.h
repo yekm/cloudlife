@@ -11,6 +11,7 @@ public:
     // every drawdot call is vertual now :(
     virtual void drawdot(int32_t x, int32_t y, uint32_t c) = 0;
 
+    virtual void begin() {};
     virtual void render() = 0;
     virtual void clear() {};
     virtual void gui() {};
@@ -33,7 +34,7 @@ public:
     void set_window_size(int _w, int _h) {
         ww = _w; wh = _h;
         //w = _w; h = _h; // TODO: or do set_texture_size() in Art::default_resize?
-        reset();
+        //reset();
     }
     void set_texture_size(int _w, int _h) {
         w = _w; h = _h;

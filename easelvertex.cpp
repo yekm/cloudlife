@@ -6,14 +6,12 @@
 #include <iostream>
 
 
-
-
 const char* vertexShaderSource = R"(
     #version 330 core
-    layout (location = 0) in vec3 aPos;
+    layout (location = 0) in vec2 aPos;
     void main()
     {
-        gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+        gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
     }
 )";
 
@@ -26,9 +24,6 @@ const char* fragmentShaderSource = R"(
         fragColor = vertexColor;
     }
 )";
-
-
-
 
 
 void EaselVertex::init_shaders() {
@@ -81,10 +76,10 @@ void EaselVertex::create_vertex_buffer() {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
 
-    glBufferData(GL_ARRAY_BUFFER, vertex_buffer_maximum()*3*sizeof(float), 0, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertex_buffer_maximum()*2*sizeof(float), 0, GL_STATIC_DRAW);
     // Specify the vertex attribute pointers
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
 }
 
 void EaselVertex::destroy_vertex_buffer() {
@@ -117,9 +112,9 @@ void EaselVertex::render() {
         if (offset > maxv) {
             offset = total_vertices % maxv;
         }
-        unsigned offset_n = offset - m_vertices.size() / 3;
-        unsigned offset_b = offset_n * 3 * sizeof(float);
-        //printf("[%d %d]", offset, m_vertices.size()/3);
+        unsigned offset_n = offset - m_vertices.size() / 2;
+        unsigned offset_b = offset_n * 2 * sizeof(float);
+        //printf("[%d %d]", offset, m_vertices.size()/2);
         //printf("%.2f_%.2f ", m_vertices.at(0), m_vertices.at(1));
         //fflush(stdout);
 
@@ -142,17 +137,17 @@ void EaselVertex::gui() {
         create_vertex_buffer();
     }
     ScrollableSliderUInt("Frame vertex target", &frame_vertex_target_k, 1, vertex_buffer_maximum_k, "%d", 8);
-    ImGui::Text("total vertices %lx", total_vertices);
+    ImGui::Text("vertices buffer size %d MiB", vertex_buffer_maximum()*2*sizeof(float)/1024/1024);
 }
 
 void EaselVertex::dab(float x, float y) {
     m_vertices.push_back(x);
     m_vertices.push_back(y);
-    m_vertices.push_back(0);
+    //m_vertices.push_back(0);
     ++total_vertices;
-    // TODO: handle total_vertices overflow
-    // if (total_vertices > vertex_buffer_maximum()*2)
-    //  total_vertices -= vertex_buffer_maximum();
+    // TODO: properly handle total_vertices overflow
+    if (total_vertices > vertex_buffer_maximum()*2)
+        total_vertices -= vertex_buffer_maximum();
 }
 
 /*

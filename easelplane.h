@@ -14,6 +14,7 @@ public:
     //void append(Pixel && p);
     void drawdot(int32_t x, int32_t y, uint32_t c) override;
 
+    virtual void begin() override;
     virtual void render() override;
     //virtual void clear() override;
     virtual void gui() override;
@@ -34,5 +35,5 @@ private:
     GLuint image_texture;
     GLuint pboIds[2];
     int pbo_index = 0;
-    std::vector<uint32_t> m_plane;
+    uint32_t* m_plane;
 };

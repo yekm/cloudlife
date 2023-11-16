@@ -60,12 +60,12 @@ EaselPlane::~EaselPlane() {
 }
 
 void EaselPlane::reset() {
-    m_plane.resize(w*h);
+    //m_plane.resize(w*h);
     destroy_pbos();
     make_pbos();
 }
 
-void EaselPlane::render() {
+void EaselPlane::begin() {
     int nexti = pbo_index;
     pbo_index = pbo_index ? 0 : 1;
     glBindTexture(GL_TEXTURE_2D, image_texture);
@@ -78,11 +78,11 @@ void EaselPlane::render() {
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[nexti]);
     glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size(),
             0, GL_STREAM_DRAW);
-    uint32_t* ptr = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
-    assert(ptr);
-    //art->draw(ptr);
-    std::copy(m_plane.begin(), m_plane.end(), ptr);
+    m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+}
 
+
+void EaselPlane::render() {
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -105,4 +105,6 @@ void EaselPlane::drawdot(int32_t x, int32_t y, uint32_t c) {
 void EaselPlane::gui() {
     ImGui::Text("pixels drawn %d, discarded %d",
         pixels_drawn, pixels_discarded);
+    ImGui::Text("texture %d x %d", w, h);
+    ImGui::Text("window %d x %d", ww, wh);
 }

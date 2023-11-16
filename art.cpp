@@ -36,8 +36,8 @@ bool Art::gui() {
 }
 
 void Art::draw() {
-    // uint32_t* p = easel->begin();
-    bool direct = render(0);
+    easel->begin();
+    render(0);
     easel->render();
 
     ++frame_number;
