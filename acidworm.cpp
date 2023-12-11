@@ -392,8 +392,8 @@ void AcidWorm::resize(int _w, int _h) {
   for (int n = number; --n >= 0; wrm++) {
     wrm->xpos.resize(length);
     wrm->ypos.resize(length);
-    fillN<-1>(wrm->xpos);
-    fillN<-1>(wrm->ypos);
+    fillV<-1>(wrm->xpos);
+    fillV<-1>(wrm->ypos);
   }
 
   setcustompalette(color_cycle);

@@ -16,7 +16,7 @@ public:
 
     virtual void begin() override;
     virtual void render() override;
-    //virtual void clear() override;
+    virtual void clear() override;
     virtual void gui() override;
     virtual void reset() override;
 
@@ -26,7 +26,8 @@ private:
 
     void make_pbos();
     void destroy_pbos();
-    int texture_size();
+    int texture_size_bytes();
+    int texture_size_pixels();
 
     typedef uint32_t pixel_t;
     pixel_t *image_data = NULL;
@@ -35,5 +36,5 @@ private:
     GLuint image_texture;
     GLuint pboIds[2];
     int pbo_index = 0;
-    uint32_t* m_plane;
+    pixel_t* m_plane;
 };

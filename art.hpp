@@ -12,19 +12,6 @@
 //#include "easelvertex.h"
 
 
-template <int N, typename T>
-static inline void
-fillN(T &container) {
-    std::fill(container.begin(), container.end(),
-        static_cast<typename T::value_type>(N));
-}
-
-template <typename T>
-static inline void
-fill0(T &container) {
-    fillN<0, T>(container);
-}
-
 class Art {
 public:
     Art(std::string _name);

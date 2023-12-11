@@ -6,12 +6,16 @@
 
 // GL_CLAMP_TO_EDGE, GL_CLAMP_TO_BORDER, GL_MIRRORED_REPEAT, GL_REPEAT, GL_MIRROR_CLAMP_TO_EDGE
 
-int EaselPlane::texture_size() {
+int EaselPlane::texture_size_bytes() {
     return w * h * sizeof(pixel_t);
 }
 
+int EaselPlane::texture_size_pixels() {
+    return w * h;
+}
+
 void EaselPlane::make_pbos() {
-    image_data_vector.resize(texture_size());
+    image_data_vector.resize(texture_size_bytes());
     image_data = image_data_vector.data();
 
     // AUTHOR: Song Ho Ahn (song.ahn@gmail.com)
@@ -33,10 +37,10 @@ void EaselPlane::make_pbos() {
 
     glGenBuffers(2, pboIds);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[0]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size(),
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size_bytes(),
             0, GL_STREAM_DRAW);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[1]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size(),
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size_bytes(),
             0, GL_STREAM_DRAW);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
@@ -56,6 +60,7 @@ EaselPlane::EaselPlane()
 }
 
 EaselPlane::~EaselPlane() {
+    clear();
     destroy_pbos();
 }
 
@@ -76,7 +81,7 @@ void EaselPlane::begin() {
 
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[nexti]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size(),
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size_bytes(),
             0, GL_STREAM_DRAW);
     m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 }
@@ -107,4 +112,15 @@ void EaselPlane::gui() {
         pixels_drawn, pixels_discarded);
     ImGui::Text("texture %d x %d", w, h);
     ImGui::Text("window %d x %d", ww, wh);
+}
+
+void EaselPlane::clear() {
+    begin();
+    if (m_plane == nullptr)
+        return;
+    fill0(m_plane, texture_size_pixels());
+    begin();
+    fill0(m_plane, texture_size_pixels());
+    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }

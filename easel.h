@@ -2,6 +2,33 @@
 #include <vector>
 #include <stdint.h>
 
+template <int V, typename T>
+static inline void
+fillV(T &container) {
+    std::fill(container.begin(), container.end(),
+        static_cast<typename T::value_type>(V));
+}
+
+template <typename T>
+static inline void
+fill0(T &container) {
+    fillV<0, T>(container);
+}
+
+template <int V, typename T>
+static inline void
+fillV(T container, size_t N) {
+    std::fill_n(container, N,
+        static_cast<typename std::remove_pointer_t<T>>(V));
+}
+
+template <typename T>
+static inline void
+fill0(T &container, size_t N) {
+    fillV<0, T>(container, N);
+}
+
+
 
 class Easel {
 public:

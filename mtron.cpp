@@ -41,8 +41,6 @@ void Minskytron::dt(uint32_t *p, int x, int y, double o, uint32_t c) {
 }
 
 bool Minskytron::render(uint32_t *p) {
-    memset(p, 0, easel->w * easel->h * 4);
-
     for (int i = 0; i<cycles; ++i) {
         ya += (xa + xb) >> sh0;
         xa -= (ya - yb) >> sh1;

@@ -34,7 +34,7 @@ void rotateforward(int color, UCHAR *Pal)
   int x;
   
   temp = Pal[(1*3)+color];
-  for(x=1; x < (256) ; ++x)
+  for(x=1; x < (255) ; ++x)
     Pal[x*3+color] = Pal[(x*3)+3+color]; 
   Pal[((256)*3)-3+color] = temp;
 }
