@@ -40,6 +40,4 @@ private:
 	int kcount = 16;
     int op = 0;
     int iterations = 10;
-    PaletteSetting pal;
-
 };

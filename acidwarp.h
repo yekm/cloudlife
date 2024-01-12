@@ -12,8 +12,6 @@ private:
     virtual void resize(int _w, int _h) override;
     virtual bool render(uint32_t *p) override;
 
-    PaletteSetting pal;
-
     enum { IMAGE, FADE_IN, ROTATE, FADE_OUT } acid_state = IMAGE;
 
     int image_func = 0, pal_num = 0;

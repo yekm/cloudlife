@@ -47,6 +47,4 @@ private:
     int cycles = 1024*64;
     int count = 1024;
 	int kcount = 32;
-    PaletteSetting pal;
-
 };

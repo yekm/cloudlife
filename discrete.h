@@ -52,6 +52,4 @@ private:
     int count = 1024*4;
     int bias = 0;
     int iterations = 10;
-    PaletteSetting pal;
-
 };

@@ -88,8 +88,6 @@ bool Attractor::render_gui ()
 	up |= ScrollableSliderDouble("d", &d, -20, 20, "%.4f", 0.000001);
 
 
-	up |= pal.RenderGui();
-
 	ImGui::Text("count %d", count);
 
 
@@ -103,7 +101,7 @@ bool Attractor::render_gui ()
 void Attractor::resize(int _w, int _h) {
 	clear();
 
-	pal.rescale(easel->vertex_buffer_maximum() >> 2);
+	//easel->pal.rescale(easel->vertex_buffer_maximum() >> 2);
 	count = 0;
 
 	//clear();

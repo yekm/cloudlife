@@ -348,7 +348,7 @@ void Hopalong::draw_hop()
 		}
         //xp->width = xp->height = hp->scale;
 		//xp++;
-		drawdot(xp->x, xp->y, pal.get_color(count - k));
+		drawdot(xp->x, xp->y, easel->pal.get_color(count - k));
 	}
 }
 
@@ -381,10 +381,8 @@ bool Hopalong::render_gui ()
 	up |= ScrollableSliderInt("op", &hp->op, 0, 10, "%d", 1);
 	if (ScrollableSliderInt("iterations kcount", &kcount, 0, 1024, "%d", 1)) {
 		count = kcount * 1024;
-		pal.rescale(count);
+		easel->pal.rescale(count);
 	}
-
-	up |= pal.RenderGui();
 
 	ImGui::Text("hp->count %d, op %d", hp->count, hp->op);
 
@@ -399,7 +397,7 @@ bool Hopalong::render_gui ()
 void Hopalong::resize(int _w, int _h) {
 	default_resize(_w, _h);
 
-	pal.rescale(count);
+	easel->pal.rescale(count);
 
 	init_hop();
 }

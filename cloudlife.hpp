@@ -1,5 +1,4 @@
 #include "art.hpp"
-#include <colormap/colormap.hpp>
 #include "imgui.h"
 
 #include "settings.hpp"
@@ -52,8 +51,6 @@ private:
     void refield();
     unsigned int is_alive(unsigned int x, unsigned int y);
     unsigned int do_tick();
-
-    PaletteSetting pal;
 
 };
 

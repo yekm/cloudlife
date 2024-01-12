@@ -99,8 +99,6 @@ bool AcidWarp::render_gui() {
     initPalArray(TargetPalArray, pal_num);
   }
 
-  pal.RenderGui();
-
   ImGui::Text("state:%d frame:%d", acid_state, frame);
 
 
@@ -120,7 +118,6 @@ void AcidWarp::resize(int _w, int _h) {
   fill0(buf_graf);
 
   //default_resize(width, height);
-  //pal.rescale(ncolors);
 
 
     frame = 0;

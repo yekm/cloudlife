@@ -1,5 +1,6 @@
 #include "easelvertex.h"
 
+#include "imgui.h"
 #include "imgui_elements.h"
 
 #include <stdio.h>
@@ -9,19 +10,36 @@
 const char* vertexShaderSource = R"(
     #version 330 core
     layout (location = 0) in vec2 aPos;
+    layout (location = 1) in float aIndex;
+    out float aIdx;
     void main()
     {
         gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
+        aIdx = aIndex;
     }
 )";
 
-const char* fragmentShaderSource = R"(
+const char* fragmentShaderSourceUniform = R"(
     #version 330 core
+    in float aIdx;
     out vec4 fragColor;
     uniform vec4 vertexColor;
     void main()
     {
         fragColor = vertexColor;
+    }
+)";
+
+const char* fragmentShaderSourceColormap = R"(
+    #version 330 core
+    in float aIdx;
+    out vec4 fragColor;
+
+    vec4 colormap(float x);
+
+    void main()
+    {
+        fragColor = colormap(aIdx);
     }
 )";
 
@@ -41,7 +59,8 @@ void EaselVertex::init_shaders() {
     }
     // fragment shader
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    const char * fss = fragmentShaderSource.c_str();
+    glShaderSource(fragmentShader, 1, &fss, NULL);
     glCompileShader(fragmentShader);
     // check for shader compile errors
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
@@ -79,7 +98,9 @@ void EaselVertex::create_vertex_buffer() {
     glBufferData(GL_ARRAY_BUFFER, vertex_buffer_maximum()*2*sizeof(float), 0, GL_STATIC_DRAW);
     // Specify the vertex attribute pointers
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(float)));
 }
 
 void EaselVertex::destroy_vertex_buffer() {
@@ -89,6 +110,8 @@ void EaselVertex::destroy_vertex_buffer() {
 
 EaselVertex::EaselVertex()
 {
+    fragmentShaderSource = fragmentShaderSourceColormap + pal.get_cmap().getSource();
+    //fragmentShaderSource = fragmentShaderSourceUniform;
     init_shaders();
     create_vertex_buffer();
 }
@@ -101,19 +124,25 @@ EaselVertex::~EaselVertex() {
 
 
 void EaselVertex::render() {
+    const unsigned maxv = vertex_buffer_maximum();
+
     glUseProgram(shaderProgram);
-    int vertexColorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
-    glUniform4f(vertexColorLocation, vertex_color.x, vertex_color.y, vertex_color.z, vertex_color.w);
+
+    if (use_colormap) {
+    }
+    else {
+        int vertexColorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
+        glUniform4f(vertexColorLocation, vertex_color.x, vertex_color.y, vertex_color.z, vertex_color.w);
+    }
 
 
-    unsigned maxv = vertex_buffer_maximum();
     if (m_vertices.size() > 0) {
         unsigned offset = total_vertices;
         if (offset > maxv) {
             offset = total_vertices % maxv;
         }
-        unsigned offset_n = offset - m_vertices.size() / 2;
-        unsigned offset_b = offset_n * 2 * sizeof(float);
+        unsigned offset_n = offset - m_vertices.size() / 3;
+        unsigned offset_b = offset_n * 3 * sizeof(float);
         //printf("[%d %d]", offset, m_vertices.size()/2);
         //printf("%.2f_%.2f ", m_vertices.at(0), m_vertices.at(1));
         //fflush(stdout);
@@ -137,17 +166,30 @@ void EaselVertex::gui() {
         create_vertex_buffer();
     }
     ScrollableSliderUInt("Frame vertex target", &frame_vertex_target_k, 1, vertex_buffer_maximum_k, "%d", 8);
-    ImGui::Text("vertices buffer size %d MiB", vertex_buffer_maximum()*2*sizeof(float)/1024/1024);
+
+    //ImGui::Checkbox("Use colormap", &use_colormap);
+    if (use_colormap) {
+        if (pal.RenderGui()) {
+            fragmentShaderSource = fragmentShaderSourceColormap + pal.get_cmap().getSource();
+            glDeleteProgram(shaderProgram);
+            init_shaders();
+        }
+    }
+
+    ImGui::Text("vertices buffer size %d MiB", vertex_buffer_maximum()*3*sizeof(float)/1024/1024);
 }
 
 void EaselVertex::dab(float x, float y) {
+    const auto vbm = vertex_buffer_maximum();
+    unsigned index = (m_vertices.size()/3) % frame_vertex_target();
     m_vertices.push_back(x);
     m_vertices.push_back(y);
+    m_vertices.push_back((float)index/frame_vertex_target());
     //m_vertices.push_back(0);
     ++total_vertices;
     // TODO: properly handle total_vertices overflow
-    if (total_vertices > vertex_buffer_maximum()*2)
-        total_vertices -= vertex_buffer_maximum();
+    if (total_vertices > vbm*2)
+        total_vertices -= vbm;
 }
 
 /*

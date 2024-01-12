@@ -108,6 +108,8 @@ void EaselPlane::drawdot(int32_t x, int32_t y, uint32_t c) {
 }
 
 void EaselPlane::gui() {
+    pal.RenderGui();
+
     ImGui::Text("pixels drawn %d, discarded %d",
         pixels_drawn, pixels_discarded);
     ImGui::Text("texture %d x %d", w, h);

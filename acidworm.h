@@ -19,8 +19,6 @@ private:
     virtual void resize(int _w, int _h) override;
     virtual bool render(uint32_t *p) override;
 
-    PaletteSetting pal;
-
     int length = 100;
     int number = 256;
     int color_cycle = 1; /* Normal color cycling     */

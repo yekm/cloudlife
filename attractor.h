@@ -22,7 +22,6 @@ private:
     void draw();
 
 	int kcount = 16, count = 0;
-    PaletteSetting pal;
 
     double a = 1, b = 2, c = 3, d = 4;
     double ai, aj;

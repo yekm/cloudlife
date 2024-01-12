@@ -2,6 +2,8 @@
 #include <vector>
 #include <stdint.h>
 
+#include "settings.hpp"
+
 template <int V, typename T>
 static inline void
 fillV(T &container) {
@@ -69,6 +71,9 @@ public:
     }
     int w, h;
     int ww, wh;
+
+    PaletteSetting pal;
+
 };
 
 class EaselPlane;

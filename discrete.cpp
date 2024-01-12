@@ -160,7 +160,7 @@ void Discrete::init_discrete()
 	}
 	hp->inc = 0;
 
-	pal.rescale(count);
+	easel->pal.rescale(count);
 
 	hp->count = 0;
     hp->sqrt_sign = 1;
@@ -270,7 +270,7 @@ void Discrete::draw_discrete_1()
 		}
 		x = hp->maxx / 2 + (int) ((hp->i - hp->ic) * hp->is);
 		y = hp->maxy / 2 - (int) ((hp->j - hp->jc) * hp->js);
-		drawdot(x, y, pal.get_color(count - k));
+		drawdot(x, y, easel->pal.get_color(count - k));
 	}
 
 }
@@ -302,7 +302,6 @@ bool Discrete::render_gui ()
 	up |= ScrollableSliderInt("count", &count, 0, 1024*10, "%d", 256);
 	ScrollableSliderInt("iterations", &iterations, 1, 256, "%d", 1);
 	up |= ScrollableSliderInt("bias", &bias, 0, 8, "%d", 1);
-	up |= pal.RenderGui();
 
 	ImGui::Text("hp->count %d, bias %d", hp->count, hp->op);
 

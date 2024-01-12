@@ -120,7 +120,7 @@ void Vermiculate::clearscreen ()
 void
 Vermiculate::sp (int x, int y, uint32_t c)
 {
-  uint32_t color = pal.get_color(c);
+  uint32_t color = easel->pal.get_color(c);
   if (c == 0)
     color = 0;
   drawdot(x, y, color);
@@ -157,7 +157,7 @@ void
 Vermiculate::randpal ()
 {
   int ncolors = tailmax - 1;
-  pal.rescale(ncolors);
+  easel->pal.rescale(ncolors);
 }
 
 void
@@ -705,7 +705,6 @@ bool Vermiculate::render_gui ()
     ScrollableSliderInt("ticks", &max_ticks, 0, 20000, "%d", 8);
     ScrollableSliderInt("cycles", &cycles, 0, 1024, "%d", 1);
     //up |= ScrollableSliderInt("Speed", &speed, 1, 1024, "%d", 1);
-    up |= pal.RenderGui();
 
 	// TODO: select instring
 

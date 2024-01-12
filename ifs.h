@@ -40,7 +40,6 @@ private:
     bool translate = true, scale = true, rotate = true;
 
     ImVec4 foreground = ImVec4(0, 1, 0, 1);
-    PaletteSetting pal;
     uint32_t current_color;
 
 

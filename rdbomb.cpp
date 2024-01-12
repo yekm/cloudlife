@@ -212,7 +212,7 @@ void RDbomb::pixack_frame() {
 #else
       qqq[j] = st->colors[(r1 >> 8) % st->ncolors].pixel;
 #endif
-      drawdot(j, i, pal.get_color(r1 % st->ncolors));
+      drawdot(j, i, easel->pal.get_color(r1 % st->ncolors));
     }
   }
 
@@ -266,13 +266,11 @@ bool RDbomb::render_gui() {
   up |= ScrollableSliderInt("width", &width, 10, 1024, "%d", 1);
   up |= ScrollableSliderInt("height", &height, 10, 1024, "%d", 1);
 
-  pal.RenderGui();
-
   return up;
 }
 
 void RDbomb::resize(int _w, int _h) {
   clear();
-  pal.rescale(ncolors);
+  easel->pal.rescale(ncolors);
   rd_init();
 }

@@ -59,8 +59,6 @@ private:
   int cyc;
   int cycles = 1;
 
-  PaletteSetting pal;
-
   bool wasakeypressed();
   char readkey ();
   unsigned int random1 (unsigned int i);

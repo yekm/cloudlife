@@ -1,5 +1,4 @@
 #include "art.hpp"
-#include <colormap/colormap.hpp>
 #include "imgui.h"
 
 #include "settings.hpp"

@@ -41,8 +41,5 @@ private:
 
     double array_x, array_y;
     double array_dx, array_dy;
-
-    PaletteSetting pal;
-
 };
 

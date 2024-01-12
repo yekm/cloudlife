@@ -260,11 +260,7 @@ bool IFS::render(uint32_t *p)
       partcolor = ccolour * (i+1);
       partcolor %= ncolours;
 
-      auto c = (*pal)(partcolor);
-      current_color = 0xff000000 |
-              c.getRed().getValue() << 0 |
-              c.getGreen().getValue() << 8 |
-              c.getBlue().getValue() << 16;
+      current_color = 0xff000000 | easel->pal.get_color(partcolor);
 
 
       if (brecurse)
@@ -303,7 +299,6 @@ bool IFS::render_gui() {
 
     up |= ScrollableSliderInt("Functions", &lensnum, 1, 32, "%d", 1);
     up |= ImGui::ColorEdit4("Foreground", (float*)&foreground);
-    up |= pal.RenderGui();
 
     if (up) {
         resize(easel->w, easel->h);
@@ -332,7 +327,7 @@ void IFS::resize(int _w, int _h) {
 	       myrandom(4)+2,
 	       &lenses[i]);
   }
-  *pal = (*pal).rescale(0., ncolours);
+  easel->pal.rescale(ncolours);
   current_color = ImGui::GetColorU32(foreground);
 
   widthb = ((easel->w + 31) >> 5);

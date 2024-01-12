@@ -44,8 +44,7 @@ void Cloudlife::resize_field(int fw, int fh) {
     std::fill(f->cells.begin(), f->cells.end(), 0);
     std::fill(f->new_cells.begin(), f->new_cells.end(), 0);
 
-    *pal = (*pal).rescale(0., f->max_age);
-    //*pal = (*pal).rescale(0., ncolors);
+    easel->pal.rescale(f->max_age);
 }
 
 unsigned char *Cloudlife::cell_at(unsigned int x, unsigned int y)
@@ -109,7 +108,6 @@ bool Cloudlife::render_gui() {
     up |= ImGui::ColorEdit4("Foreground", (float*)&foreground);
     up |= ImGui::ColorEdit4("Backgroud", (float*)&background);
     up |= ImGui::ColorEdit4("Clear color", (float*)&clear_color);
-    up |= pal.RenderGui();
 
     if (up) {
         refield();
@@ -137,11 +135,7 @@ void Cloudlife::populate_edges(unsigned int p)
 //--------------------------------------------------------------
 
 uint32_t Cloudlife::get_color_age(int age) {
-    auto c = (*pal)(age);
-    return  0xff000000 |
-            c.getRed().getValue() << 0 |
-            c.getGreen().getValue() << 8 |
-            c.getBlue().getValue() << 16;
+    return easel->pal.get_color(age);
 }
 
 void

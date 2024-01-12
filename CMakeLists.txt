@@ -3,11 +3,11 @@ cmake_minimum_required(VERSION 3.16.3)
 project(imgui-cmake LANGUAGES C CXX)
 
 
-set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native -flto=auto")
+set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native -flto=auto -Wno-pragmas")
 set (CMAKE_CXX_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
-set (CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -march=native -g")
+set (CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -march=native -g -Wno-pragmas")
 set (CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO})
-set (CMAKE_C_FLAGS_DEBUG "-O0 -ggdb3 -fsanitize=address")
+set (CMAKE_C_FLAGS_DEBUG "-O0 -ggdb3 -fsanitize=address -Wno-pragmas")
 set (CMAKE_CXX_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
 
 set (CMAKE_VERBOSE_MAKEFILE TRUE)
@@ -48,8 +48,6 @@ target_include_directories( IMGUI
 #target_link_libraries(IMGUI PUBLIC ${CMAKE_DL_LIBS})
 #######################################################
 
-add_subdirectory(colormap)
-
 add_library(clouds OBJECT
     art.cpp
     artfactory.cpp
@@ -79,14 +77,16 @@ add_library(clouds OBJECT
     )
 
 target_include_directories(clouds PRIVATE .)
+target_include_directories(clouds PRIVATE colormap-shaders/include)
 
-target_link_libraries(clouds IMGUI glfw GL colormap)
+target_link_libraries(clouds IMGUI glfw GL)
 #set_property(TARGET clouds PROPERTY CXX_STANDARD 17)
 
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
+target_include_directories(cloudlife PRIVATE colormap-shaders/include)
 #add_executable(cloudtest test.cpp $<TARGET_OBJECTS:clouds>)
-target_link_libraries(cloudlife IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES} colormap)
-#target_link_libraries(cloudtest IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES} colormap)
+target_link_libraries(cloudlife IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES})
+#target_link_libraries(cloudtest IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES})
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 #set_target_properties(cloudtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
