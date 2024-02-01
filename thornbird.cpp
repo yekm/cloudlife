@@ -64,7 +64,7 @@ void Thornbird::init_thornbird()
 
 	hp->count = 0;
 
-	easel->pal.rescale(count);
+	//easel->pal.rescale(count);
 }
 
 void Thornbird::draw_thornbird_1()
@@ -102,7 +102,7 @@ void Thornbird::draw_thornbird_1()
 		y = (short) (hp->maxy / 2 * (1
 						- cost*hp->j + sint*cosp*hp->i - sint*sinp*hp->b));
 
-		drawdot(x, y, easel->pal.get_color(count - k));
+		drawdot(x, y, easel->pal.get_next_color());
 	}
 
 	hp->inc++;
@@ -140,7 +140,7 @@ bool Thornbird::render_gui ()
 
 	if (ScrollableSliderInt("iterations kcount", &kcount, 0, 1024, "%d", 1)) {
 		count = kcount * 1024;
-		easel->pal.rescale(count);
+		//easel->pal.rescale(count);
 	}
 
 	ImGui::Text("hp->count %d", hp->count);

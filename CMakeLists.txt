@@ -5,8 +5,10 @@ project(imgui-cmake LANGUAGES C CXX)
 
 set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native -flto=auto -Wno-pragmas")
 set (CMAKE_CXX_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
+
 set (CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -march=native -g -Wno-pragmas")
 set (CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO})
+
 set (CMAKE_C_FLAGS_DEBUG "-O0 -ggdb3 -fsanitize=address -Wno-pragmas")
 set (CMAKE_CXX_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
 

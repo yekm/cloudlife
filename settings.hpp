@@ -47,11 +47,15 @@ public:
     void rescale(uint32_t ncolours);
     uint32_t get_color(uint32_t color_n);
     uint32_t get_colorf(float color_n) const;
+    float get_color_index(uint32_t color_n) const;
+    float get_next_color_index();
+    uint32_t get_next_color();
 
     const colormap::Colormap & get_cmap();
 
 private:
-    double color_max = 1;
+    uint32_t color_max = 1;
+    uint32_t current_color = 0;
     bool invert = false;
 
     VectorCombo vc;

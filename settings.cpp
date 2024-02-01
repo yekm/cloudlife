@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <iterator>
 
+#include <iostream>
+
 PaletteSetting::PaletteSetting(std::string pname)
     : Setting("Palette") {
     auto l = colormap::ColormapList::getAll();
@@ -30,6 +32,11 @@ bool PaletteSetting::RenderGui() {
     if (ret)
         current_cmap = maps.at(vc.get_value());
 
+    ScrollableSliderUInt("Max colors", &color_max, 1, 1024*32, "%d", 128);
+
+    ImGui::Text("current color / max %d / %d", current_color, color_max);
+    ImGui::Text("current color %x", get_color(current_color));
+
     return ret;
 }
 
@@ -38,15 +45,17 @@ void PaletteSetting::rescale(uint32_t ncolours) {
 }
 
 uint32_t PaletteSetting::get_color(uint32_t color_n) {
-    return get_colorf((float)color_n/color_max);
+    if (color_n > color_max)
+        std::cerr << "color_n > color_max " << color_n << " > " << color_max << std::endl;
+    return get_colorf((float)(color_n%color_max)/color_max);
 }
 
 uint32_t PaletteSetting::get_colorf(float color_n) const {
 
-    auto c = current_cmap->getColor(color_n);
-
     if (invert)
         color_n = 1 / color_n;
+
+    auto c = current_cmap->getColor(color_n);
 
     return ImGui::ColorConvertFloat4ToU32({static_cast<float>(c.r),
                                            static_cast<float>(c.g),
@@ -54,6 +63,20 @@ uint32_t PaletteSetting::get_colorf(float color_n) const {
                                            static_cast<float>(c.a)});
 }
 
+float PaletteSetting::get_color_index(uint32_t color_n) const {
+    return (float)color_n / color_max;
+}
+
+float PaletteSetting::get_next_color_index() {
+    ++current_color;
+    if (current_color > color_max)
+        current_color = 0;
+    return (float)current_color / color_max;
+}
+
+uint32_t PaletteSetting::get_next_color() {
+    return get_color(get_next_color_index());
+}
 
 const colormap::Colormap & PaletteSetting::get_cmap() {
     return *current_cmap;

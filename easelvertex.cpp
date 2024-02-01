@@ -39,50 +39,55 @@ const char* fragmentShaderSourceColormap = R"(
 
     void main()
     {
-        fragColor = colormap(aIdx);
+        vec4 cmc = colormap(aIdx);
+        fragColor = vec4(cmc.x, cmc.y, cmc.z, 0.4);
     }
 )";
 
 
 void EaselVertex::init_shaders() {
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-    // check for shader compile errors
     int success;
     char infoLog[512];
+
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
     if (!success)
     {
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
-    // fragment shader
+
+
+    std::cout << fragmentShaderSource << std::endl;
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     const char * fss = fragmentShaderSource.c_str();
     glShaderSource(fragmentShader, 1, &fss, NULL);
     glCompileShader(fragmentShader);
-    // check for shader compile errors
+
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
     if (!success)
     {
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
-    // link shaders
+
+
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
-    // check for linking errors
+    
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
     }
+
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-
 }
 
 
@@ -171,8 +176,10 @@ void EaselVertex::gui() {
     if (use_colormap) {
         if (pal.RenderGui()) {
             fragmentShaderSource = fragmentShaderSourceColormap + pal.get_cmap().getSource();
+            destroy_vertex_buffer();
             glDeleteProgram(shaderProgram);
             init_shaders();
+            create_vertex_buffer();
         }
     }
 
@@ -181,10 +188,10 @@ void EaselVertex::gui() {
 
 void EaselVertex::dab(float x, float y) {
     const auto vbm = vertex_buffer_maximum();
-    unsigned index = (m_vertices.size()/3) % frame_vertex_target();
+    //unsigned index = (m_vertices.size()/3);// % frame_vertex_target();
     m_vertices.push_back(x);
     m_vertices.push_back(y);
-    m_vertices.push_back((float)index/frame_vertex_target());
+    m_vertices.push_back(pal.get_next_color_index());
     //m_vertices.push_back(0);
     ++total_vertices;
     // TODO: properly handle total_vertices overflow

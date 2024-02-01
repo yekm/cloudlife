@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+#include "easel.h"
 #include "imgui.h"
 
 // GL_CLAMP_TO_EDGE, GL_CLAMP_TO_BORDER, GL_MIRRORED_REPEAT, GL_REPEAT, GL_MIRROR_CLAMP_TO_EDGE

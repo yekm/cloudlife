@@ -101,7 +101,7 @@ bool Attractor::render_gui ()
 void Attractor::resize(int _w, int _h) {
 	clear();
 
-	//easel->pal.rescale(easel->vertex_buffer_maximum() >> 2);
+	easel->pal.rescale(easel->vertex_buffer_maximum());
 	count = 0;
 
 	//clear();
