@@ -30,10 +30,6 @@
 #include "imgui_elements.h"
 #include "thornbird.h"
 #include "random.h"
-// from yarandom.h
-#define LRAND()         ((long) (xoshiro256plus() & 0x7fffffff))
-#define MAXRAND         (2147483648.0) /* unsigned 1<<31 as a float */
-#define balance_rand(v)	((LRAND()/MAXRAND*(v))-((v)/2))	/* random around 0 */
 
 #include <math.h>
 
