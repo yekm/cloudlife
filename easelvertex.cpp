@@ -35,12 +35,14 @@ const char* fragmentShaderSourceColormap = R"(
     in float aIdx;
     out vec4 fragColor;
 
+    uniform float vertexOpacity;
+
     vec4 colormap(float x);
 
     void main()
     {
         vec4 cmc = colormap(aIdx);
-        fragColor = vec4(cmc.x, cmc.y, cmc.z, 0.4);
+        fragColor = vec4(cmc.x, cmc.y, cmc.z, vertexOpacity);
     }
 )";
 
@@ -106,6 +108,8 @@ void EaselVertex::create_vertex_buffer() {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(float)));
+
+    update_opacity = true;
 }
 
 void EaselVertex::destroy_vertex_buffer() {
@@ -134,6 +138,13 @@ void EaselVertex::render() {
     glUseProgram(shaderProgram);
 
     if (use_colormap) {
+        // there is no need to execute this every frame
+        if (update_opacity) // requested by gui
+        {
+            int opacityColorLocation = glGetUniformLocation(shaderProgram, "vertexOpacity");
+            glUniform1f(opacityColorLocation, cmap_opacity);
+            update_opacity = false;
+        }
     }
     else {
         int vertexColorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
@@ -181,6 +192,7 @@ void EaselVertex::gui() {
             init_shaders();
             create_vertex_buffer();
         }
+        update_opacity |= ScrollableSliderFloat("Opacity", &cmap_opacity, 0, 1, "%.2f", 0.02);
     }
 
     ImGui::Text("vertices buffer size %d MiB", vertex_buffer_maximum()*3*sizeof(float)/1024/1024);

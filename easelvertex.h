@@ -32,5 +32,6 @@ private:
     ImVec4 vertex_color = ImVec4(1, 0.5, 0.2, 0.05f);
 
     std::string fragmentShaderSource;
-    bool use_colormap = true;
+    bool use_colormap = true, update_opacity = true;
+    float cmap_opacity = 0.4;
 };
