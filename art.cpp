@@ -11,8 +11,6 @@
 Art::Art(std::string _name)
     : m_name(_name)
 {
-    if (!easel)
-        usePlane();
 }
 
 
@@ -21,6 +19,8 @@ const char* Art::name() {
 }
 
 void Art::resized(int _w, int _h) {
+    if (!easel)
+        usePlane();
     frame_number = 0;
     easel->set_window_size(_w, _h);
     easel->set_texture_size(_w, _h);
