@@ -22,6 +22,7 @@ ArtFactory::ArtFactory() {
     add_art<Discrete>("Discrete");
     add_art<Thornbird>("Thornbird");
     add_art<OnePixel>("OnePixel");
+    add_art<Nothing>("Nothing");
     add_art<RDbomb>("RDbomb");
     add_art<AcidWarp>("AcidWarp");
     add_art<AcidWorm>("AcidWorm");

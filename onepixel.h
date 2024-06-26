@@ -19,3 +19,16 @@ private:
         return true;
     }
 };
+
+class Nothing : public Art {
+public:
+    Nothing()
+        : Art("Nothing") {
+            printf(__func__); printf("\n"); fflush(stdout);
+            useVertex();
+        }
+private:
+    virtual bool render(uint32_t *p) override {
+        return false;
+    }
+};
