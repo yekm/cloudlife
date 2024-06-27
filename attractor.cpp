@@ -3,38 +3,12 @@
 #include "attractor.h"
 #include "random.h"
 
-#include <math.h>
-
-// https://examples.holoviz.org/attractors/attractors.html
-
 void Attractor::init()
 {
-/*
-	int centerx, centery;
-	centerx = easel->w / 2;
-	centery = easel->h / 2;
-	
-	double range = sqrt((double) centerx * centerx +
-	     (double) centery * centery) / (1.0 + LRAND() / MAXRAND);
-*/
-	ai = aj = 0.0;
-	/*
-	inc = (int) ((LRAND() / MAXRAND) * 200) - 100;
-	a = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 20.0;
-	b = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 20.0;
-	if (LRAND() & 1)
-		c = ((LRAND() / MAXRAND) * 2.0 - 1.0) * range / 20.0;
-	else
-		c = 0.0;
-	*/
+	clear();
+	count = 0;
+	attractor->reset();
 }
-
-
-void Attractor::draw()
-{
-
-}
-
 
 bool Attractor::render(uint32_t *p)
 {
@@ -44,62 +18,34 @@ bool Attractor::render(uint32_t *p)
 	auto ftarget = easel->frame_vertex_target();
 	auto vbmax = easel->vertex_buffer_maximum();
 	for (int i=0; i < ftarget /*&& count < vbmax*/; ++i, ++count) {
-		oldj = aj;
-		oldi = ai + inc;
-		aj = a - ai;
-		ai = oldj + (ai < 0
-					    ?  sqrt(fabs(b * oldi - c))
-					    : -sqrt(fabs(b * oldi - c))
-					);
-		//x = easel->w/2 + (int) (ai + aj);
-		//y = easel->h/2 - (int) (ai - aj);
-
-		drawdot((ai + aj)/easel->w, (ai - aj)/easel->h);
-		//drawdot((float)x/w-.5, (float)y/h-.5);
-		//drawdot(x, y, 0);
-		//drawdot(x, y, pal.get_color((vertex_buffer_maximum() - count)>>2));
-		//pb->adot((float)x/w-.5, (float)y/h-.5);
+		const auto [x, y] = attractor->get_point();
+		drawdot(mul*x/easel->w, mul*y/easel->h);
 	}
 
 	return false;
 }
-
 
 bool Attractor::render_gui ()
 {
 	bool up = false;
 
-	//up |= ScrollableSliderInt("op", &op, 0, 10, "%d", 1);
-	/*
-	if (ScrollableSliderInt("iterations kcount", &kcount, 0, 1024, "%d", 1)) {
-		count = kcount * 1024;
-		pal.rescale(count >> 1);
-	}
-	*/
+	up |= ScrollableSliderDouble("mul", &mul, -256, 256, "%.4f", 2);
+	up |= ScrollableSliderDouble("inc",  &attractor->iinc, -200, 200, "%.4f", 0.0001);
+	up |= ScrollableSliderDouble("a",    &attractor->aa,   -20, 20,   "%.4f", 0.0001);
+	up |= ScrollableSliderDouble("b",    &attractor->bb,   -20, 20,   "%.4f", 0.0001);
+	up |= ScrollableSliderDouble("c",    &attractor->cc,   -20, 20,   "%.4f", 0.0001);
+	up |= ScrollableSliderDouble("d",    &attractor->dd,   -20, 20,   "%.4f", 0.0001);
+	up |= ScrollableSliderDouble("e, i", &attractor->ee,   -20, 20,   "%.4f", 0.0001);
+	up |= ScrollableSliderDouble("f, j", &attractor->ff,   -20, 20,   "%.4f", 0.0001);
 
-	up |= ScrollableSliderDouble("inc", &inc, -200, 200, "%.4f", 0.0001);
-	up |= ScrollableSliderDouble("a", &a, -20, 20, "%.4f", 0.000001);
-	up |= ScrollableSliderDouble("b", &b, -20, 20, "%.4f", 0.000001);
-	up |= ScrollableSliderDouble("c", &c, -20, 20, "%.4f", 0.000001);
-	up |= ScrollableSliderDouble("d", &d, -20, 20, "%.4f", 0.000001);
-
-
-	ImGui::Text("count %d", count);
-
+	ImGui::Text("count %ld", count);
 
 	if (up) {
-		resize(easel->w, easel->h);
+		init();
 	}
-
 	return false;
 }
 
 void Attractor::resize(int _w, int _h) {
-	clear();
-
-	easel->pal.rescale(easel->vertex_buffer_maximum());
-	count = 0;
-
-	//clear();
 	init();
 }

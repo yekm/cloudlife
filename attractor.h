@@ -1,16 +1,18 @@
 #include "art.hpp"
 #include "imgui.h"
+#include <memory>
 #include <vector>
 
 #include "settings.hpp"
 #include "easelvertex.h"
-
+#include "strange.hpp"
 
 class Attractor : public Art {
 public:
     Attractor()
         : Art("strange attractors") {
             useVertex();
+            attractor = std::make_unique<AGumowskiMira>();
 		}
 
 private:
@@ -19,12 +21,10 @@ private:
     virtual bool render(uint32_t *p) override;
 
     void init();
-    void draw();
 
-	int kcount = 16, count = 0;
+	long unsigned int count = 0;
 
-    double a = 1, b = 2, c = 3, d = 4;
-    double ai, aj;
-    double inc = 1;
+    double mul = 1;
 
+    std::unique_ptr<StrangeAttractor<>> attractor;
 };
