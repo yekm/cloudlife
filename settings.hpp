@@ -54,7 +54,7 @@ public:
     const colormap::Colormap & get_cmap();
 
 private:
-    uint32_t color_max = 1;
+    uint32_t color_max = 1024;
     uint32_t current_color = 0;
     bool invert = false;
 

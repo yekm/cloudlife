@@ -35,7 +35,7 @@ bool PaletteSetting::RenderGui() {
     ScrollableSliderUInt("Max colors", &color_max, 1, 1024*32, "%d", 128);
 
     ImGui::Text("current color / max %d / %d", current_color, color_max);
-    ImGui::Text("current color %x", get_color(current_color));
+    // ImGui::Text("current color %x", get_color(current_color)); // slow!
 
     return ret;
 }
@@ -82,7 +82,7 @@ const colormap::Colormap & PaletteSetting::get_cmap() {
     return *current_cmap;
 }
 
-
+////////////////////////////////////////////////////////////////////////////////
 
 bool VectorCombo::RenderGui() {
     bool ret = false;

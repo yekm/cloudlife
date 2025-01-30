@@ -123,6 +123,7 @@ EaselVertex::EaselVertex()
     //fragmentShaderSource = fragmentShaderSourceUniform;
     init_shaders();
     create_vertex_buffer();
+    m_vertices.reserve(vertex_buffer_maximum()*3);
 }
 
 
@@ -181,7 +182,8 @@ void EaselVertex::gui() {
         destroy_vertex_buffer();
         create_vertex_buffer();
     }
-    ScrollableSliderUInt("Frame vertex target", &frame_vertex_target_k, 1, vertex_buffer_maximum_k, "%d", 8);
+    if (ScrollableSliderUInt("Frame vertex target", &frame_vertex_target_k, 1, vertex_buffer_maximum_k, "%d", 8))
+        m_vertices.reserve(vertex_buffer_maximum()*3);
 
     //ImGui::Checkbox("Use colormap", &use_colormap);
     if (use_colormap) {
@@ -195,7 +197,8 @@ void EaselVertex::gui() {
         update_opacity |= ScrollableSliderFloat("Opacity", &cmap_opacity, 0, 1, "%.2f", 0.02);
     }
 
-    ImGui::Text("vertices buffer size %d MiB", vertex_buffer_maximum()*3*sizeof(float)/1024/1024);
+    ImGui::Text("vertices buffer size %ld MiB", vertex_buffer_maximum()*3*sizeof(float)/1024/1024);
+    ImGui::Text("total vertices %d, m_vertices.size() %ld", total_vertices, m_vertices.size());
 }
 
 void EaselVertex::dab(float x, float y) {

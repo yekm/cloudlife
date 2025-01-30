@@ -344,7 +344,9 @@ void Hopalong::draw_hop()
 		}
         //xp->width = xp->height = hp->scale;
 		//xp++;
-		drawdot(xp->x, xp->y, easel->pal.get_color(count - k));
+		//drawdot(xp->x, xp->y, easel->pal.get_color(count - k));
+		// color index is appended automatically in vertex easel
+		drawdot(xp->x, xp->y, 0);
 	}
 }
 
