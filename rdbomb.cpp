@@ -274,3 +274,8 @@ void RDbomb::resize(int _w, int _h) {
   easel->pal.rescale(ncolors);
   rd_init();
 }
+
+void RDbomb::shuffle() {
+    reaction = random() % 3;
+    diffusion = random() % 3;
+}

@@ -50,8 +50,10 @@ int main(int argc, char *argv[])
     int opt;
     int vsync = 1;
     int artarg = -1;
+    bool shuffle_mode = false;
+    char *title = "Dear ImGui screensaver";
 
-    while ((opt = getopt(argc, argv, "sa:")) != -1) {
+    while ((opt = getopt(argc, argv, "sa:St:")) != -1) {
         switch (opt) {
         case 's':
             vsync = 0;
@@ -59,8 +61,18 @@ int main(int argc, char *argv[])
         case 'a':
             artarg = atoi(optarg);
             break;
+        case 'S':
+            shuffle_mode = true;
+            break;
+        case 't':
+            title = optarg;
+            break;
         default: /* '?' */
-            fprintf(stderr, "Usage: %s [-s]\n",
+            fprintf(stderr, "Usage: %s [-s] [-a art_number] [-S]\n\n"
+                "-s           disable vsync\n"
+                "-a num       select screensaver\n"
+                "-S           enable perioding shuffling of parameters (screensaver mode)\n"
+                "-t title     set window title",
                     argv[0]);
             exit(EXIT_FAILURE);
         }
@@ -94,7 +106,7 @@ int main(int argc, char *argv[])
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
-    window = glfwCreateWindow(sw, sh, "Dear ImGui screensaver", NULL, NULL);
+    window = glfwCreateWindow(sw, sh, title, NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
@@ -167,6 +179,9 @@ int main(int argc, char *argv[])
                 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
 
+            if (shuffle_mode)
+                art->check_shuffle(glfwGetTime());
+            
         }
         ImGui::Text(info);
 

@@ -2,6 +2,21 @@
 
 Xscreensaver hacks and other beautiful programs with Dear ImGui
 
+## using with sway
+
+```
+exec swayidle \
+    timeout 240 "swaymsg exec 'cloudlife -a 8 -S'" \
+    resume "swaymsg exec 'killall cloudlife'"
+```
+
+Some sway configuretion regarding window placement shold be done.
+
+Instead of directly calling `cloudlife` some bash script sohould
+be used and `-a` number is chosen randomly from preferred screensavers.
+TODO: support multiple monitors via filtering by title. How to
+place a window in current workspace on certain output in sway config?
+
 ---
 
 ### AcidWarp

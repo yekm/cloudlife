@@ -9,11 +9,14 @@
 class RDbomb : public Art {
 public:
     RDbomb()
-        : Art("reaction/diffusion textures") {}
+        : Art("reaction/diffusion textures") {
+            shuffle_period = 42;
+        }
 private:
     virtual bool render_gui() override;
     virtual void resize(int _w, int _h) override;
     virtual bool render(uint32_t *p) override;
+    virtual void shuffle() override;
 
     void pixack_init();
     void pixack_frame();
@@ -24,14 +27,14 @@ private:
     unsigned char *mc;
 #endif
     int ncolors = 65535;
-    int iterations = 3;
+    int iterations = 1;
     int init_type = 0;
 
     int mapped;
     int pdepth;
 
     std::vector<unsigned short> r1, r2, r1b, r2b;
-    int width = 256, height = 256, npix;
+    int width = 512, height = width, npix;
     int radius = 8;
     int reaction = 1;
     int diffusion = 1;

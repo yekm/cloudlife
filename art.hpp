@@ -53,6 +53,9 @@ public:
     unsigned frame_number = 0, clear_every = 0, max_kframes = 0;
 
     void clear();
+    
+    // call shuffle() every `shuffle_period` seconds
+    void check_shuffle(double current_time);
 
 private:
     virtual void resize(int _w, int _h) { default_resize(_w, _h); };
@@ -60,6 +63,8 @@ private:
     virtual bool render(uint32_t *p) = 0;
 
     void render_pixel_buffer(uint32_t *screen);
+
+    virtual void shuffle() {};
 
 protected:
     void default_resize(int _w, int _h);
@@ -71,6 +76,8 @@ protected:
     void useVertex();
     EaselPlane* eplane() const;
     EaselVertex* evertex() const;
+    
+    double shuffle_period = 0, last_shuffle;
 
     std::string m_name;
 };

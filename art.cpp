@@ -28,6 +28,9 @@ void Art::resized(int _w, int _h) {
 }
 
 bool Art::gui() {
+    if (ImGui::Button("Shuffle"))
+        shuffle();
+
     easel->gui();
 
     bool resize_pbo = render_gui();
@@ -74,4 +77,12 @@ EaselVertex* Art::evertex() const {
     assert(ev);
     return ev;
     //return dynamic_cast<EaselVertex*>(easel.get());
+}
+
+void Art::check_shuffle(double current_time) {
+    double elapsed = current_time - last_shuffle;
+    if (elapsed > shuffle_period) {
+        shuffle();
+        last_shuffle = current_time;
+    }
 }
