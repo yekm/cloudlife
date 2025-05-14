@@ -17,6 +17,10 @@ be used and `-a` number is chosen randomly from preferred screensavers.
 TODO: support multiple monitors via filtering by title. How to
 place a window in current workspace on certain output in sway config?
 
+https://gist.github.com/pschmitt/909f880e8c7924fab056d42a3d30f9a5
+https://gist.github.com/mkalinski/ec112091dc9aa1e9f5e039ed7dd4b1fe#file-sway-track-pseudo-maximize-placeholder-sh
+
+
 ---
 
 ### AcidWarp
