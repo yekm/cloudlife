@@ -1,14 +1,22 @@
 #pragma once
 #include <vector>
 #include <stdint.h>
+#include <type_traits>
+#include <algorithm>
 
 #include "settings.hpp"
 
 template <int V, typename T>
-static inline void
-fillV(T &container) {
-    std::fill(container.begin(), container.end(),
-        static_cast<typename T::value_type>(V));
+static inline void fillV(T &container) {
+    using ValueType = typename T::value_type;
+
+    if constexpr (std::is_pointer_v<ValueType>) {
+        // Use reinterpret_cast for pointers (0 becomes nullptr)
+        std::fill(container.begin(), container.end(), reinterpret_cast<ValueType>(V));
+    } else {
+        // Use static_cast for standard numeric types
+        std::fill(container.begin(), container.end(), static_cast<ValueType>(V));
+    }
 }
 
 template <typename T>

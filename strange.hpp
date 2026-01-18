@@ -9,6 +9,7 @@ public:
         aa = 1, bb = 2, cc = 3, dd = 4;
         reset();
     }
+    virtual ~StrangeAttractor() {};
     typedef F float_t;
     typedef std::tuple<F, F> tuple_t;
     virtual std::tuple<F, F> get_point() = 0;

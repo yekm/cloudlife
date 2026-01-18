@@ -2,7 +2,6 @@
  * All Rights reserved. Private Proprietary Source Code by Noah Spurrier
  * Ported to Linux by Steven Wills
  */
-#include <malloc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

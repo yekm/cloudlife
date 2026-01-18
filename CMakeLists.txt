@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.16.3)
 
 project(imgui-cmake LANGUAGES C CXX)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set (CMAKE_C_FLAGS_RELEASE "-O3 -march=native -flto=auto -Wno-pragmas")
 set (CMAKE_CXX_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
@@ -21,6 +25,7 @@ find_package(GLFW3 REQUIRED)
 set (OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 
+add_definitions(-DGL_SILENCE_DEPRECATION)
 
 # https://github.com/Pesc0/imgui-cmake
 ######### IMGUI #######################
@@ -87,7 +92,27 @@ target_link_libraries(clouds IMGUI glfw GL)
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
 target_include_directories(cloudlife PRIVATE colormap-shaders/include)
 #add_executable(cloudtest test.cpp $<TARGET_OBJECTS:clouds>)
-target_link_libraries(cloudlife IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES})
+
+
+if(APPLE)
+    find_library(COCOA_FRAMEWORK Cocoa)
+    find_library(IOKIT_FRAMEWORK IOKit)
+    find_library(CORE_FOUNDATION_FRAMEWORK CoreFoundation)
+    find_library(CORE_VIDEO_FRAMEWORK CoreVideo)
+
+    set(GLFW_DEPENDENCIES 
+        ${COCOA_FRAMEWORK} 
+        ${IOKIT_FRAMEWORK} 
+        ${CORE_FOUNDATION_FRAMEWORK} 
+        ${CORE_VIDEO_FRAMEWORK}
+    )
+endif()
+
+############################################################
+
+
+target_link_libraries(cloudlife IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES} ${GLFW_DEPENDENCIES})
+
 #target_link_libraries(cloudtest IMGUI ${GLFW3_LIBRARY} ${OPENGL_LIBRARIES})
 set_target_properties(cloudlife PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 #set_target_properties(cloudtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
