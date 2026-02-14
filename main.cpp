@@ -19,6 +19,7 @@
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
 #include "artfactory.h"
+#include "gl_debug.h"
 
 std::unique_ptr<Art> art;
 
@@ -104,12 +105,19 @@ int main(int argc, char *argv[])
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
+    // Request debug context for OpenGL 4.3+ debug output
+#ifndef NDEBUG
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+#endif
+
     window = glfwCreateWindow(sw, sh, title, NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
     glfwSwapInterval(vsync);
 
+    // Initialize OpenGL debug callbacks (only effective in debug builds with OpenGL 4.3+)
+    init_gl_debug();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
