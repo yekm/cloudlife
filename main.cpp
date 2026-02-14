@@ -40,7 +40,7 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
-char info[1024*4];
+char info[1024*4] = "Initializing...";
 
 int main(int argc, char *argv[])
 {
@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
     int vsync = 1;
     int artarg = -1;
     bool shuffle_mode = false;
-    char *title = "Dear ImGui screensaver";
+    const char *title = "Dear ImGui screensaver";
 
     while ((opt = getopt(argc, argv, "sa:St:")) != -1) {
         switch (opt) {
@@ -195,13 +195,12 @@ int main(int argc, char *argv[])
 
         if (get_window_size()) {
             art->resized(sw, sh);
+            glViewport(0, 0, sw, sh);
         }
 
         art->draw();
 
         ImGui::Render();
-
-        glViewport(0, 0, sw, sh);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
