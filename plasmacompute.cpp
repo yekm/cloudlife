@@ -83,16 +83,25 @@ PlasmaCompute::PlasmaCompute()
     useCompute();
     current_colormap_name = easel->pal.get_cmap().getTitle();
     init_shader();
+    
+    // Set uniform callback so uniforms are updated when program is bound
+    update_uniform_callback();
 }
 
 void PlasmaCompute::init_shader() {
     // Combine base shader with colormap source
     std::string full_shader = plasma_compute_shader_base + easel->pal.get_cmap().getSource();
     ecompute()->set_compute_shader(full_shader);
+}
 
-    // Set initial uniform values
-    ecompute()->set_uniform_float("u_speed", speed);
-    ecompute()->set_uniform_float("u_scale", scale);
+void PlasmaCompute::update_uniform_callback() {
+    // Set callback that will be called during dispatch() when program is bound
+    ecompute()->set_uniform_callback([this](GLuint program) {
+        GLint speed_loc = glGetUniformLocation(program, "u_speed");
+        GLint scale_loc = glGetUniformLocation(program, "u_scale");
+        if (speed_loc >= 0) glUniform1f(speed_loc, speed);
+        if (scale_loc >= 0) glUniform1f(scale_loc, scale);
+    });
 }
 
 bool PlasmaCompute::render(uint32_t *p) {
@@ -114,11 +123,7 @@ bool PlasmaCompute::render_gui() {
     up |= ScrollableSliderFloat("Speed", &speed, 0.0f, 5.0f, "%.2f", 0.1f);
     up |= ScrollableSliderFloat("Scale", &scale, 0.5f, 10.0f, "%.2f", 0.1f);
     
-    if (up) {
-        // Apply uniform updates immediately when GUI changes
-        ecompute()->set_uniform_float("u_speed", speed);
-        ecompute()->set_uniform_float("u_scale", scale);
-    }
+    // Callback automatically uses new values on next dispatch
 
     return false;
 }

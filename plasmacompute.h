@@ -13,7 +13,8 @@ private:
     virtual bool render(uint32_t *p) override;
     
     void init_shader();
-    
+    void update_uniform_callback();
+
     // Shader parameters
     float speed = 1.0f;
     float scale = 3.0f;
