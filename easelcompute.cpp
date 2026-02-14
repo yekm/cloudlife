@@ -52,19 +52,22 @@ EaselCompute::~EaselCompute() {
 
 void EaselCompute::create_texture() {
     if (w <= 0 || h <= 0) return;
-    
+
     glGenTextures(1, &output_texture);
     glBindTexture(GL_TEXTURE_2D, output_texture);
-    
+
     // Create immutable storage for compute shader writing
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, w, h);
-    
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
+
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Bind to image unit 0 for compute shader - this binding persists
+    glBindImageTexture(0, output_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
 }
 
 void EaselCompute::destroy_texture() {
@@ -178,14 +181,13 @@ void EaselCompute::begin() {
 
 void EaselCompute::dispatch() {
     if (!compute_program || !output_texture) return;
-    
+
     auto start = std::chrono::high_resolution_clock::now();
-    
+
     glUseProgram(compute_program);
-    
-    // Bind output image
-    glBindImageTexture(0, output_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-    
+
+    // Note: output image is bound to unit 0 in create_texture() and persists
+
     // Set built-in uniforms
     if (u_resolution_loc >= 0) {
         glUniform2f(u_resolution_loc, static_cast<float>(w), static_cast<float>(h));
