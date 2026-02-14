@@ -35,4 +35,9 @@ private:
     std::string fragmentShaderSource;
     bool use_colormap = true, update_opacity = true;
     float cmap_opacity = 0.4;
+
+    // Persistent mapped buffer
+    float* mapped_buffer = nullptr;
+    size_t buffer_size = 0;
+    GLsync buffer_fence = nullptr;
 };

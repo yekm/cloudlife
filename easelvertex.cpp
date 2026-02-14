@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <cstring>
 
 
 const char* vertexShaderSource = R"(
@@ -101,8 +102,21 @@ void EaselVertex::create_vertex_buffer() {
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
+    // Calculate buffer size
+    buffer_size = vertex_buffer_maximum() * 3 * sizeof(float);
 
-    glBufferData(GL_ARRAY_BUFFER, vertex_buffer_maximum()*2*sizeof(float), 0, GL_STATIC_DRAW);
+    // Create immutable storage with persistent mapping flags
+    glBufferStorage(GL_ARRAY_BUFFER, buffer_size, nullptr,
+                    GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+
+    // Persistently map the buffer
+    mapped_buffer = (float*)glMapBufferRange(GL_ARRAY_BUFFER, 0, buffer_size,
+                                              GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+
+    if (!mapped_buffer) {
+        std::cerr << "ERROR: Failed to persistently map vertex buffer" << std::endl;
+    }
+
     // Specify the vertex attribute pointers
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
@@ -113,6 +127,12 @@ void EaselVertex::create_vertex_buffer() {
 }
 
 void EaselVertex::destroy_vertex_buffer() {
+    if (mapped_buffer) {
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+        mapped_buffer = nullptr;
+    }
+
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
 }
@@ -153,19 +173,40 @@ void EaselVertex::render() {
     }
 
 
-    if (m_vertices.size() > 0) {
+    // Copy vertex data directly to persistently mapped buffer
+    if (m_vertices.size() > 0 && mapped_buffer) {
+        unsigned num_new_vertices = m_vertices.size() / 3;
         unsigned offset = total_vertices;
         if (offset > maxv) {
             offset = total_vertices % maxv;
         }
-        unsigned offset_n = offset - m_vertices.size() / 3;
-        unsigned offset_b = offset_n * 3 * sizeof(float);
-        //printf("[%d %d]", offset, m_vertices.size()/2);
-        //printf("%.2f_%.2f ", m_vertices.at(0), m_vertices.at(1));
-        //fflush(stdout);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferSubData(GL_ARRAY_BUFFER, offset_b, m_vertices.size()*sizeof(float), m_vertices.data());
+        // Handle buffer wrap-around
+        if (offset < num_new_vertices) {
+            // Split into two copies: end of buffer + beginning of buffer
+            unsigned first_part = offset;
+            unsigned second_part = num_new_vertices - offset;
+
+            // Copy first part to end of buffer
+            if (first_part > 0) {
+                memcpy(mapped_buffer + (maxv - first_part) * 3,
+                       m_vertices.data(),
+                       first_part * 3 * sizeof(float));
+            }
+
+            // Copy second part to beginning of buffer
+            if (second_part > 0) {
+                memcpy(mapped_buffer,
+                       m_vertices.data() + first_part * 3,
+                       second_part * 3 * sizeof(float));
+            }
+        } else {
+            // Normal case: write contiguously
+            unsigned offset_n = offset - num_new_vertices;
+            memcpy(mapped_buffer + offset_n * 3,
+                   m_vertices.data(),
+                   m_vertices.size() * sizeof(float));
+        }
     }
 
     glBindVertexArray(vao);
