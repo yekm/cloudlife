@@ -55,14 +55,13 @@ target_include_directories( IMGUI
 #target_link_libraries(IMGUI PUBLIC ${CMAKE_DL_LIBS})
 #######################################################
 
-add_library(clouds OBJECT
+set(CLOUDS_SOURCES
     art.cpp
     artfactory.cpp
     settings.cpp
     imgui_elements.cpp
     easelplane.cpp
     easelvertex.cpp
-    easelcompute.cpp
     random.c
     cloudlife.cpp
     mtron.cpp
@@ -82,8 +81,17 @@ add_library(clouds OBJECT
     acidworm.cpp
     hopalong.cpp
     attractor.cpp
-    plasmacompute.cpp
+)
+
+# Compute shaders require OpenGL 4.3+, not available on macOS
+if(NOT APPLE)
+    list(APPEND CLOUDS_SOURCES
+        easelcompute.cpp
+        plasmacompute.cpp
     )
+endif()
+
+add_library(clouds OBJECT ${CLOUDS_SOURCES})
 
 target_include_directories(clouds PRIVATE .)
 target_include_directories(clouds PRIVATE colormap-shaders/include)

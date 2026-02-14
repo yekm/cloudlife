@@ -73,10 +73,14 @@ void Art::useVertex() {
     ec = nullptr;
 }
 void Art::useCompute() {
+#ifndef __APPLE__
     easel = std::make_unique<EaselCompute>();
     ep = nullptr;
     ev = nullptr;
     ec = dynamic_cast<EaselCompute*>(easel.get());
+#else
+    ec = nullptr;
+#endif
 }
 
 EaselPlane* Art::eplane() const {

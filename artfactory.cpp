@@ -12,7 +12,9 @@
 #include "acidworm.h"
 #include "hopalong.h"
 #include "attractor.h"
+#ifndef __APPLE__
 #include "plasmacompute.h"
+#endif
 
 
 ArtFactory::ArtFactory() {
@@ -29,7 +31,9 @@ ArtFactory::ArtFactory() {
     add_art<AcidWorm>("AcidWorm");
     add_art<Hopalong>("Hopalong");
     add_art<Attractor>("Attractor");
+#ifndef __APPLE__
     add_art<PlasmaCompute>("Plasma (Compute)");
+#endif
 
     vc = VectorCombo("Art", art_items);
     vc.set_index(1);

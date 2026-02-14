@@ -1,4 +1,7 @@
 #pragma once
+
+#ifndef __APPLE__
+
 #include "easel.h"
 
 #define GL_GLEXT_PROTOTYPES 1
@@ -72,3 +75,10 @@ private:
     // Default compute shader - simple gradient
     static const char* default_compute_shader;
 };
+
+#else // __APPLE__
+
+// Empty stub on macOS - compute shaders not supported
+class EaselCompute {};
+
+#endif // __APPLE__
