@@ -62,6 +62,7 @@ add_library(clouds OBJECT
     imgui_elements.cpp
     easelplane.cpp
     easelvertex.cpp
+    easelcompute.cpp
     random.c
     cloudlife.cpp
     mtron.cpp
@@ -81,6 +82,7 @@ add_library(clouds OBJECT
     acidworm.cpp
     hopalong.cpp
     attractor.cpp
+    plasmacompute.cpp
     )
 
 target_include_directories(clouds PRIVATE .)

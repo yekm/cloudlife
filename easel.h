@@ -86,6 +86,7 @@ public:
 
 class EaselPlane;
 class EaselVertex;
+class EaselCompute;
 
 
 // deprecated

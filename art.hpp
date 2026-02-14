@@ -72,10 +72,13 @@ protected:
     std::unique_ptr<Easel> easel;
     EaselPlane * ep = nullptr;
     EaselVertex * ev = nullptr;
+    EaselCompute * ec = nullptr;
     void usePlane();
     void useVertex();
+    void useCompute();
     EaselPlane* eplane() const;
     EaselVertex* evertex() const;
+    EaselCompute* ecompute() const;
     
     double shuffle_period = 0, last_shuffle;
 

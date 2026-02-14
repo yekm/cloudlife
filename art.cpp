@@ -7,6 +7,7 @@
 
 #include "easelplane.h"
 #include "easelvertex.h"
+#include "easelcompute.h"
 
 Art::Art(std::string _name)
     : m_name(_name)
@@ -62,10 +63,20 @@ void Art::default_resize(int _w, int _h) {
 void Art::usePlane() {
     easel = std::make_unique<EaselPlane>();
     ep = dynamic_cast<EaselPlane*>(easel.get());
+    ev = nullptr;
+    ec = nullptr;
 }
 void Art::useVertex() {
     easel = std::make_unique<EaselVertex>();
+    ep = nullptr;
     ev = dynamic_cast<EaselVertex*>(easel.get());
+    ec = nullptr;
+}
+void Art::useCompute() {
+    easel = std::make_unique<EaselCompute>();
+    ep = nullptr;
+    ev = nullptr;
+    ec = dynamic_cast<EaselCompute*>(easel.get());
 }
 
 EaselPlane* Art::eplane() const {
@@ -77,6 +88,11 @@ EaselVertex* Art::evertex() const {
     assert(ev);
     return ev;
     //return dynamic_cast<EaselVertex*>(easel.get());
+}
+EaselCompute* Art::ecompute() const {
+    assert(ec);
+    return ec;
+    //return dynamic_cast<EaselCompute*>(easel.get());
 }
 
 void Art::check_shuffle(double current_time) {
