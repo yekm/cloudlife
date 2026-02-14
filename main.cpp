@@ -20,6 +20,7 @@
 
 #include "artfactory.h"
 #include "gl_debug.h"
+#include "gl_state.h"
 
 std::unique_ptr<Art> art;
 
@@ -198,7 +199,10 @@ int main(int argc, char *argv[])
             glViewport(0, 0, sw, sh);
         }
 
-        art->draw();
+        {
+            GL_ENABLE_FOR_SCOPE(GL_BLEND);
+            art->draw();
+        }
 
         ImGui::Render();
 
