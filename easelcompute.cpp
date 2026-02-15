@@ -227,8 +227,10 @@ void EaselCompute::dispatch() {
     GLuint groups_y = (h + work_group_size[1] - 1) / work_group_size[1];
     glDispatchCompute(groups_x, groups_y, 1);
     
-    // Memory barrier to ensure write is complete before reading
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    // Memory barrier: ensure shader image writes complete before texture sampling
+    // GL_SHADER_IMAGE_ACCESS_BARRIER_BIT: sync imageStore operations
+    // GL_TEXTURE_FETCH_BARRIER_BIT: sync texture sampling (used by ImGui)
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration<double, std::milli>(end - start);
