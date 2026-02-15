@@ -72,19 +72,28 @@ void EaselPlane::reset() {
 }
 
 void EaselPlane::begin() {
-    int nexti = pbo_index;
-    pbo_index = pbo_index ? 0 : 1;
+    // PBO double-buffering: swap indices so we upload from one buffer
+    // while mapping the other for CPU writing
+    int read_idx = pbo_index;
+    pbo_index = (pbo_index + 1) % 2;
+    int write_idx = pbo_index;
+
+    // Upload texture from the read buffer (filled in previous frame)
     glBindTexture(GL_TEXTURE_2D, image_texture);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[pbo_index]);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[read_idx]);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
             w, h, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-    //glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[nexti]);
+    // Map the write buffer for CPU pixel data generation
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[write_idx]);
+    // Orphan buffer to avoid synchronization stalls
     glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size_bytes(),
-            0, GL_STREAM_DRAW);
+            nullptr, GL_STREAM_DRAW);
     m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+
+    if (!m_plane) {
+        fprintf(stderr, "ERROR: Failed to map PBO buffer\n");
+    }
 }
 
 
