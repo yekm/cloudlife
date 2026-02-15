@@ -44,6 +44,7 @@ Dear ImGui port by Pavel Vasilyev <yekm@299792458.ru>, May 2023
 #include "imgui_elements.h"
 #include "ifs.h"
 #include "random.h"
+#include "easelplane.h"
 
 
 
@@ -253,7 +254,7 @@ bool IFS::render(uint32_t *p)
   x = easel->w << 7;
   y = easel->h << 7;
 
-  clear();
+  eplane()->clear1();
 
   if (multi) {
     for (i = 0; i < lensnum; i++) {

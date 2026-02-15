@@ -17,6 +17,7 @@ public:
     virtual void begin() override;
     virtual void render() override;
     virtual void clear() override;
+    void clear1();
     virtual void gui() override;
     virtual void reset() override;
 

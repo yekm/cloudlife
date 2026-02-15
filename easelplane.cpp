@@ -136,3 +136,9 @@ void EaselPlane::clear() {
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
+
+void EaselPlane::clear1() {
+    if (m_plane == nullptr)
+        return;
+    fill0(m_plane, texture_size_pixels());
+}
