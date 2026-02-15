@@ -88,6 +88,7 @@ if(NOT APPLE)
     list(APPEND CLOUDS_SOURCES
         easelcompute.cpp
         plasmacompute.cpp
+        sphereofcubes.cpp
     )
 endif()
 

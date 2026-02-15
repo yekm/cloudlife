@@ -14,6 +14,7 @@
 #include "attractor.h"
 #ifndef __APPLE__
 #include "plasmacompute.h"
+#include "sphereofcubes.h"
 #endif
 
 
@@ -33,6 +34,7 @@ ArtFactory::ArtFactory() {
     add_art<Attractor>("Attractor");
 #ifndef __APPLE__
     add_art<PlasmaCompute>("Plasma (Compute)");
+    add_art<SphereOfCubes>("Sphere of Cubes");
 #endif
 
     vc = VectorCombo("Art", art_items);
