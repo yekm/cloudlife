@@ -39,7 +39,24 @@ const char* EaselCompute::default_compute_shader = R"(
     }
 )";
 
+void EaselCompute::query_work_group_size() {
+    // Query device-specific work group limits for optimal performance
+    GLint max_size[3];
+    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &max_size[0]);
+    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &max_size[1]);
+
+    // Use a reasonable default (256 total threads per work group is widely supported)
+    // 16x16 = 256 threads
+    work_group_size[0] = 16;
+    work_group_size[1] = 16;
+
+    // Clamp to device limits
+    if (work_group_size[0] > max_size[0]) work_group_size[0] = max_size[0];
+    if (work_group_size[1] > max_size[1]) work_group_size[1] = max_size[1];
+}
+
 EaselCompute::EaselCompute() {
+    query_work_group_size();
     compute_source = default_compute_shader;
     compile_shader();
     create_texture();
@@ -205,10 +222,9 @@ void EaselCompute::dispatch() {
         uniform_callback(compute_program);
     }
     
-    // Dispatch compute shader
-    // Work groups: divide by local size (16x16 from shader)
-    GLuint groups_x = (w + 15) / 16;
-    GLuint groups_y = (h + 15) / 16;
+    // Dispatch compute shader with dynamic work group size
+    GLuint groups_x = (w + work_group_size[0] - 1) / work_group_size[0];
+    GLuint groups_y = (h + work_group_size[1] - 1) / work_group_size[1];
     glDispatchCompute(groups_x, groups_y, 1);
     
     // Memory barrier to ensure write is complete before reading

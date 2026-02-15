@@ -71,7 +71,11 @@ private:
     // Stats
     unsigned dispatch_count = 0;
     double total_dispatch_time_ms = 0;
-    
+
+    // Work group size for compute dispatch (queried from device)
+    int work_group_size[3] = {16, 16, 1};  // Default fallback
+    void query_work_group_size();
+
     // Default compute shader - simple gradient
     static const char* default_compute_shader;
 };
