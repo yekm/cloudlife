@@ -176,36 +176,40 @@ void EaselVertex::render() {
     // Copy vertex data directly to persistently mapped buffer
     if (m_vertices.size() > 0 && mapped_buffer) {
         unsigned num_new_vertices = m_vertices.size() / 3;
-        unsigned offset = total_vertices;
-        if (offset > maxv) {
-            offset = total_vertices % maxv;
+
+        // Clamp to buffer capacity to prevent overflow
+        if (num_new_vertices > maxv) {
+            num_new_vertices = maxv;
         }
 
-        // Handle buffer wrap-around
-        if (offset < num_new_vertices) {
-            // Split into two copies: end of buffer + beginning of buffer
-            unsigned first_part = offset;
-            unsigned second_part = num_new_vertices - offset;
+        // Calculate write position (end of current data, modulo buffer size)
+        unsigned write_end = total_vertices % maxv;
 
-            // Copy first part to end of buffer
-            if (first_part > 0) {
-                memcpy(mapped_buffer + (maxv - first_part) * 3,
+        // Handle buffer wrap-around
+        if (write_end < num_new_vertices) {
+            // Write position wraps: split into tail + head
+            unsigned tail_count = write_end;                    // Vertices to end of buffer
+            unsigned head_count = num_new_vertices - write_end; // Vertices from start
+
+            // Copy tail portion to end of buffer
+            if (tail_count > 0) {
+                memcpy(mapped_buffer + (maxv - tail_count) * 3,
                        m_vertices.data(),
-                       first_part * 3 * sizeof(float));
+                       tail_count * 3 * sizeof(float));
             }
 
-            // Copy second part to beginning of buffer
-            if (second_part > 0) {
+            // Copy head portion to beginning of buffer
+            if (head_count > 0) {
                 memcpy(mapped_buffer,
-                       m_vertices.data() + first_part * 3,
-                       second_part * 3 * sizeof(float));
+                       m_vertices.data() + tail_count * 3,
+                       head_count * 3 * sizeof(float));
             }
         } else {
-            // Normal case: write contiguously
-            unsigned offset_n = offset - num_new_vertices;
-            memcpy(mapped_buffer + offset_n * 3,
+            // Normal case: contiguous write
+            unsigned write_start = write_end - num_new_vertices;
+            memcpy(mapped_buffer + write_start * 3,
                    m_vertices.data(),
-                   m_vertices.size() * sizeof(float));
+                   num_new_vertices * 3 * sizeof(float));
         }
     }
 
