@@ -91,6 +91,10 @@ void EaselVertex::init_shaders() {
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+
+    // Cache uniform locations to avoid querying every frame
+    u_vertexOpacity_loc = glGetUniformLocation(shaderProgram, "vertexOpacity");
+    u_vertexColor_loc = glGetUniformLocation(shaderProgram, "vertexColor");
 }
 
 
@@ -159,17 +163,18 @@ void EaselVertex::render() {
     glUseProgram(shaderProgram);
 
     if (use_colormap) {
-        // there is no need to execute this every frame
-        if (update_opacity) // requested by gui
+        // Use cached uniform location - only update when GUI changes
+        if (update_opacity && u_vertexOpacity_loc >= 0)
         {
-            int opacityColorLocation = glGetUniformLocation(shaderProgram, "vertexOpacity");
-            glUniform1f(opacityColorLocation, cmap_opacity);
+            glUniform1f(u_vertexOpacity_loc, cmap_opacity);
             update_opacity = false;
         }
     }
     else {
-        int vertexColorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
-        glUniform4f(vertexColorLocation, vertex_color.x, vertex_color.y, vertex_color.z, vertex_color.w);
+        // Use cached uniform location
+        if (u_vertexColor_loc >= 0) {
+            glUniform4f(u_vertexColor_loc, vertex_color.x, vertex_color.y, vertex_color.z, vertex_color.w);
+        }
     }
 
 

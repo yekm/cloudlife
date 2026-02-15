@@ -36,6 +36,10 @@ private:
     bool use_colormap = true, update_opacity = true;
     float cmap_opacity = 0.4;
 
+    // Cached uniform locations (queried once in init_shaders)
+    GLint u_vertexOpacity_loc = -1;
+    GLint u_vertexColor_loc = -1;
+
     // Persistent mapped buffer
     float* mapped_buffer = nullptr;
     size_t buffer_size = 0;
