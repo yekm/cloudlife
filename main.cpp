@@ -51,9 +51,10 @@ int main(int argc, char *argv[])
     int vsync = 1;
     int artarg = -1;
     bool shuffle_mode = false;
+    bool save_every_frame = false;
     const char *title = "Dear ImGui screensaver";
 
-    while ((opt = getopt(argc, argv, "sa:St:")) != -1) {
+    while ((opt = getopt(argc, argv, "sa:St:w")) != -1) {
         switch (opt) {
         case 's':
             vsync = 0;
@@ -67,12 +68,16 @@ int main(int argc, char *argv[])
         case 't':
             title = optarg;
             break;
+        case 'w':
+            save_every_frame = true;
+            break;
         default: /* '?' */
-            fprintf(stderr, "Usage: %s [-s] [-a art_number] [-S]\n\n"
+            fprintf(stderr, "Usage: %s [-s] [-a art_number] [-S] [-w]\n\n"
                 "-s           disable vsync\n"
                 "-a num       select screensaver\n"
                 "-S           enable perioding shuffling of parameters (screensaver mode)\n"
-                "-t title     set window title",
+                "-t title     set window title\n"
+                "-w           save every frame to PNG",
                     argv[0]);
             exit(EXIT_FAILURE);
         }
@@ -176,6 +181,10 @@ int main(int argc, char *argv[])
             ImGui::ColorEdit4("Clear color", (float*)&clear_color);
         }
 
+        ImGui::Checkbox("", &save_every_frame);
+        ImGui::SameLine();
+        bool save_frame = ImGui::Button("Save Frame");
+
         art->gui();
 
         if (art->frame_number % 120 == 0)
@@ -202,6 +211,11 @@ int main(int argc, char *argv[])
         {
             GL_ENABLE_FOR_SCOPE(GL_BLEND);
             art->draw();
+        }
+
+        if (ImGui::IsKeyPressed(ImGuiKey_F12) || save_frame || save_every_frame) {
+            // TODO: works only with EaselVertex and width/height is always like fullscreen
+            art->save_frame();
         }
 
         ImGui::Render();

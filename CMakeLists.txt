@@ -65,6 +65,7 @@ set(CLOUDS_SOURCES
     src/utils/imgui_elements.cpp
     src/utils/timer.cpp
     src/utils/random.c
+    src/utils/screenshot.cpp
     
     # Rendering system
     src/render/easelplane.cpp
@@ -111,6 +112,7 @@ target_include_directories(clouds
         ${CMAKE_SOURCE_DIR}/src/render
         ${CMAKE_SOURCE_DIR}/src/arts
         ${CMAKE_SOURCE_DIR}/external/colormap-shaders/include
+        ${CMAKE_SOURCE_DIR}/external/stb
 )
 
 target_link_libraries(clouds imgui glfw OpenGL::GL)
@@ -127,6 +129,7 @@ target_include_directories(cloudlife
         ${CMAKE_SOURCE_DIR}/src/render
         ${CMAKE_SOURCE_DIR}/src/arts
         ${CMAKE_SOURCE_DIR}/external/colormap-shaders/include
+        ${CMAKE_SOURCE_DIR}/external/stb
 )
 
 target_link_libraries(cloudlife imgui glfw OpenGL::GL)

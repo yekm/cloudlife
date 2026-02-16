@@ -8,6 +8,7 @@
 #include "easelplane.h"
 #include "easelvertex.h"
 #include "easelcompute.h"
+#include "screenshot.hpp"
 
 Art::Art(std::string _name)
     : m_name(_name)
@@ -31,7 +32,6 @@ void Art::resized(int _w, int _h) {
 bool Art::gui() {
     if (ImGui::Button("Shuffle"))
         shuffle();
-
     easel->gui();
 
     bool resize_pbo = render_gui();
@@ -104,5 +104,14 @@ void Art::check_shuffle(double current_time) {
     if (elapsed > shuffle_period) {
         shuffle();
         last_shuffle = current_time;
+    }
+}
+
+void Art::save_frame() {
+    std::string filename = generate_screenshot_filename(m_name, frame_number);
+    if (save_framebuffer_to_png(filename, easel->ww, easel->wh)) {
+        printf("Saved screenshot: %s\n", filename.c_str());
+    } else {
+        printf("Failed to save screenshot: %s\n", filename.c_str());
     }
 }

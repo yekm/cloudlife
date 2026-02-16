@@ -56,6 +56,7 @@ public:
     
     // call shuffle() every `shuffle_period` seconds
     void check_shuffle(double current_time);
+    void save_frame();
 
 private:
     virtual void resize(int _w, int _h) { default_resize(_w, _h); };
