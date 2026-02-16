@@ -56,39 +56,47 @@ target_include_directories(imgui
 
 # Main library with all sources
 set(CLOUDS_SOURCES
-    art.cpp
-    artfactory.cpp
-    settings.cpp
-    imgui_elements.cpp
-    easelplane.cpp
-    easelvertex.cpp
-    random.c
-    cloudlife.cpp
-    mtron.cpp
-    timer.cpp
-    ifs.cpp
-    vermiculate.cpp
-    discrete.cpp
-    thornbird.cpp
-    rdbomb.cpp
-    acidwarp/acidwarp.c
-    acidwarp/lut.c
-    acidwarp/palinit.c
-    acidwarp/bit_map.c
-    acidwarp/rolnfade.c
-    acidwarp/warp_text.c
-    acidwarp.cpp
-    acidworm.cpp
-    hopalong.cpp
-    attractor.cpp
+    # Core art infrastructure
+    src/core/art.cpp
+    src/core/artfactory.cpp
+    
+    # Utilities
+    src/utils/settings.cpp
+    src/utils/imgui_elements.cpp
+    src/utils/timer.cpp
+    src/utils/random.c
+    
+    # Rendering system
+    src/render/easelplane.cpp
+    src/render/easelvertex.cpp
+    src/render/vertexbuffer.cpp
+    
+    # Art implementations
+    src/arts/cloudlife.cpp
+    src/arts/mtron.cpp
+    src/arts/ifs.cpp
+    src/arts/vermiculate.cpp
+    src/arts/discrete.cpp
+    src/arts/thornbird.cpp
+    src/arts/rdbomb.cpp
+    src/arts/acidwarp/acidwarp.c
+    src/arts/acidwarp/lut.c
+    src/arts/acidwarp/palinit.c
+    src/arts/acidwarp/bit_map.c
+    src/arts/acidwarp/rolnfade.c
+    src/arts/acidwarp/warp_text.c
+    src/arts/acidwarp.cpp
+    src/arts/acidworm.cpp
+    src/arts/hopalong.cpp
+    src/arts/attractor.cpp
 )
 
 # Compute shaders require OpenGL 4.3+ (not available on macOS)
 if(NOT APPLE)
     list(APPEND CLOUDS_SOURCES
-        easelcompute.cpp
-        plasmacompute.cpp
-        sphereofcubes.cpp
+        src/render/easelcompute.cpp
+        src/arts/plasmacompute.cpp
+        src/arts/sphereofcubes.cpp
     )
 endif()
 
@@ -97,6 +105,11 @@ add_library(clouds OBJECT ${CLOUDS_SOURCES})
 target_include_directories(clouds 
     PRIVATE 
         ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/core
+        ${CMAKE_SOURCE_DIR}/src/utils
+        ${CMAKE_SOURCE_DIR}/src/render
+        ${CMAKE_SOURCE_DIR}/src/arts
         ${CMAKE_SOURCE_DIR}/external/colormap-shaders/include
 )
 
@@ -108,6 +121,11 @@ add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
 target_include_directories(cloudlife 
     PRIVATE 
         ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/core
+        ${CMAKE_SOURCE_DIR}/src/utils
+        ${CMAKE_SOURCE_DIR}/src/render
+        ${CMAKE_SOURCE_DIR}/src/arts
         ${CMAKE_SOURCE_DIR}/external/colormap-shaders/include
 )
 
