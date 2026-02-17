@@ -51,11 +51,11 @@ int main(int argc, char *argv[])
     int vsync = 1;
     int artarg = -1;
     bool shuffle_mode = false;
-    bool save_every_frame = false, save_frame;
+    bool save_every_frame = false, save_frame = false;
     bool hide_gui = false;
     const char *title = "Dear ImGui screensaver";
 
-    while ((opt = getopt(argc, argv, "sa:St:w:g")) != -1) {
+    while ((opt = getopt(argc, argv, "sa:St:wg")) != -1) {
         switch (opt) {
         case 's':
             vsync = 0;
