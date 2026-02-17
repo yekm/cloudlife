@@ -9,6 +9,8 @@ project(cloudlife
 # Export compile commands for clangd/language servers
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set (CMAKE_VERBOSE_MAKEFILE TRUE)
+
 # Prevent in-source builds
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "In-source builds are not allowed. Please create a build directory and run cmake from there.")
