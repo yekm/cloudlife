@@ -51,10 +51,11 @@ int main(int argc, char *argv[])
     int vsync = 1;
     int artarg = -1;
     bool shuffle_mode = false;
-    bool save_every_frame = false;
+    bool save_every_frame = false, save_frame;
+    bool hide_gui = false;
     const char *title = "Dear ImGui screensaver";
 
-    while ((opt = getopt(argc, argv, "sa:St:w")) != -1) {
+    while ((opt = getopt(argc, argv, "sa:St:w:g")) != -1) {
         switch (opt) {
         case 's':
             vsync = 0;
@@ -71,13 +72,17 @@ int main(int argc, char *argv[])
         case 'w':
             save_every_frame = true;
             break;
+        case 'g':
+            hide_gui = true;
+            break;
         default: /* '?' */
-            fprintf(stderr, "Usage: %s [-s] [-a art_number] [-S] [-w]\n\n"
+            fprintf(stderr, "Usage: %s [-s] [-a art_number] [-S] [-w] [-g]\n\n"
                 "-s           disable vsync\n"
                 "-a num       select screensaver\n"
                 "-S           enable perioding shuffling of parameters (screensaver mode)\n"
                 "-t title     set window title\n"
-                "-w           save every frame to PNG",
+                "-w           save every frame to PNG\n"
+                "-g           hide GUI (screensaver mode)",
                     argv[0]);
             exit(EXIT_FAILURE);
         }
@@ -165,43 +170,48 @@ int main(int argc, char *argv[])
 
         ImGui::NewFrame();
 
+        if (ImGui::IsKeyPressed(ImGuiKey_F1))
+            hide_gui = !hide_gui;
 
-        ImGui::Begin(art->name());
+        if (!hide_gui) {
+            ImGui::Begin(art->name());
 
-        if (af.render_gui())
-        {
-            art = af.get_art();
-            art->resized(sw, sh);
+            if (af.render_gui())
+            {
+                art = af.get_art();
+                art->resized(sw, sh);
+            }
+
+            if (ImGui::CollapsingHeader("Clear Configuration"))
+            {
+                ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 1);
+                ScrollableSliderUInt("Max 1k frames before reinit", &art->max_kframes, 0, 1024, "%d", 1);
+                ImGui::ColorEdit4("Clear color", (float*)&clear_color);
+            }
+
+            ImGui::Checkbox("", &save_every_frame);
+            ImGui::SameLine();
+            save_frame = ImGui::Button("Save Frame");
+
+            art->gui();
+
+            if (art->frame_number % 120 == 0)
+            {
+                char *ti = info;
+                ti += cpu_load_text_now(info);
+                ti += sprintf(ti, "\n%.3f ms/frame (%.1f FPS)",
+                    1000.0f / ImGui::GetIO().Framerate,
+                    ImGui::GetIO().Framerate);
+
+                if (shuffle_mode)
+                    art->check_shuffle(glfwGetTime());
+
+            }
+            ImGui::Text(info);
+
+            ImGui::End();
+
         }
-
-        if (ImGui::CollapsingHeader("Clear Configuration"))
-        {
-            ScrollableSliderUInt("force clear every N frames", &art->clear_every, 0, 1024, "%d", 1);
-            ScrollableSliderUInt("Max 1k frames before reinit", &art->max_kframes, 0, 1024, "%d", 1);
-            ImGui::ColorEdit4("Clear color", (float*)&clear_color);
-        }
-
-        ImGui::Checkbox("", &save_every_frame);
-        ImGui::SameLine();
-        bool save_frame = ImGui::Button("Save Frame");
-
-        art->gui();
-
-        if (art->frame_number % 120 == 0)
-        {
-            char *ti = info;
-            ti += cpu_load_text_now(info);
-            ti += sprintf(ti, "\n%.3f ms/frame (%.1f FPS)",
-                1000.0f / ImGui::GetIO().Framerate,
-                ImGui::GetIO().Framerate);
-
-            if (shuffle_mode)
-                art->check_shuffle(glfwGetTime());
-            
-        }
-        ImGui::Text(info);
-
-        ImGui::End();
 
         if (get_window_size()) {
             art->resized(sw, sh);
