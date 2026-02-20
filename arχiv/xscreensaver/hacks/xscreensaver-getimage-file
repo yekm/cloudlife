@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# Copyright © 2001-2022 Jamie Zawinski <jwz@jwz.org>.
+# Copyright © 2001-2023 Jamie Zawinski <jwz@jwz.org>.
 #
 # Permission to use, copy, modify, distribute, and sell this software and its
 # documentation for any purpose is hereby granted without fee, provided that
@@ -53,7 +53,7 @@ BEGIN { eval 'use LWP::Simple; use LWP::UserAgent;' }
 
 
 my $progname = $0; $progname =~ s@.*/@@g;
-my ($version) = ('$Revision: 1.68 $' =~ m/\s(\d[.\d]+)\s/s);
+my ($version) = ('$Revision: 1.71 $' =~ m/\s(\d[.\d]+)\s/s);
 
 my $verbose = 0;
 
@@ -102,6 +102,7 @@ my $min_image_height = 500;
 
 my @all_files = ();         # list of "good" files we've collected
 my %seen_inodes;            # for breaking recursive symlink loops
+my $setfattr = 'setfattr';
 
 # For diagnostic messages:
 #
@@ -113,6 +114,17 @@ my $skip_count_stat = 0;    # number of files skipped after stat
 my $config_file = $ENV{HOME} . "/.xscreensaver";
 my $image_directory = undef;
 
+sub which($) {
+  my ($cmd) = @_;
+  if ($cmd =~ m@^\./|^/@) {
+    return undef unless (-x $cmd);
+  }
+  foreach my $dir (split (/:/, $ENV{PATH})) {
+    my $cmd2 = "$dir/$cmd";
+    return $cmd2 if (-x "$cmd2");
+  }
+  return undef;
+}
 
 sub find_all_files($);
 sub find_all_files($) {
@@ -398,10 +410,22 @@ sub init_lwp() {
 sub sanity_check_lwp() {
   my $url1 = 'https://www.mozilla.org/';
   my $url2 =  'http://www.mozilla.org/';
-  my $body = (LWP::Simple::get($url1) || '');
+  my $body = LWP::Simple::get($url1) || '';
+
   if (length($body) < 10240) {
+    sleep (3);
+    $body = LWP::Simple::get($url1) || '';
+  }
+
+  if (length($body) < 10240) {
+    $body = LWP::Simple::get($url2) || '';
+
+    if (length($body) < 10240) {
+      sleep (3);
+      $body = LWP::Simple::get($url2) || '';
+    }
+
     my $err = "";
-    $body = (LWP::Simple::get($url2) || '');
     if (length($body) < 10240) {
       $err = "Perl is broken: neither HTTP nor HTTPS URLs work.";
     } else {
@@ -520,8 +544,16 @@ sub parse_feed($) {
 
   foreach my $item (@items) {
     my $iurl = undef;
+    my $title = undef;
     my $id = undef;
     my $kind = '?';
+
+    ($title) = ($item =~ m@<TITLE\b[^<>]*>(.*?)</TITLE>@si);
+    if ($title) {
+      $title =~ s/<.*?>//gs;
+      $title = html_unquote ($title);
+      $title =~ s/^\s+|\s+$//gs;
+    }
 
     # The <media:group> container groups the same content in different
     # representations.  So first, edit each of those to contain only the
@@ -656,7 +688,7 @@ sub parse_feed($) {
       my $o = $ids{$id};
       if (! $o) {
         $ids{$id} = $iurl;
-        my @P = ($iurl, $id);
+        my @P = ($iurl, $id, $title);
         push @imgs, \@P;
         print STDERR "$progname:   $kind: $iurl\n" if ($verbose > 4);
       } elsif ($iurl ne $o) {
@@ -1047,6 +1079,47 @@ sub download_image($$$) {
 }
 
 
+# Write some xattrs on the file saying where we downloaded it from:
+# "user.xdg.origin.url" and "user.dublincore.title".
+#
+sub store_xattrs($$$) {
+  my ($file, $url, $title) = @_;
+
+  # Sometimes we have 'setfattr', sometimes 'xattr', sometimes neither.
+  # And they take different command-line options. Yay!
+  #
+  # Also, the macOS and Linux versions of 'xattr' have similar but not
+  # identical options (but close enough for our purposes).  The macOS
+  # version is a binary while the Linux version is a Python script.
+  # Mac weirdness is due to resource forks.
+  #
+  # What about BSD? Solaris? Who knows!
+  #
+  # There's also the File::ExtAttr perl module, but it is not installed
+  # by default, so using that would not improve matters in any way.
+
+  return unless $setfattr;
+
+  if ($url) {
+    my $key = 'user.xdg.origin.url';
+    my @cmd = ($setfattr =~ m/setfattr/
+               ? ($setfattr, '-n', $key, '-v', $url, $file)	# setfattr
+               : ($setfattr, '-w', $key,       $url, $file));	# xattr
+    print STDERR "$progname: exec: @cmd\n" if ($verbose);
+    system (@cmd);  # Ignore errors
+  }
+
+  if ($title) {
+    my $key = 'user.dublincore.title';
+    my @cmd = ($setfattr =~ m/setfattr/
+               ? ($setfattr, '-n', $key, '-v', $title, $file)	# setfattr
+               : ($setfattr, '-w', $key,       $title, $file));	# xattr
+    print STDERR "$progname: exec: @cmd\n" if ($verbose);
+    system (@cmd);  # Ignore errors
+  }
+}
+
+
 sub mirror_feed($) {
   my ($url) = @_;
 
@@ -1132,9 +1205,12 @@ sub mirror_feed($) {
     my @urls = parse_feed ($url);
     print STDERR "$progname: " . ($#urls + 1) . " images\n"
       if ($verbose > 1);
+
+    $setfattr = which ('setfattr') || which ('xattr');
+
     my %seen_src_urls;
     foreach my $p (@urls) {
-      my ($furl, $id) = @$p;
+      my ($furl, $id, $title) = @$p;
       $furl = expand_url ($furl, $url);
 
       # No need to download the same image twice, even if it was in the feed
@@ -1146,6 +1222,8 @@ sub mirror_feed($) {
       next unless $f;
       $files{$f} = 1;    # Got it, don't delete
       $count++;
+
+      store_xattrs ("$dir/$f", $furl, $title);
     }
 
     my $empty_p = ($count <= 0);
@@ -1222,11 +1300,9 @@ sub find_random_file($) {
   }
 
   @all_files = read_cache ($dir);
+  my $from_cache_p = ($#all_files >= 0);
 
-  if ($#all_files >= 0) {
-    # got it from the cache...
-
-  } else {
+  if (! $from_cache_p) {
     print STDERR "$progname: recursively reading $dir...\n" if ($verbose);
     find_all_files ($dir);
     print STDERR "$progname: " .
@@ -1262,11 +1338,12 @@ sub find_random_file($) {
     for (my $i = 0; $i < $max_tries; $i++) {
       my $n = int (rand ($total_files));
       my $file = $all_files[$n];
+      my $absfile = $file;
       if (!$check_size_p || large_enough_p ($file)) {
         if (! $url) {
           $file =~ s@^\Q$dir/@@so || die;  # remove $dir from front
         }
-        return $file;
+        return ($file, $absfile, $from_cache_p);
       }
     }
   }
@@ -1278,9 +1355,7 @@ sub find_random_file($) {
                " are smaller than ${min_image_width}x${min_image_height}.\n";
 
   # If we got here, blow away the cache.  Maybe it's stale.
-  unlink $cache_file_name if $cache_file_name;
-
-  exit 1;
+  return (undef, undef, $from_cache_p);
 }
 
 
@@ -1563,7 +1638,7 @@ sub main() {
     elsif (m/^--?name$/s)         { }   # ignored, for compatibility
     elsif (m/^--?cache$/s)        { $cache_p = 1; }
     elsif (m/^--?no-?cache$/s)    { $cache_p = 0; }
-    elsif (m/^--?flush-?cache$/s) { $flush_p = 1; }
+    elsif (m/^--?flush(-?cache)?$/s) { $flush_p = 1; }
     elsif (m/^--?cocoa$/)         { $cocoa_id = shift @ARGV; }
     elsif (m/^--?abs(olute)?$/)   { $abs_p = 1; }
     elsif (m/^-./)                { usage; }
@@ -1621,7 +1696,28 @@ sub main() {
     }
   }
 
-  my $file = find_random_file ($image_directory);
+  my ($file, $absfile, $from_cache_p) = find_random_file ($image_directory);
+
+  if (!$file ||
+      ($from_cache_p && ! -f $absfile)) {
+
+    if ($verbose) {
+      if ($file) {
+        print STDERR "$progname: cached file \"$absfile\" does not exist\n";
+      } else {
+        print STDERR "$progname: no suitable files in cache\n";
+      }
+    }
+
+    if ($cache_file_name) {
+      print STDERR "$progname: nuking cache $cache_file_name\n"
+        if ($verbose);
+      unlink $cache_file_name;
+      ($file, $absfile, $from_cache_p) = find_random_file ($image_directory);
+    }
+  }
+
+  exit (1) unless $file;
 
   # With --absolute return fully qualified paths instead of relative to --dir.
   if ($abs_p &&

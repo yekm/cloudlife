@@ -1,4 +1,4 @@
-/* sonar, Copyright © 1998-2021 Jamie Zawinski and Stephen Martin
+/* sonar, Copyright © 1998-2025 Jamie Zawinski and Stephen Martin
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -13,6 +13,7 @@
 
 #include "screenhackI.h"
 #include "sonar.h"
+#include "doubletime.h"
 #include "version.h"
 #include "async_netdb.h"
 
@@ -461,7 +462,7 @@ read_hosts_file (sonar_sensor_data *ssd, const char *filename)
 #endif
         {
           char *str_error = strerror(errno);
-          fprintf(stderr, "%s:  %s: %s", progname, filename, str_error);
+          fprintf(stderr, "%s:  %s: %s\n", progname, filename, str_error);
         }
       return 0;
     }
@@ -1319,23 +1320,6 @@ ping_free_bogie_data (sonar_sensor_data *sd, void *closure)
 }
 
 
-/* Returns the current time in seconds as a double.
- */
-static double
-double_time (void)
-{
-  struct timeval now;
-# ifdef GETTIMEOFDAY_TWO_ARGS
-  struct timezone tzp;
-  gettimeofday(&now, &tzp);
-# else
-  gettimeofday(&now);
-# endif
-
-  return (now.tv_sec + ((double) now.tv_usec * 0.000001));
-}
-
-
 static void
 free_bogie_after_lookup(sonar_sensor_data *ssd, sonar_bogie **sbp,
                         sonar_bogie **sb)
@@ -1454,6 +1438,43 @@ ping_scan (sonar_sensor_data *ssd)
 }
 
 
+/* Reorder the host list randomly.
+ */
+static 
+sonar_bogie *
+shuffle_list (sonar_bogie *list)
+{
+  int count, i;
+  sonar_bogie **a, *n;
+  if (!list) return list;
+
+  /* Convert the linked list to an array. */
+  for (n = list, count = 0; n; n = n->next)
+    count++;
+  a = (void *) malloc (count * sizeof(*a));
+  for (n = list, i = 0; n; n = n->next)
+    a[i++] = n;
+  
+  /* Fisher–Yates shuffle. */
+  for (i = count-1; i > 0; i--)
+    {
+      int j = random() % i;
+      void *s = a[i];
+      a[i] = a[j];
+      a[j] = s;
+    }
+
+  /* Back to a list. */
+  a[0]->next = NULL;
+  for (i = 1; i < count; i++)
+    a[i]->next = a[i-1];
+  list = a[count-1];
+  free (a);
+
+  return list;
+}
+
+
 /* Returns a list of hosts to ping based on the "-ping" argument.
  */
 static sonar_bogie *
@@ -1464,6 +1485,7 @@ parse_mode (sonar_sensor_data *ssd, char **error_ret, char **desc_ret,
   char *source, *token, *end, dummy;
   sonar_bogie *hostlist = 0;
   const char *fallback = "subnet";
+  Bool shuffle_p = False;
 
  AGAIN:
 
@@ -1537,6 +1559,7 @@ parse_mode (sonar_sensor_data *ssd, char **error_ret, char **desc_ret,
         {
 # ifdef READ_FILES
           new = read_hosts_file (ssd, token);
+          shuffle_p = True;
 # else
           if (pd->debug_p) fprintf (stderr, "%s:  skipping file\n", progname);
 # endif
@@ -1545,6 +1568,7 @@ parse_mode (sonar_sensor_data *ssd, char **error_ret, char **desc_ret,
       else if (!stat (token, &st))
         {
           new = read_hosts_file (ssd, token);
+          shuffle_p = True;
         }
 # endif /* READ_FILES */
       else
@@ -1552,6 +1576,7 @@ parse_mode (sonar_sensor_data *ssd, char **error_ret, char **desc_ret,
           /* not an existant file - must be a host name
            */
           new = bogie_for_host (ssd, token, NULL);
+          shuffle_p = True;
         }
 
       if (new)
@@ -1583,8 +1608,12 @@ parse_mode (sonar_sensor_data *ssd, char **error_ret, char **desc_ret,
                  progname, fallback);
       ping_arg = fallback;
       fallback = 0;
+      shuffle_p = False;
       goto AGAIN;
     }
+
+  if (shuffle_p)
+    hostlist = shuffle_list (hostlist);
 
   return hostlist;
 }
@@ -1733,6 +1762,28 @@ sonar_init_ping (Display *dpy, char **error_ret, char **desc_ret,
 
   /* Disavow privs */
   if (setuid(getuid()) == -1) abort();
+
+
+  /* Feb 2025: On macOS 14.7, sometimes sendto() gives us a free SIGPIPE,
+     as a treat.
+   */
+  {
+# ifdef HAVE_SIGACTION
+    struct sigaction a;
+    a.sa_handler = SIG_IGN;
+    sigemptyset (&a.sa_mask);
+    a.sa_flags = 0;
+    if (sigaction (SIGPIPE, &a, 0) < 0)
+# else  /* !HAVE_SIGACTION */
+    if (((long) signal (SIGPIPE, SIG_IGN)) == -1L)
+# endif /* !HAVE_SIGACTION */
+      {
+        char buf [255];
+        sprintf (buf, "%s: couldn't block SIGPIPE", progname);
+        perror (buf);
+        /* abort(); */
+      }
+  }
 
   pd->pid = getpid() & 0xFFFF;
   pd->seq = 0;

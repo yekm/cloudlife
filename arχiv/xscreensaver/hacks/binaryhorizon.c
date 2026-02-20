@@ -11,8 +11,8 @@
  *    Albuquerque, New Mexico
  *    complexification.net
  *
- * Directly based the hacks of:
- *
+ * Directly based the hacks of: 
+ * 
  * xscreensaver, Copyright (c) 1997, 1998, 2002 Jamie Zawinski <jwz@jwz.org>
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -20,7 +20,7 @@
  * the above copyright notice appear in all copies and that both that
  * copyright notice and this permission notice appear in supporting
  * documentation.  No representations are made about the suitability of this
- * software for any purpose.  It is provided "as is" without express or
+ * software for any purpose.  It is provided "as is" without express or 
  * implied warranty.
  */
 
@@ -87,7 +87,7 @@ struct state {
 
 
 
-static void point2rgb(int depth, pixel_t c, int *r, int *g, int *b)
+static void point2rgb(int depth, pixel_t c, int *r, int *g, int *b) 
 {
     switch(depth) {
     case 32:
@@ -119,7 +119,7 @@ static void point2rgb(int depth, pixel_t c, int *r, int *g, int *b)
     }
 }
 
-static pixel_t rgb2point(int depth, int r, int g, int b)
+static pixel_t rgb2point(int depth, int r, int g, int b) 
 {
     pixel_t ret = 0;
 
@@ -159,7 +159,7 @@ void draw_point ( struct state* st,
     /*or = st->buffer[ 3 * ( y * st->width + x ) + 0 ];
     og = st->buffer[ 3 * ( y * st->width + x ) + 1 ];
     ob = st->buffer[ 3 * ( y * st->width + x ) + 2 ];*/
-
+    
     c = st->buffer[ y * st->width + x ];
     point2rgb( st->depth, c, &or, &og, &ob );
     point2rgb( st->depth, myc, &r, &g, &b );
@@ -338,13 +338,13 @@ void draw_line ( struct state* st, int x0, int y0, int x1, int y1, int color, fl
 #endif
 
 static void create_buffers ( struct state* st, Display* display, Screen* screen, Window window, GC gc ) {
-
+    
     XWindowAttributes xgwa;
     XGetWindowAttributes( display, window, &xgwa );
 
     /* Initialize the pixmap */
     if ( st->buf != NULL ) XFreePixmap( display, st->pix );
-
+    
     XSetForeground( display, gc, st->colors[BLACK] );
     st->pix = XCreatePixmap( display, window, st->width, st->height,
                              xgwa.depth );
@@ -406,13 +406,13 @@ static void create_particles ( struct state* st ) {
         /*emitx = ( st->ring_radius * sinf( M_PI * 2 * ( (float) i / st->particles_number ) ) );
         emity = ( st->ring_radius * cosf( M_PI * 2 * ( (float) i / st->particles_number ) ) );*/
 
-		emitx = st->width/*ring_radius*/*( (float) i /st->particles_number);
+		emitx = st->width/*ring_radius*/*( (float) i /st->particles_number);   
 		emity = 0;/*st->ring_radius;*/
 		direction = (M_PI * i) / st->particles_number;
-
+	
         if ( st->epoch == WHITE && st->color ){
             st->colors[WHITE] = next_color(st, st->colors[WHITE]);
-
+            
         }
         init_particle(st->particles + i, emitx, emity, direction, st->colors[WHITE], st->max_age);
     }
@@ -616,7 +616,7 @@ static XrmOptionDescRec binaryhorizon_options [] = {
     { "-bicolor",          ".bicolor",          XrmoptionNoArg,  "True"  },
     { "-fade",             ".fade",             XrmoptionNoArg,  "True"  },
     { "-no-fade",          ".fade",             XrmoptionNoArg,  "False" },
-
+ 
     { 0, 0, 0, 0}
 };
 

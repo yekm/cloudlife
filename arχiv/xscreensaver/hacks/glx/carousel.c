@@ -1,4 +1,4 @@
-/* carousel, Copyright (c) 2005-2018 Jamie Zawinski <jwz@jwz.org>
+/* carousel, Copyright © 2005-2025 Jamie Zawinski <jwz@jwz.org>
  * Loads a sequence of images and rotates them around.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -13,7 +13,7 @@
  */
 
 #define DEF_FONT \
-  "OCR A Std 48, Lucida Console 48, Monaco 48, Courier 48, monospace 48"
+  "OCR A 48, OCR A Std 48, Lucida Console 48, Monaco 48, Courier 48, monospace 48"
 #define DEF_TITLE_FONT "sans-serif bold 48"
 
 #define DEFAULTS  "*count:           7         \n" \
@@ -45,6 +45,8 @@
 #include "gltrackball.h"
 #include "grab-ximage.h"
 #include "texfont.h"
+#include "xftwrap.h"
+#include "easing.h"
 
 # ifndef HAVE_JWXYZ
 #  include <X11/Intrinsic.h>     /* for XrmDatabase in -debug mode */
@@ -63,7 +65,7 @@ typedef struct {
 } rect;
 
 typedef enum { EARLY, NORMAL, LOADING, OUT, IN, DEAD } fade_mode;
-static int fade_ticks = 60;
+static int fade_ticks = 30 * 5;
 
 typedef struct {
   char *title;			/* the filename of this image */
@@ -296,7 +298,7 @@ image_loaded_cb (const char *filename, XRectangle *geom,
   if (frame->loading.title && frame->loading.title[0] == '/')
     {    /* strip filename to part after last /. */
       char *s = strrchr (frame->loading.title, '/');
-      if (s) strcpy (frame->loading.title, s+1);
+      if (s) memmove (frame->loading.title, s+1, strlen (s));
     }
 
   if (debug_p)
@@ -758,8 +760,10 @@ draw_frame (ModeInfo *mi, image_frame *frame, time_t now, Bool body_p)
                    ? frame->mode_tick / (fade_ticks / speed)
                    : (((fade_ticks / speed) - frame->mode_tick + 1) /
                       (fade_ticks / speed)));
-      t = 5 * (1 - t);
+      t = 1-t;
+      t = ease (EASE_IN_OUT_BACK, t);
       if (frame->from_top_p) t = -t;
+      t *= 5;
       glTranslatef (0, t, 0);
     }
 
@@ -797,7 +801,10 @@ draw_frame (ModeInfo *mi, image_frame *frame, time_t now, Bool body_p)
       XCharStruct e;
       int sw, sh;
       GLfloat scale = 0.05;
-      char *title = frame->current.title ? frame->current.title : "(untitled)";
+      char *title = frame->current.title;
+      char *token, *line;
+      int lineno = 0;
+
       texture_string_metrics (ss->texfont, title, &e, 0, 0);
       sw = e.width;
       sh = e.ascent + e.descent;
@@ -806,26 +813,42 @@ draw_frame (ModeInfo *mi, image_frame *frame, time_t now, Bool body_p)
 
       scale /= sh;
       glScalef (scale, scale, scale);
-
-      glTranslatef (((1/scale) - sw) / 2, 0, 0);
       glColor3f (1, 1, 1);
 
-      if (!wire)
+      /* Wrap long lines */
+      title = xft_word_wrap (MI_DISPLAY(mi), texfont_xft (ss->texfont),
+                             title, 1 / scale);
+      token = title;
+
+      /* print_texture_string() does flushleft for newlines,
+         but we want the lines centered. */
+      while ((line = strtok (token, "\n")))
         {
-          glEnable (GL_TEXTURE_2D);
+          token = 0;
+          texture_string_metrics (ss->texfont, line, &e, 0, 0);
+          sw = e.width;
+          glPushMatrix();
+          glTranslatef (((1/scale) - sw) / 2, -sh * lineno, 0);
+          if (!wire)
+            {
 # ifndef HAVE_ANDROID   /* Doesn't work -- photo displays as static */
-          print_texture_string (ss->texfont, title);
+              print_texture_string (ss->texfont, line);
 # endif
+            }
+          else
+            {
+              glBegin (GL_LINE_LOOP);
+              glVertex3f (0,  0,  0);
+              glVertex3f (sw, 0,  0);
+              glVertex3f (sw, sh, 0);
+              glVertex3f (0,  sh, 0);
+              glEnd();
+            }
+          glPopMatrix();
+          lineno++;
         }
-      else
-        {
-          glBegin (GL_LINE_LOOP);
-          glVertex3f (0,  0,  0);
-          glVertex3f (sw, 0,  0);
-          glVertex3f (sw, sh, 0);
-          glVertex3f (0,  sh, 0);
-          glEnd();
-        }
+
+      free (title);
     }
 
   glPopMatrix();

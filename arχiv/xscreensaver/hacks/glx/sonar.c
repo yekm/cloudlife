@@ -1,4 +1,4 @@
-/* sonar, Copyright (c) 1998-2020 Jamie Zawinski and Stephen Martin
+/* sonar, Copyright © 1998-2025 Jamie Zawinski and Stephen Martin
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -87,6 +87,7 @@
 #include "gltrackball.h"
 #include "rotator.h"
 #include "texfont.h"
+#include "doubletime.h"
 #include <ctype.h>
 
 #ifdef USE_GL /* whole file */
@@ -347,7 +348,7 @@ draw_text (ModeInfo *mi, const char *string, GLfloat r, GLfloat th,
   int wire = MI_IS_WIREFRAME(mi);
   int polys = 0;
   GLfloat font_scale = 0.001 * (size > 0 ? size : font_size) / 14.0;
-  int lines = 0, max_w = 0, lh = 0;
+  int max_w = 0, lh = 0;
   char *string2 = strdup (string);
   char *token = string2;
   char *line;
@@ -376,7 +377,6 @@ draw_text (ModeInfo *mi, const char *string, GLfloat r, GLfloat th,
       w = e.width;
       lh = ascent + descent;
       if (w > max_w) max_w = w;
-      lines++;
       token = 0;
     }
 
@@ -656,23 +656,6 @@ point_in_wedge (GLfloat th, GLfloat low, GLfloat high)
     return (th > low && th <= high);
   else
     return (th <= high || th > low);
-}
-
-
-/* Returns the current time in seconds as a double.
- */
-static double
-double_time (void)
-{
-  struct timeval now;
-# ifdef GETTIMEOFDAY_TWO_ARGS
-  struct timezone tzp;
-  gettimeofday(&now, &tzp);
-# else
-  gettimeofday(&now);
-# endif
-
-  return (now.tv_sec + ((double) now.tv_usec * 0.000001));
 }
 
 

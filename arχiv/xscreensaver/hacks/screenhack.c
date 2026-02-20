@@ -1,4 +1,4 @@
-/* xscreensaver, Copyright © 1992-2022 Jamie Zawinski <jwz@jwz.org>
+/* xscreensaver, Copyright © 1992-2025 Jamie Zawinski <jwz@jwz.org>
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -290,7 +290,8 @@ MapNotify_event_p (Display *dpy, XEvent *event, XPointer window)
 }
 
 
-static Atom XA_WM_PROTOCOLS, XA_WM_DELETE_WINDOW, XA_NET_WM_PID;
+static Atom XA_WM_PROTOCOLS, XA_WM_DELETE_WINDOW, XA_NET_WM_PID,
+  XA_NET_WM_PING;
 
 /* Dead-trivial event handling: exits if "q" or "ESC" are typed.
    Exit if the WM_PROTOCOLS WM_DELETE_WINDOW ClientMessage is received.
@@ -327,7 +328,18 @@ screenhack_handle_event_1 (Display *dpy, XEvent *event)
             fprintf (stderr, "%s: unknown ClientMessage %s received!\n",
                      progname, s);
           }
-        else if (event->xclient.data.l[0] != XA_WM_DELETE_WINDOW)
+        else if (event->xclient.data.l[0] == XA_WM_DELETE_WINDOW)
+          {
+            return False;  /* exit */
+          }
+        else if (event->xclient.data.l[0] == XA_NET_WM_PING)
+          {
+            event->xclient.window = DefaultRootWindow (dpy);
+            if (! XSendEvent (dpy, event->xclient.window, False,
+                              PropertyChangeMask, event))
+              fprintf (stderr, "%s: WM_PONG failed\n", progname);
+          }
+        else
           {
             char *s1 = XGetAtomName(dpy, event->xclient.message_type);
             char *s2 = XGetAtomName(dpy, event->xclient.data.l[0]);
@@ -335,10 +347,6 @@ screenhack_handle_event_1 (Display *dpy, XEvent *event)
             if (!s2) s2 = "(null)";
             fprintf (stderr, "%s: unknown ClientMessage %s[%s] received!\n",
                      progname, s1, s2);
-          }
-        else
-          {
-            return False;  /* exit */
           }
       }
       break;
@@ -812,6 +820,7 @@ main (int argc, char **argv)
   XA_WM_PROTOCOLS = XInternAtom (dpy, "WM_PROTOCOLS", False);
   XA_WM_DELETE_WINDOW = XInternAtom (dpy, "WM_DELETE_WINDOW", False);
   XA_NET_WM_PID = XInternAtom (dpy, "_NET_WM_PID", False);
+  XA_NET_WM_PING = XInternAtom (dpy, "_NET_WM_PING", False);
 
   {
     char *v = (char *) strdup(strchr(screensaver_id, ' '));
@@ -1021,7 +1030,50 @@ main (int argc, char **argv)
 
 #ifdef HAVE_RECORD_ANIM
   {
-    int frames = get_integer_resource (dpy, "recordAnim", "Integer");
+    char *str = get_string_resource (dpy, "recordAnim", "Time");
+    int fps = 30;
+    int h = 0, m = 0, s = 0;
+    int frames = 0;
+    char c, suf[20];
+    *suf = 0;
+
+    if (!str || !*str)
+      ;
+    else if (3 == sscanf (str, " %d:%d:%d %c", &h, &m, &s, &c))  /* H:MM:SS */
+      frames = fps * (h*60*60 + m*60 + s);
+    else if (2 == sscanf (str,    " %d:%d %c",     &m, &s, &c))  /*    M:SS */
+      frames = fps * (m*60 + s);
+    else if (1 == sscanf (str,       " %d %c",         &s, &c))  /* frames  */
+      frames = s;
+    else if (2 == sscanf (str, "%d %10s %c", &h, suf, &c))
+      {
+        if (!strcasecmp (suf, "h") ||				 /* 1 H     */
+            !strcasecmp (suf, "hour") ||
+            !strcasecmp (suf, "hours"))
+          frames = fps * h*60*60;
+        else if (!strcasecmp (suf, "m") ||			 /* 2 min   */
+                 !strcasecmp (suf, "min") ||
+                 !strcasecmp (suf, "mins") ||
+                 !strcasecmp (suf, "minute") ||
+                 !strcasecmp (suf, "minutes"))
+          frames = fps * h*60;
+        else if (!strcasecmp (suf, "s") ||			 /* 30 sec  */
+                 !strcasecmp (suf, "sec") ||
+                 !strcasecmp (suf, "secs") ||
+                 !strcasecmp (suf, "second") ||
+                 !strcasecmp (suf, "seconds"))
+          frames = fps * h;
+        else
+          goto FAIL;
+      }
+    else
+      {
+      FAIL:
+        fprintf (stderr, "%s: unparsable duration: %s\n", progname, str);
+        exit (1);
+      }
+
+    if (str) free (str);
     if (frames > 0)
       anim_state = screenhack_record_anim_init (xgwa.screen, window, frames);
   }

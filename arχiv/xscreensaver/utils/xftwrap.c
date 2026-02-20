@@ -1,5 +1,5 @@
 /* xftwrap.c --- XftDrawStringUtf8 with multi-line strings.
- * xscreensaver, Copyright © 2021 Jamie Zawinski <jwz@jwz.org>
+ * xscreensaver, Copyright © 2021-2025 Jamie Zawinski <jwz@jwz.org>
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -14,6 +14,7 @@
 # include "config.h"
 #endif
 
+#include <ctype.h>
 #include "utils.h"
 #include "xft.h"
 #include "xftwrap.h"
@@ -39,64 +40,79 @@ LOG(const char *ss, const char *s, int n)
 
 
 /* Returns a new string word-wrapped to fit in the width in pixels.
+   Words may be wrapped at whitespace or ASCII punctuation.
+   Words longer than the width will be split.
  */
 char *
 xft_word_wrap (Display *dpy, XftFont *font, const char *str, int pixels)
 {
   const char *in = str;
-  char *ret = (char *) malloc (strlen(in) + 2);
+  char *ret = (char *) malloc (strlen(in) * 2);
   char *out = ret;
-  const char *line_out = out;
-  char *word_out = 0;
-  while (1)
+
+  const char *splitpoint_in = in;
+  char *splitpoint_out      = out;
+  const char *start_of_line = out;
+
+  /* Ideally this would use utf8_split() and would wrap at Unicrud dashes
+     as well as ASCII, but this is probably good enough. */
+
+  for (in = str; *in; in++)
     {
-      if (*in == ' ' || *in == '\t' ||
-          *in == '\r' || *in == '\n' ||
-          *in == 0)
+      XGlyphInfo overall;
+      *out++ = *in;
+
+      if (isspace(*in) || ispunct(*in))
         {
-          Bool done = (*in == 0);	/* To wrap the *last* word. */
-          XGlyphInfo overall;
-          Bool nl = (*in == '\r' || *in == '\n');
+          splitpoint_in  = in;
+          splitpoint_out = out;
+        }
 
-          if (nl) in++;
-          while (*in == ' ' || *in == '\t') in++;
-          in--;
-
-          XftTextExtentsUtf8 (dpy, font,
-                              (FcChar8 *) line_out,
-                              out - line_out,
-                              &overall);
-          if (overall.width - overall.x >= pixels &&
-              word_out)
-            {
-              word_out[0] = '\n';
-              line_out = word_out + 1;
-              word_out = 0;
-              if (done) break;
-              *out++ = *in;
-            }
-          else
-            {
-              if (done) break;
-              word_out = out;
-              *out++ = *in;
-              if (nl)
-                {
-                  line_out = out + 1;
-                  word_out = 0;
-                }
-            }
-
-          if (done) break;
+      XftTextExtentsUtf8 (dpy, font,
+                          (FcChar8 *) start_of_line,
+                          out - start_of_line,
+                          &overall);
+      if (overall.width - overall.x < pixels)
+        {
+          LOG("keep", start_of_line, out-start_of_line);
         }
       else
         {
-          *out++ = *in;
+          /* Backtrack 'out' and 'in' to the last splitpoint.
+             Insert a newline and restart.
+           */
+          LOG("split", start_of_line, splitpoint_out - start_of_line);
+          if (splitpoint_out == start_of_line)
+            {
+              /* Breaking in the middle of a long word. */
+              LOG("long", splitpoint_in, in - splitpoint_in);
+              while (out > ret && (isblank (out[-1])))
+                out--;  /* Trim trailing horizontal whitespace on line */
+              *out++ = '\n';
+              splitpoint_out = out;
+              start_of_line = out;
+            }
+          else
+            {
+              LOG("back", splitpoint_in, in - splitpoint_in);
+              out = splitpoint_out;
+              in  = splitpoint_in;
+              while (out > ret && (isblank (out[-1])))
+                out--;  /* Trim trailing horizontal whitespace on line */
+              *out++ = '\n';
+              splitpoint_out = out;
+              start_of_line = out;
+              while (isblank (*in) && isblank (in[1]))
+                in++;  /* Swallow horizontal whitespace after breaking line. */
+            }
         }
-      in++;
     }
 
+  while (out > ret && (isspace (out[-1])))
+    out--;  /* Trim trailing whitespace and blank lines */
   *out = 0;
+
+  LOG("DONE",ret,strlen(ret));
 
   return ret;
 }
@@ -105,6 +121,10 @@ xft_word_wrap (Display *dpy, XftFont *font, const char *str, int pixels)
 /* Like XftTextExtentsUtf8, but handles multi-line strings.
    XGlyphInfo will contain the bounding box that encloses all of the text.
    Return value is the number of lines in the text, >= 1.
+
+   overall->y will be the distance from the top of the ink to the origin of
+   the first character in the string, as usual.  If there are multiple lines,
+   you can think of them as extremely tall descenders below the origin.
  */
 int
 XftTextExtentsUtf8_multi (Display *dpy, XftFont *font,
@@ -132,18 +152,23 @@ XftTextExtentsUtf8_multi (Display *dpy, XftFont *font,
               int nx1, ny1, nx2, ny2;		/* bbox of 'gi' */
               int ux1, uy1, ux2, uy2;		/* union */
 
+              /* Cumulative bbox prior to this line */
               ox1 = overall->x;
               oy1 = overall->y;
               ox2 = ox1 + overall->width;
               oy2 = oy1 + overall->height;
 
-              line_y += font->ascent + font->descent;  /* advance origin */
+              /* Advance the origin of this line downward. */
+              line_y += font->ascent + font->descent;
 
+              /* Bounding box of this line, with origin adjusted to be
+                 the origin of line 0. */
               nx1 = gi.x;
               ny1 = gi.y + line_y;
               nx2 = nx1 + gi.width;
-              ny2 = ny1 + gi.height + line_y;
+              ny2 = ny1 + gi.height;
 
+              /* Find the union of the two same-origin bboxes. */
               ux1 = MIN (ox1, nx1);		/* upper left */
               uy1 = MIN (oy1, ny1);
               ux2 = MAX (ox2, nx2);		/* bottom right */
@@ -174,7 +199,6 @@ XftDrawStringUtf8_multi (XftDraw *xftdraw, const XftColor *color,
 {
   Display *dpy = XftDrawDisplay (xftdraw);
   int i, start = 0;
-  int lines = 0;
   XGlyphInfo overall;
   if (len == 0) return;
 
@@ -198,7 +222,6 @@ XftDrawStringUtf8_multi (XftDraw *xftdraw, const XftColor *color,
                              str + start,
                              i - start);
           y += font->ascent + font->descent;
-          lines++;
           start = i+1;
         }
     }

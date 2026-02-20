@@ -1,4 +1,4 @@
-/* mapscroller, Copyright © 2021-2022 Jamie Zawinski <jwz@jwz.org>
+/* mapscroller, Copyright © 2021-2025 Jamie Zawinski <jwz@jwz.org>
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -38,6 +38,7 @@
 #include "xlockmore.h"
 #include "ximage-loader.h"
 #include "texfont.h"
+#include "easing.h"
 #include "../images/gen/oceantiles_12_png.h"
 
 #ifdef USE_GL /* whole file */
@@ -89,6 +90,7 @@ typedef struct {
 typedef struct {
   GLXContext *glx_context;
   char *url_template;
+  char *loader;
   int map_level;
   GLfloat speed;
   int duration;
@@ -102,7 +104,7 @@ typedef struct {
   Bool ocean_p;
 
   enum { FADE_OUT, RUN } mode;
-  time_t change_time;
+  time_t start_time, change_time;
   double opacity;
 
   pid_t pid;
@@ -113,6 +115,8 @@ typedef struct {
   Bool button_down_p;
   LL drag_start_deg;
   XYi drag_start_px;
+  long tile_count;
+  Bool dead_p;
 
 } map_configuration;
 
@@ -364,6 +368,7 @@ reshape_tiles (ModeInfo *mi)
 
   /* Queue a loader for any tiles that don't have them.
      Enqueue them from the center out, rather than left to right. */
+  if (! bp->dead_p)
   {
     tile **queue = (tile **) malloc (w2 * h2 * sizeof(*queue));
     int count = 0;
@@ -655,7 +660,7 @@ fork_loader (ModeInfo *mi)
   int fd1[2], fd2[2];
   int ac = 0;
 
-  av[ac++] = get_string_resource (mi->dpy, "loaderProgram", "Program");
+  av[ac++] = bp->loader;
   if      (verbose_p == 1) av[ac++] = "-v";
   if      (verbose_p == 2) av[ac++] = "-vv";
   else if (verbose_p == 3) av[ac++] = "-vvv";
@@ -772,7 +777,9 @@ read_loader (ModeInfo *mi)
       else if (n == 0)
         {
           fprintf (stderr, "%s: subprocess died\n", blurb(mi));
-          exit (1);
+          bp->dead_p = TRUE;
+          bp->mode = FADE_OUT;
+          return;
         }
       else
         {
@@ -796,6 +803,8 @@ read_loader (ModeInfo *mi)
     file = s+1;
     if (3 != sscanf (coords, " %ld %ld %ld ", &x, &y, &z))
       abort();
+
+    bp->tile_count++;
 
     for (i = 0; i < bp->grid_w * bp->grid_h; i++)
       {
@@ -1053,7 +1062,7 @@ randomize_position (ModeInfo *mi)
 {
   map_configuration *bp = &bps[MI_SCREEN(mi)];
   Bool city_p = !strcasecmp (origin_arg, "random-city");
-  LL pos;
+  LL pos = { 0, 0 };
   int i;
   for (i = 0; i < 1000; i++)  /* Don't get stuck */
     {
@@ -1090,6 +1099,7 @@ init_map (ModeInfo *mi)
 
   bp->font_data = load_texture_font (mi->dpy, "titleFont");
 
+  bp->loader = get_string_resource (mi->dpy, "loaderProgram", "Program");
   bp->url_template = url_template_arg;
   if (!bp->url_template ||
       !*bp->url_template ||
@@ -1148,29 +1158,11 @@ init_map (ModeInfo *mi)
 
   bp->mode = RUN;
   bp->opacity = 1;
-  bp->change_time = time ((time_t *) 0);
+  bp->start_time = time ((time_t *) 0);
+  bp->change_time = bp->start_time;
 
   fork_loader (mi);
   reshape_map (mi, MI_WIDTH(mi), MI_HEIGHT(mi));
-}
-
-
-static GLfloat
-ease_fn (GLfloat r)
-{
-  return cos ((r/2 + 1) * M_PI) + 1; /* Smooth curve up, end at slope 1. */
-}
-
-
-static GLfloat
-ease_ratio (GLfloat r)
-{
-  GLfloat ease = 0.5;
-  if      (r <= 0)     return 0;
-  else if (r >= 1)     return 1;
-  else if (r <= ease)  return     ease * ease_fn (r / ease);
-  else if (r > 1-ease) return 1 - ease * ease_fn ((1 - r) / ease);
-  else                 return r;
 }
 
 
@@ -1180,6 +1172,7 @@ draw_map (ModeInfo *mi)
   map_configuration *bp = &bps[MI_SCREEN(mi)];
   Display *dpy = MI_DISPLAY(mi);
   Window window = MI_WINDOW(mi);
+  time_t now = time ((time_t *) 0);
 
   if (!bp->glx_context)
     return;
@@ -1268,7 +1261,6 @@ draw_map (ModeInfo *mi)
       if (!strcasecmp (origin_arg, "random") ||
           !strcasecmp (origin_arg, "random-city"))
         {
-          time_t now = time ((time_t *) 0);
           if (force_change_p ||
               (bp->mode == RUN &&
                now > bp->change_time + bp->duration))
@@ -1324,7 +1316,7 @@ draw_map (ModeInfo *mi)
                 th0 += M_PI*2;
             }
 
-          th2 = th0 + (th1 - th0) * ease_ratio (bp->heading_ratio);
+          th2 = th0 + (th1 - th0) * ease (EASE_IN_OUT_SINE, bp->heading_ratio);
           bp->heading[2].x = sin (th2);
           bp->heading[2].y = cos (th2);
         }
@@ -1333,7 +1325,9 @@ draw_map (ModeInfo *mi)
   if (bp->mode == FADE_OUT)
     {
       bp->opacity -= 0.02;
-      if (bp->opacity < 0)
+      if (bp->opacity < 0 && bp->dead_p)
+        bp->opacity = 0;
+      else if (bp->opacity < 0)
         {
           bp->opacity = 1;
           bp->mode = RUN;
@@ -1346,7 +1340,7 @@ draw_map (ModeInfo *mi)
         }
     }
 
-  if (bp->input_available_p)
+  if (bp->input_available_p && !bp->dead_p)
     read_loader (mi);
 
   if (!MI_IS_WIREFRAME(mi))
@@ -1366,8 +1360,6 @@ draw_map (ModeInfo *mi)
       sprintf (buf, "%.3f\xC2\xB0, %.3f\xC2\xB0", bp->pos.lat, bp->pos.lon);
 # elif 0
       /* 37° 46' 15.63" N, 122° 24' 45.70" W */
-      /* This screws up the label image. Some kind of bug in texfont.c?
-         But only on X11, not Cocoa. */
       double alat = bp->pos.lat >= 0 ? bp->pos.lat : -bp->pos.lat;
       double alon = bp->pos.lon >= 0 ? bp->pos.lon : -bp->pos.lon;
       sprintf (buf,
@@ -1380,7 +1372,7 @@ draw_map (ModeInfo *mi)
                alon,
                (alon - (int) alon) * 60,
                ((alon * 60) - (int) (alon * 60)) * 60,
-               (bp->pos.lat >= 0 ? 'E' : 'W'));
+               (bp->pos.lon >= 0 ? 'E' : 'W'));
 # else
       /* 37° 46' N, 122° 24' W */
       double alat = bp->pos.lat >= 0 ? bp->pos.lat : -bp->pos.lat;
@@ -1393,14 +1385,44 @@ draw_map (ModeInfo *mi)
                (bp->pos.lat >= 0 ? 'N' : 'S'),
                alon,
                (alon - (int) alon) * 60,
-               (bp->pos.lat >= 0 ? 'E' : 'W'));
+               (bp->pos.lon >= 0 ? 'E' : 'W'));
 # endif
       glColor3f (0.3, 0.3, 0.3);
       print_texture_label (mi->dpy, bp->font_data,
                            MI_WIDTH(mi), MI_HEIGHT(mi), 1, buf);
     }
 
-  if (mi->fps_p)
+  if (bp->dead_p ||
+      (bp->tile_count == 0 &&
+       now >= bp->start_time + 5))
+    {
+      char buf[1024];
+      char *s = buf;
+      *s = 0;
+      strcat (s, "\n\n\n\n\n\n");
+      s += strlen (s);
+      if (bp->dead_p)
+        sprintf (s, "%.100s subprocess died.", bp->loader);
+      else
+        sprintf (s, "%.100s subprocess produced no tiles.", bp->loader);
+      s += strlen (s);
+
+      if (! bp->dead_p)
+        strcat (s, " Network problem?");
+      s += strlen (s);
+
+      if (bp->tile_count < 10)
+        strcat (s,
+                " Is Perl broken? Maybe try:\n\n"
+                "sudo cpan LWP::Simple LWP::Protocol::https Mozilla::CA");
+
+      glColor3f (0.3, 0.3, 0.3);
+      print_texture_label (mi->dpy, bp->font_data,
+                           MI_WIDTH(mi), MI_HEIGHT(mi), 0, buf);
+    }
+
+
+  if (mi->fps_p && !bp->dead_p)
     {
       if (!MI_IS_WIREFRAME(mi))
         {
@@ -1410,7 +1432,7 @@ draw_map (ModeInfo *mi)
           glScalef (1.0 / MI_WIDTH(mi),
                     1.0 / MI_HEIGHT(mi),
                     1);
-          glScalef (220, 150, 1);
+          glScalef (320, 190, 1);
           glDisable (GL_TEXTURE_2D);
           glColor4f (0, 0, 0, 0.4);
           glBegin(GL_QUADS);

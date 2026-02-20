@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# Copyright © 2008-2022 Jamie Zawinski <jwz@jwz.org>
+# Copyright © 2008-2025 Jamie Zawinski <jwz@jwz.org>
 #
 # Permission to use, copy, modify, distribute, and sell this software and its
 # documentation for any purpose is hereby granted without fee, provided that
@@ -21,7 +21,7 @@ use diagnostics;
 use strict;
 
 my $progname = $0; $progname =~ s@.*/@@g;
-my ($version) = ('$Revision: 1.40 $' =~ m/\s(\d[.\d]+)\s/s);
+my ($version) = ('$Revision: 1.51 $' =~ m/\s(\d[.\d]+)\s/s);
 
 my $verbose = 0;
 my $debug_p = 0;
@@ -59,6 +59,27 @@ $analogtv_default_opts .= $thread_default_opts;
 
 
 
+sub shaders_for_saver($) {
+  my ($saver) = @_;
+
+  my @shaders = ();
+  my $ext = 'glsl';
+  my @dirs = ('glx/glsl', '../hacks/glx/glsl');
+
+  $saver = lc($saver);
+  for (my $i = 0; $i < 6; $i++) {
+    my $suf = ($i == 0 ? 'c' : $i-1);
+    my $f1 = ($i == 1 ? "$saver.$ext" : undef);
+    my $f2 = "$saver-$suf.$ext";
+    foreach my $d (@dirs) {
+      if ($f1 && -f "$d/$f1") { push @shaders, "$d/$f1"; last; }
+      elsif     (-f "$d/$f2") { push @shaders, "$d/$f2"; last; }
+    }
+  }
+  return @shaders;
+}
+
+
 # Returns two tables:
 # - A table of the default resource values.
 # - A table of "--switch" => "resource: value", or "--switch" => "resource: %"
@@ -74,12 +95,16 @@ sub parse_src($) {
   $file = 'polyhedra-gl.c' if ($file eq 'polyhedra.c');
   $file = 'companion.c' if ($file eq 'companioncube.c');
 
+  my @shaders = shaders_for_saver ($saver);
+  $file = 'xshadertoy.c' if (@shaders);
+
   my $ofile = $file;
   $file = "glx/$ofile"          unless (-f $file);
   $file = "../hacks/$ofile"     unless (-f $file);
   $file = "../hacks/glx/$ofile" unless (-f $file);
   my $body = '';
   open (my $in, '<:utf8', $file) || error ("$ofile: $!");
+  local $/ = undef;  # read entire file
   while (<$in>) { $body .= $_; }
   close $in;
   $file =~ s@^.*/@@;
@@ -223,6 +248,7 @@ sub parse_xml($$$) {
   $file = "../hacks/$ofile" unless (-f $file);
   my $body = '';
   open (my $in, '<:utf8', $file) || error ("$ofile: $!");
+  local $/ = undef;  # read entire file
   while (<$in>) { $body .= $_; }
   close $in;
   $file =~ s@^.*/@@;
@@ -448,6 +474,7 @@ sub check_config($$) {
   # kludge
   return 0 if ($saver =~ m/(-helper)$/);
   return 0 if ($saver =~ m/(xscreensaver-)/);
+  return 0 if ($saver =~ m/xshadertoy$/);
 
   my ($src_opts, $switchmap) = parse_src ($saver);
   my ($saver_title, $gl_p, $xml_opts, $widgets) =
@@ -487,8 +514,8 @@ sub check_config($$) {
     $progclass = 'DNAlogo' if ($progclass eq 'DNALogo');
     my $f = (glob("$obd/$progclass.saver*"))[0];
     if (!$f && $progclass ne 'Flurry') {
-      print STDERR "$progname: $progclass.saver does not exist\n";
-      $failures++;
+      print STDERR "$progname: WARNING: $progclass.saver does not exist\n";
+      # $failures++;
     }
   }
 
@@ -589,33 +616,6 @@ sub write_file_if_changed($$;$) {
 }
 
 
-# Read the template file and splice in the @KEYWORDS@ in the hash.
-#
-sub read_template($$) {
-  my ($file, $subs) = @_;
-  my $body = '';
-  open (my $in, '<:utf8', $file) || error ("$file: $!");
-  while (<$in>) { $body .= $_; }
-  close $in;
-
-  $body =~ s@/\*.*?\*/@@gs;  # omit comments
-  $body =~ s@//.*$@@gm;
-
-  foreach my $key (keys %$subs) {
-    my $val = $subs->{$key};
-    $body =~ s/@\Q$key\E@/$val/gs;
-  }
-
-  if ($body =~ m/(@[-_A-Z\d]+@)/s) {
-    error ("$file: unmatched: $1 [$body]");
-  }
-
-  $body =~ s/[ \t]+$//gm;
-  $body =~ s/(\n\n)\n+/$1/gs;
-  return $body;
-}
-
-
 # This is duplicated in OSX/update-info-plist.pl
 #
 sub munge_blurb($$$$) {
@@ -671,21 +671,25 @@ sub munge_blurb($$$$) {
     }
   }
 
+  my $desc0 = "$desc";
+  utf8::decode($desc0);   # Pack UTF-8 into wide chars.
+
   my $desc1 = ("$name, version $vers.\n\n" .		# savername.xml
                $desc . "\n" .
                "\n" . 
                "From the XScreenSaver collection: " .
                "https://www.jwz.org/xscreensaver/\n" .
-               "Copyright \302\251 $year by $authors.\n");
+               "Copyright \x{A9} $year by $authors.\n");
 
   my $desc2 = ("$name $vers,\n" .			# Info.plist
-               "\302\251 $year $authors.\n" .
+               "\x{A9} $year $authors.\n" .
                #"From the XScreenSaver collection:\n" .
                #"https://www.jwz.org/xscreensaver/\n" .
                "\n" .
                $desc .
                "\n");
-  utf8::decode($desc1);   # Pack UTF-8 into wide chars.
+
+  utf8::decode($desc1);   # Pack UTF-8 into wide chars (redundant?)
   utf8::decode($desc2);
 
   # unwrap lines, but only when it's obviously ok: leave blank lines,
@@ -707,6 +711,8 @@ sub build_android(@) {
   my $xml_dir     = "$project_dir/res/xml";
   my $values_dir  = "$project_dir/res/values";
   my $java_dir    = "$project_dir/src/org/jwz/xscreensaver/gen";
+  my $asset_dir   = "$project_dir/assets";
+  my $shader_dir  = "$asset_dir/glsl";
   my $gen_dir     = "gen";
 
   my $xml_header = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
@@ -727,6 +733,7 @@ sub build_android(@) {
     my $file = "../utils/version.h";
     my $body = '';
     open (my $in, '<:utf8', $file) || error ("$file: $!");
+    local $/ = undef;  # read entire file
     while (<$in>) { $body .= $_; }
     close $in;
     ($vers) = ($body =~ m@ (\d+\.[0-9a-z]+) @s);
@@ -737,7 +744,10 @@ sub build_android(@) {
   foreach my $saver (@savers) {
     next if ($saver =~ m/(-helper)$/);
 
-    my ($src_opts, $switchmap) = parse_src ($saver);
+    my @shaders = shaders_for_saver ($saver);
+    my $saver2 = @shaders ? 'xshadertoy' : $saver;
+
+    my ($src_opts, $switchmap) = parse_src ($saver2);
     my ($saver_title, $gl_p, $xml_opts, $widgets) =
       parse_xml ($saver, $switchmap, $src_opts);
 
@@ -751,6 +761,37 @@ sub build_android(@) {
     my $saver_class = $saver_title;
     $saver_class =~ s/\]\[/2/gs;
     $saver_class =~ s/[-_\s]//gs;
+
+    # If the saver's title is not case-insensitively the same as its progname
+    # after removing spaces, the class name has to be the progname, or
+    # jwxyz_nativeInit is not able to find it in the function_table.
+    # (Cuboctahedron Eversion, Möbius, MöbiusGears, Moiré, Moiré2.)
+    #
+    if (lc($saver_class) ne lc($saver)) {
+      $saver_class = $saver;
+      $saver_class =~ s/^(.)/\U$1/s;
+    }
+
+    # Write all referenced shaders to "xscreensaver/assets/glsl/".
+    foreach my $file (@shaders) {
+      my $body = '';
+      open (my $in, '<:utf8', $file) || error ("$file: $!");
+      local $/ = undef;  # read entire file
+      while (<$in>) { $body .= $_; }
+      close $in;
+
+      # Omit comments in shaders.
+      $body =~ s@//[^\n]*@@gs;
+      $body =~ s@/\*.*?\*/@@gs;
+      $body =~ s/^[ \t]+|[ \t]+$//gm;
+      $body =~ s/\n\n+/\n/gs;
+      $body =~ s/^\s+|\s+$//gs;
+      $body .= "\n";
+
+      my $fn = $file;
+      $fn =~ s@^.*/@@gs;
+      $write_files{"$shader_dir/$fn"} = $body;
+    }
 
     my $settings = '';
 
@@ -993,6 +1034,7 @@ sub build_android(@) {
 
     my $dream = ("<dream xmlns:android=\"" .
                    "http://schemas.android.com/apk/res/android\"\n" .
+                 "  android:previewImage=\"\@drawable/$saver_underscore\"\n" .
                  "  android:settingsActivity=\"" .
                      "$package.gen.Settings\$$saver_class\" />\n");
     $write_files{"$xml_dir/${saver_underscore}_dream.xml"} = $dream;
@@ -1001,7 +1043,7 @@ sub build_android(@) {
                        "http://schemas.android.com/apk/res/android\"\n" .
                      "  android:settingsActivity=\"" .
                      "$package.gen.Settings\$$saver_class\"\n" .
-                     "  android:thumbnail=\"\@drawable/${saver_underscore}\" />\n");
+                     "  android:thumbnail=\"\@drawable/$saver_underscore\" />\n");
     $write_files{"$xml_dir/${saver_underscore}_wallpaper.xml"} = $wallpaper;
 
     $daydream_java .=
@@ -1023,8 +1065,8 @@ sub build_android(@) {
     $fntable_h2 .= ",\n  " if $fntable_h2 ne '';
     $fntable_h3 .= ",\n  " if $fntable_h3 ne '';
 
-    $fntable_h2 .= "${saver}_xscreensaver_function_table";
-    $fntable_h3 .= "{\"${saver}\", &${saver}_xscreensaver_function_table}";
+    $fntable_h2 .= "${saver2}_xscreensaver_function_table";
+    $fntable_h3 .= "{\"${saver}\", &${saver2}_xscreensaver_function_table}";
   }
 
   $arrays =~ s/^/  /gm;
@@ -1069,12 +1111,19 @@ sub build_android(@) {
                 "  android:theme=\"\@android:style/Theme.Holo\"\n" .
                 "  android:exported=\"true\"\n" .
                 "  android:label=\"\@string/app_name\">\n" .
-                "  <intent-filter>\n" .
-                "    <action android:name=\"android.intent.action" .
-                ".MAIN\" />\n" .
-                "    <category android:name=\"android.intent.category" .
-                ".LEANBACK_LAUNCHER\" />\n" .
-                "  </intent-filter>\n" .
+
+                # I have no idea what this error means, when uploading to
+                # the Play store: "app must be published as an app bundle
+                # instead". I also don't know what leanback means or why
+                # I should care, so fuck it.
+                #
+#               "  <intent-filter>\n" .
+#               "    <action android:name=\"android.intent.action" .
+#               ".MAIN\" />\n" .
+#               "    <category android:name=\"android.intent.category" .
+#               ".LEANBACK_LAUNCHER\" />\n" .
+#               "  </intent-filter>\n" .
+
                 "  <intent-filter>\n" .
                 "    <action android:name=\"android.intent.action" .
                 ".VIEW\" />\n" .
@@ -1097,7 +1146,7 @@ sub build_android(@) {
   $manifest = ($xml_header .
                "<manifest xmlns:android=\"" .
                "http://schemas.android.com/apk/res/android\"\n" .
-               "  package=\"$package\"\n" .
+#              "  package=\"$package\"\n" .
                "  android:versionCode=\"$versb\"\n" .
                "  android:versionName=\"$vers\">\n" .
 
@@ -1117,8 +1166,9 @@ sub build_android(@) {
                "  <uses-feature android:glEsVersion=\"0x00010001\"\n" .
                "    android:required=\"true\" />\n" .
 
-               "  <uses-feature android:name=\"android.software.leanback\"\n" .
-               "    android:required=\"false\" />\n" .
+               # See above
+#              "  <uses-feature android:name=\"android.software.leanback\"\n" .
+#              "    android:required=\"false\" />\n" .
 
                "  <uses-feature" .
                " android:name=\"android.hardware.touchscreen\"\n" .
@@ -1128,6 +1178,8 @@ sub build_android(@) {
                    "android.permission.INTERNET\" />\n" .
                "  <uses-permission android:name=\"" .
                    "android.permission.READ_EXTERNAL_STORAGE\" />\n" .
+               "  <uses-permission android:name=\"" .
+                   "android.permission.READ_MEDIA_IMAGES\" />\n" .
 
                "  <application android:icon=\"\@drawable/thumbnail\"\n" .
                "    android:banner=\"\@drawable/thumbnail\"\n" .
@@ -1203,7 +1255,7 @@ sub build_android(@) {
   # if a hack is removed from $ANDROID_HACKS in android/Makefile but
   # the old XML files remain behind, the build blows up.
   #
-  foreach my $dd ($xml_dir, $gen_dir, $java_dir) {
+  foreach my $dd ($xml_dir, $gen_dir, $java_dir, $shader_dir) {
     opendir (my $dirp, $dd) || error ("$dd: $!");
     my @files = readdir ($dirp);
     closedir $dirp;
@@ -1212,7 +1264,8 @@ sub build_android(@) {
       $f = "$dd/$f";
       next if (defined ($write_files{$f}));
       if ($f =~ m/_(settings|wallpaper|dream)\.xml$/s ||
-          $f =~ m/(Settings|Daydream)\.java$/s) {
+          $f =~ m/(Settings|Daydream)\.java$/s ||
+          $f =~ m/\.glsl$/s) {
         print STDERR "$progname: rm $f\n";
         unlink ($f) unless ($debug_p);
       } else {
@@ -1230,7 +1283,7 @@ sub error($) {
 }
 
 sub usage() {
-  print STDERR "usage: $progname [--verbose] [--debug]" .
+  print STDERR "usage: $progname [--verbose] [--debug] [--force]" .
     " [--build-android] files ...\n";
   exit 1;
 }
@@ -1239,11 +1292,13 @@ sub main() {
   binmode (STDOUT, ':utf8');
   binmode (STDERR, ':utf8');
 
+  my $force_p = 0;
   my $android_p = 0;
   my @files = ();
   while ($#ARGV >= 0) {
     $_ = shift @ARGV;
     if (m/^--?verbose$/) { $verbose++; }
+    elsif (m/^--?force$/) { $force_p++; }
     elsif (m/^-v+$/) { $verbose += length($_)-1; }
     elsif (m/^--?debug$/s) { $debug_p++; }
     elsif (m/^--?build-android$/s) { $android_p++; }
@@ -1252,7 +1307,7 @@ sub main() {
 #    else { usage; }
   }
 
-  usage unless ($#files >= 0);
+  usage unless ($#files >= 0 || $force_p);
   my $failures = 0;
   foreach my $file (@files) {
     $failures += check_config ($file, $android_p);

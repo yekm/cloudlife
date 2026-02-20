@@ -1,4 +1,4 @@
-/* xscreensaver, Copyright © 1992-2022 Jamie Zawinski <jwz@jwz.org>
+/* xscreensaver, Copyright © 1992-2026 Jamie Zawinski <jwz@jwz.org>
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -102,6 +102,12 @@
 # if defined(HAVE_COCOA) && !defined(HAVE_IPHONE)  /* macOS */
 #  include <OpenGL/gl.h>
 #  include <OpenGL/glu.h>
+#  define GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
+#  ifndef GL_SILENCE_DEPRECATION
+#   define GL_SILENCE_DEPRECATION
+#  endif
+#  include <OpenGL/gl3.h>
+#  undef GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
 # elif defined(HAVE_IPHONE)
 #  ifdef HAVE_GLES3
 #   include "OpenGLES/ES3/gl.h"
@@ -121,14 +127,12 @@
 #   include <GL/glx.h>
 #  endif
 
-   /* Sep 2022: The current Raspberry Pi 4b drivers don't do GL_LINE_SMOOTH
-      properly: lines show up as barely-visible static noise.  So disable
-      it globally by just aliasing it to something mostly harmless. */
-#  if defined(__linux__) && defined(__aarch64__)
-#   undef GL_LINE_SMOOTH
-#   define GL_LINE_SMOOTH GL_NORMALIZE
-#   define GL_LINE_SMOOTH_BROKEN  /* To protect glDiable(GL_LINE_SMOOTH) */
-#  endif
+# ifndef HAVE_JWZGLES
+   /* Sep 2022, Sep 2023: The Raspberry Pi 4b Broadcom driver doesn't do
+      GL_LINE_SMOOTH properly, so we must disable it. See init_GL(). */
+   extern void (* glEnable_fn) (GLuint);
+#  define glEnable (* glEnable_fn)
+# endif /* !HAVE_JWZGLES */
 
 # endif /* real X11 */
 

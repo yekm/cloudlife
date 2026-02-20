@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# Copyright © 2002-2022 Jamie Zawinski <jwz@jwz.org>
+# Copyright © 2002-2025 Jamie Zawinski <jwz@jwz.org>
 #
 # Permission to use, copy, modify, distribute, and sell this software and its
 # documentation for any purpose is hereby granted without fee, provided that
@@ -24,7 +24,7 @@ use strict;
 use Text::Wrap;
 
 my $progname = $0; $progname =~ s@.*/@@g;
-my ($version) = ('$Revision: 1.12 $' =~ m/\s(\d[.\d]+)\s/s);
+my ($version) = ('$Revision: 1.16 $' =~ m/\s(\d[.\d]+)\s/s);
 
 my $verbose = 0;
 
@@ -58,7 +58,7 @@ my $man_suffix = (".SH ENVIRONMENT\n" .
                   "stored in the RESOURCE_MANAGER property.\n" .
                   ".TP 8\n" .
                   ".B XSCREENSAVER_WINDOW\n" .
-                  "The window ID to use with \\fI\-\-root\\fP.\n" .
+                  "The window ID to use with \\fI\\-\\-root\\fP.\n" .
                   ".SH SEE ALSO\n" .
                   ".BR X (1),\n" .
                   ".BR xscreensaver (1)\n" .
@@ -90,11 +90,10 @@ sub xml2man($) {
   error ("$xml does not exist") if (! -f $xml);
   error ("$man already exists") if (-f $man);
 
-  local *IN;
-  open (IN, "<$xml") || error ("$xml: $!");
+  open (my $in, '<:utf8', $xml) || error ("$xml: $!");
   my $xmltxt = "";
-  while (<IN>) { $xmltxt .= $_; }
-  close IN;
+  while (<$in>) { $xmltxt .= $_; }
+  close ($in);
 
   my $args = "";
   my $body = "";
@@ -124,10 +123,12 @@ sub xml2man($) {
     my $boolp = m/^<boolean/;
     my $novalsp = 0;
 
-    if ($arg && $arg =~ m/^-no(-.*)/) {
-      $arg = "$1 | \\$arg";
+    if ($arg && $arg =~ m/^--?no(-.*)/) {
+      $arg = "$1 | $arg";
     } elsif ($boolp && $arg) {
-      $arg = "$arg | \\-\\-no$arg";
+      my $a2 = $arg;
+      $a2 =~ s/^--/-/s;
+      $arg = "$arg | --no$a2";
     }
 
     if ($carg && $carg =~ m/colors/) {
@@ -135,25 +136,25 @@ sub xml2man($) {
     }
 
     if (!$carg) {
-    } elsif ($carg eq '-move' || $carg eq '-no-move' ||
-             $carg eq '-wander' || $carg eq '-no-wander') {
+    } elsif ($carg =~ m/^--?move$/   || $carg =~ m/^--?no-move$/ ||
+             $carg =~ m/^--?wander$/ || $carg =~ m/^--?no-wander$/) {
       $label = "Whether the object should wander around the screen.";
-    } elsif ($boolp && ($carg eq '-spin' || $carg eq '-no-spin')) {
+    } elsif ($boolp && ($carg =~ m/^--?spin$/ || $carg =~ m/^--?no-spin$/)) {
       $label = "Whether the object should spin.";
-    } elsif ($carg eq '-spin X') {
-      $carg = '-spin \fI[XYZ]\fP';
+    } elsif ($carg =~ m/--?spin X$/) {
+      $carg = '--spin \fI[XYZ]\fP';
       $arg = $carg;
       $label = "Around which axes should the object spin?";
-    } elsif ($carg eq '-fps' || $carg eq '-no-fps') {
+    } elsif ($carg =~ m/^--?fps$/ || $carg =~ m/^--?no-fps$/) {
       $label = "Whether to show a frames-per-second display " .
                "at the bottom of the screen.";
-    } elsif ($carg eq '-wireframe' || $carg eq '-wire') {
+    } elsif ($carg =~ m/^--?wireframe$/ || $carg =~ m/^--?wire/) {
       $label = "Render in wireframe instead of solid.";
-    } elsif ($carg =~ m/^-delay/ && $hi && $hi >= 10000) {
+    } elsif ($carg =~ m/^--?delay/ && $hi && $hi >= 10000) {
       $label = "Per-frame delay, in microseconds.";
       $def = sprintf ("%d (%0.2f seconds)", $def, ($def/1000000.0));
       $low = $hi = undef;
-    } elsif ($carg eq '-speed \fInumber\fP') {
+    } elsif ($carg =~ m/^--?speed \\fInumber\\fP/) {
       $label = "Animation speed.  2.0 means twice as fast, " .
                "0.5 means half as fast.";
       $novalsp = 1;
@@ -161,6 +162,12 @@ sub xml2man($) {
       $label .= ".  Boolean.";
     } elsif ($label) {
       $label .= ".";
+    }
+
+    foreach ($arg, $carg) {
+      next unless defined ($_);
+      s/(^|[^\\])-/$1\\-/gs;
+      s/(^|[^\\])-/$1\\-/gs;
     }
 
     if (m/^<(number|boolean|option)/) {
@@ -171,7 +178,7 @@ sub xml2man($) {
         $label = "???";
       }
 
-      $args .= "[\\$carg]\n";
+      $args .= "[$carg]\n";
 
       if (! $novalsp) {
         $label .= "  $low - $hi." if (defined($low) && defined($hi));
@@ -179,7 +186,7 @@ sub xml2man($) {
       }
       $label = wrap ("", "", $label);
 
-      $body .= ".TP 8\n.B \\$arg\n$label";
+      $body .= ".TP 8\n.B $arg\n$label";
       $body .= "\n";
 
     } elsif (m@^<_description>\s*(.*)\s*</_description>@) {
@@ -207,6 +214,8 @@ sub xml2man($) {
 
   $desc =~ s@https?://en\.wikipedia\.org/[^\s]+@@gs;
 
+  my $url = ($desc =~ s@(https?://www\.shadertoy\.com/[^\s]+)@@gs) ? $1 : undef;
+
   $desc = wrap ("", "", $desc);
 
   $body = (".TH XScreenSaver 1 \"\" \"X Version 11\"\n" .
@@ -223,16 +232,18 @@ sub xml2man($) {
            $body .
            $man_suffix);
 
+  $body =~ s/(\n\.BR[^\n]+)(\n\.SH)/$1,\n.BR $url$2/s
+    if ($url);
+
   my $year = $1 if ($author =~ s/; (\d{4})$//s);
   $year = (localtime)[5] + 1900 unless $year;
 
   $body =~ s/%AUTHOR%/$author/g;
   $body =~ s/%YEAR%/$year/g;
 
-  local *OUT;
-  open (OUT, ">$man") || error ("$man: $!");
-  print OUT $body || error ("$man: $!");
-  close OUT || error ("$man: $!");
+  open (my $out, '>:utf8', $man) || error ("$man: $!");
+  print $out $body || error ("$man: $!");
+  close ($out) || error ("$man: $!");
   print STDERR "$progname: wrote $man\n";
 }
 
@@ -250,16 +261,15 @@ sub usage() {
 
 sub main() {
   my @progs = ();
-  while ($_ = $ARGV[0]) {
-    shift @ARGV;
-    if ($_ eq "--verbose") { $verbose++; }
-    elsif (m/^-v+$/) { $verbose += length($_)-1; }
-    elsif (m/^-./) { usage; }
+  while (@ARGV) {
+    $_ = shift @ARGV;
+    if (m/^--?verbose$/s) { $verbose++; }
+    elsif (m/^-v+$/s) { $verbose += length($_)-1; }
+    elsif (m/^-./s) { usage; }
     else { push @progs, $_; }
   }
 
-  usage() if ($#progs < 0);
-
+  usage() unless (@progs);
   foreach (@progs) { xml2man($_); }
 }
 

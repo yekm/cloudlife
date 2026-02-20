@@ -1,4 +1,4 @@
-/* fps, Copyright (c) 2001-2018 Jamie Zawinski <jwz@jwz.org>
+/* fps, Copyright © 2001-2025 Jamie Zawinski <jwz@jwz.org>
  * Draw a frames-per-second display (Xlib and OpenGL).
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -65,14 +65,13 @@ xlockmore_gl_draw_fps (ModeInfo *mi)
     {
       gl_fps_data *data = (gl_fps_data *) st->gl_fps_data;
       XWindowAttributes xgwa;
-      int lines = 1;
-      const char *s;
-
       XGetWindowAttributes (st->dpy, st->window, &xgwa);
-      for (s = st->string; *s; s++) 
-        if (*s == '\n') lines++;
 
+# ifndef HAVE_ANDROID
+      /* This crashes in the Android emulator, but not on real hardware. */
       glColor3f (1, 1, 1);
+# endif
+
       print_texture_label (st->dpy, data->texfont,
                            xgwa.width, xgwa.height,
                            (data->top_p ? 1 : 2),

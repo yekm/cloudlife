@@ -28,18 +28,24 @@ To compile for a Unix system with X11:
         ./configure --prefix=/usr
         make
         sudo make install
-        make clean
 
         xscreensaver &
         xscreensaver-settings
+
+    For a debug build:
+
+        make CFLAGS="-g"
 
     There are many compilation dependencies.  The configure script will tell
     you what is missing.  At the least, you will need development versions of
     these libraries.  Append "-dev" or "-devel" to most of these:
 
-        perl pkg-config gettext intltool libx11 libxext libxi libxt libxft
-        libxinerama libxrandr libxxf86vm libgl libglu libgle libgtk-3-0
-        libgdk-pixbuf2.0 libjpeg libxml2 libpam libsystemd elogind
+        perl attr pkg-config gettext intltool libx11 libxext libxi libxt
+        libxft libxinerama libxrandr libxxf86vm libgl libglu libgle
+        libgtk-3 libgdk-pixbuf-2.0 libjpeg libxml2 libpam libwayland
+        libsystemd elogind
+
+    You can build a package-manager version with "make rpm" or "make deb".
 
     BSD systems might need gmake instead of make.
 
@@ -68,6 +74,67 @@ Interested in writing a new screen saver?
 ===============================================================================
 Version History
 ===============================================================================
+
+6.14	* Added the ability to run shadertoy.com programs as screen savers.
+	* New shader-based savers: `alienbeacon', `batteredplanet',
+	  `elementalring', `fluxcore', `gimbalharmonics', `hexplasma',
+	  `logarithmiccircles', `neongravity', `neontriangulator',
+	  `protophore', `selfreflect', `skyline', `stardome', `starnest',
+	  `stripeytorus', `synthwavecity', `topologica' and `truchetzoom'.
+	* Better label wrapping in `carousel' and `photopile'.
+	* Fixed `glslideshow' preferences and title display.
+	* X11: Decrufted PAM, including /etc/pam.d/xscreensaver.
+	* macOS: Sparkle 2.8.
+	* iOS: Clicking links in preferences opens in Safari again.
+
+6.13	* Added a number of historical full chess games to `endgame'.
+	* Rewrote `glslideshow' to add more image-transition effects.
+        * Hacks that display images and their filenames will display their
+          titles intead, if the image originated in an RSS feed (or has
+          the "user.dublincore.title" xattr).
+	* X11: Wayland fixes.
+	* X11: Some hacks were calling glXSwapBuffers before the first call
+	  to glXMakeCurrent; allow it.
+	* X11: Added configuration files to allow building of a non-insane
+          `.deb' installer package.
+
+6.12	* X11: DPMS works on Wayland.
+	* X11: Fading uses GL now which should be more performant.
+
+6.11	* X11: Now supports Wayland (blanking only, not locking).
+	* X11: More reliable and timely DPMS activation.
+	* X11: Dead keys work in password input.
+	* X11: Fixed a couple of minor Y2038 bugs.
+
+6.10	* New hacks, `dumpsterfire', `hopffibration', `platonicfolding' and
+          `klondike'.
+	* Rewrote the VT100 emulator for 'apple2' and 'phosphor'.
+	  Supports inverse and DEC Special Graphics.
+	* X11: `phosphor' scrolls fast again on "modern" Linux systems.
+	* BSOD supports systemd and bitlocker.
+	* Android: Fixed bug where photo access was not being requested.
+
+6.09	* New hacks,`kallisti' and `highvoltage'.
+	* Formal-wear for `headroom'.
+
+6.08	* macOS: Worked around a macOS 14.0 bug where savers would continue
+          running invisibly in the background after un-blanking.
+	* macOS: Upgraded Sparkle (the "Check for Updates" library) for
+	  macOS 14.0 compatibility.
+
+6.07	* New hacks, `droste', `skulloop', `papercube' and `cubocteversion'.
+	* `xscreensaver-settings' was sometimes turning off the DPMS checkbox.
+	* Log pid of caller of `deactivate' command, to give a hint about who
+	  is preventing the screen from blanking.
+	* recanim uses libffmpeg.
+	* Updates to `sphereeversion'.
+	* Added some new map sources to `mapscroller'.
+	* macOS: Worked around a macOS 13.4 bug where multi-head systems would
+          fail to launch savers on some or all screens.
+	* Minimum compiler target is now ISO C99 instead of ANSI C89.
+	  Didn't want to rush into it.
+	* macOS, Android: Better looking thunbmail images.
+	* Various other minor bug fixes.
 
 6.06	* New hack, `hextrail'.
 	* `marbling' works again.
@@ -340,7 +407,7 @@ Version History
 
 5.26	* More auto-updater tweaks.
 
-5.25	* Try harder to bypass Quarrantine and Gatekeeper in macOS installer.
+5.25	* Try harder to bypass Quarantine and Gatekeeper in macOS installer.
 	* Some files were missing from the tarball.
 
 5.24	* Added "Automatically check for updates" option on macOS.

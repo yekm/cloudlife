@@ -1,4 +1,4 @@
-/* handsy, Copyright (c) 2018 Jamie Zawinski <jwz@jwz.org>
+/* handsy, Copyright © 2018-2025 Jamie Zawinski <jwz@jwz.org>
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -24,6 +24,7 @@
 #include "rotator.h"
 #include "gltrackball.h"
 #include "gllist.h"
+#include "doubletime.h"
 #include <ctype.h>
 
 #ifdef USE_GL /* whole file */
@@ -193,23 +194,6 @@ static argtype vars[] = {
 };
 
 ENTRYPOINT ModeSpecOpt hands_opts = {countof(opts), opts, countof(vars), vars, NULL};
-
-
-/* Returns the current time in seconds as a double.
- */
-static double
-double_time (void)
-{
-  struct timeval now;
-# ifdef GETTIMEOFDAY_TWO_ARGS
-  struct timezone tzp;
-  gettimeofday(&now, &tzp);
-# else
-  gettimeofday(&now);
-# endif
-
-  return (now.tv_sec + ((double) now.tv_usec * 0.000001));
-}
 
 
 static double
@@ -460,9 +444,7 @@ draw_ground (ModeInfo *mi)
       GLfloat fog_color[4] = { 0, 0, 0, 1 };
 
       glLineWidth (4);
-# ifndef GL_LINE_SMOOTH_BROKEN
       glEnable (GL_LINE_SMOOTH);
-# endif
       glHint (GL_LINE_SMOOTH_HINT, GL_NICEST);
       glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
       glEnable (GL_BLEND);
@@ -502,9 +484,7 @@ draw_ground (ModeInfo *mi)
 
   if (!wire)
     {
-# ifndef GL_LINE_SMOOTH_BROKEN
       glDisable (GL_LINE_SMOOTH);
-# endif
       glDisable (GL_BLEND);
       glDisable (GL_FOG);
     }
