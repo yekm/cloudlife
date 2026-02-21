@@ -9,7 +9,8 @@ project(cloudlife
 # Export compile commands for clangd/language servers
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set (CMAKE_VERBOSE_MAKEFILE TRUE)
+# Verbose makefile output (use -DCMAKE_VERBOSE_MAKEFILE=ON to enable)
+option(CMAKE_VERBOSE_MAKEFILE "Enable verbose makefile output" ON)
 
 # Prevent in-source builds
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
@@ -153,8 +154,8 @@ endif()
 
 # Compiler warnings
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(clouds PRIVATE -Wall -Wextra)
-    target_compile_options(cloudlife PRIVATE -Wall -Wextra)
+    target_compile_options(clouds PRIVATE -Wall -Wextra -Wno-unknown-pragmas -Wno-unused-parameter -Wno-pragmas)
+    target_compile_options(cloudlife PRIVATE -Wall -Wextra -Wno-unknown-pragmas -Wno-unused-parameter -Wno-pragmas)
 endif()
 
 # Release optimizations
