@@ -28,6 +28,8 @@ public:
 
 private:
     void init_shaders();
+    void reload_shaders();
+    void build_fragment_shader_source();
     void create_vertex_buffer();
     void destroy_vertex_buffer();
     

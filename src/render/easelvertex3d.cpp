@@ -38,7 +38,6 @@ const char* fragmentShaderSourceUniform3D = R"(
 EaselVertex3D::EaselVertex3D()
     : Easel()
 {
-    // Initialize Camera State
     cameraPos   = glm::vec3(0.0f, 0.0f,  3.0f);
     cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
@@ -49,27 +48,9 @@ EaselVertex3D::EaselVertex3D()
     
     updateCameraVectors();
 
-    // Default settings
-    frame_vertex_target_k = 64; // Might be smaller for 3D
+    frame_vertex_target_k = 64;
 
-    // Load colormap from Easel's PaletteSetting into string literal
-    std::string cmapSource = pal.get_cmap().getSource();
-    
-    fragmentShaderSource = std::string(R"(
-        #version 330 core
-        in float aIdx;
-        out vec4 fragColor;
-        uniform float vertexOpacity;
-        vec4 colormap(float x);
-    )") + cmapSource + R"(
-        void main()
-        {
-            vec4 color = colormap(aIdx);
-            color.a *= vertexOpacity;
-            fragColor = color;
-        }
-    )";
-
+    build_fragment_shader_source();
     create_vertex_buffer();
     init_shaders();
 }
@@ -121,6 +102,24 @@ void EaselVertex3D::destroy_vertex_buffer() {
     glDeleteBuffers(1, &vbo);
 }
 
+void EaselVertex3D::build_fragment_shader_source() {
+    std::string cmapSource = pal.get_cmap().getSource();
+    fragmentShaderSource = std::string(R"(
+        #version 330 core
+        in float aIdx;
+        out vec4 fragColor;
+        uniform float vertexOpacity;
+        vec4 colormap(float x);
+    )") + cmapSource + R"(
+        void main()
+        {
+            vec4 color = colormap(aIdx);
+            color.a *= vertexOpacity;
+            fragColor = color;
+        }
+    )";
+}
+
 void EaselVertex3D::init_shaders() {
     unsigned vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource3D, NULL);
@@ -163,6 +162,11 @@ void EaselVertex3D::init_shaders() {
     u_projection_loc = glGetUniformLocation(shaderProgram, "projection");
     u_view_loc = glGetUniformLocation(shaderProgram, "view");
     u_model_loc = glGetUniformLocation(shaderProgram, "model");
+}
+
+void EaselVertex3D::reload_shaders() {
+    glDeleteProgram(shaderProgram);
+    init_shaders();
 }
 
 void EaselVertex3D::drawdot(int32_t x, int32_t y, uint32_t c) {
@@ -213,23 +217,8 @@ void EaselVertex3D::gui() {
         ImGui::Separator();
         ImGui::Text("Colormap Options");
         if (pal.RenderGui()) {
-            std::string cmapSource = pal.get_cmap().getSource();
-            fragmentShaderSource = std::string(R"(
-                #version 330 core
-                in float aIdx;
-                out vec4 fragColor;
-                uniform float vertexOpacity;
-                vec4 colormap(float x);
-            )") + cmapSource + R"(
-                void main()
-                {
-                    vec4 color = colormap(aIdx);
-                    color.a *= vertexOpacity;
-                    fragColor = color;
-                }
-            )";
-            glDeleteProgram(shaderProgram);
-            init_shaders();
+            build_fragment_shader_source();
+            reload_shaders();
         }
         ImGui::SliderFloat("Opacity", &cmap_opacity, 0.0f, 1.0f);
         
