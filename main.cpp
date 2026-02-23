@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
                 ImGui::ColorEdit4("Clear color", (float*)&clear_color);
             }
 
-            ImGui::Checkbox("", &save_every_frame);
+            ImGui::Checkbox("##save_every_frame", &save_every_frame);
             ImGui::SameLine();
             save_frame = ImGui::Button("Save Frame");
 

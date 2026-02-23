@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.10)
 
 project(cloudlife 
     VERSION 1.0.0
@@ -35,6 +35,15 @@ find_package(OpenGL REQUIRED)
 
 # Suppress OpenGL deprecation warnings on macOS
 add_compile_definitions(GL_SILENCE_DEPRECATION)
+
+include(FetchContent)
+FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG        1.0.1
+    #GIT_TAG        0.9.9.8
+)
+FetchContent_MakeAvailable(glm)
 
 # ImGui library
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/external/imgui)
@@ -73,9 +82,11 @@ set(CLOUDS_SOURCES
     # Rendering system
     src/render/easelplane.cpp
     src/render/easelvertex.cpp
+    src/render/easelvertex3d.cpp
     src/render/vertexbuffer.cpp
     
     # Art implementations
+    src/arts/test3d.cpp
     src/arts/cloudlife.cpp
     src/arts/mtron.cpp
     src/arts/ifs.cpp
@@ -118,7 +129,7 @@ target_include_directories(clouds
         ${CMAKE_SOURCE_DIR}/external/stb
 )
 
-target_link_libraries(clouds imgui glfw OpenGL::GL)
+target_link_libraries(clouds imgui glfw glm OpenGL::GL)
 
 # Main executable
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
@@ -135,7 +146,7 @@ target_include_directories(cloudlife
         ${CMAKE_SOURCE_DIR}/external/stb
 )
 
-target_link_libraries(cloudlife imgui glfw OpenGL::GL)
+target_link_libraries(cloudlife imgui glfw glm OpenGL::GL)
 
 # Platform-specific libraries for macOS
 if(APPLE)

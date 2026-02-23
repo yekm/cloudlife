@@ -8,6 +8,7 @@
 #include "easelplane.h"
 #include "easelvertex.h"
 #include "easelcompute.h"
+#include "easelvertex3d.h"
 #include "screenshot.hpp"
 
 Art::Art(std::string _name)
@@ -65,12 +66,14 @@ void Art::usePlane() {
     ep = dynamic_cast<EaselPlane*>(easel.get());
     ev = nullptr;
     ec = nullptr;
+    ev3d = nullptr;
 }
 void Art::useVertex() {
     easel = std::make_unique<EaselVertex>();
     ep = nullptr;
     ev = dynamic_cast<EaselVertex*>(easel.get());
     ec = nullptr;
+    ev3d = nullptr;
 }
 void Art::useCompute() {
 #ifndef __APPLE__
@@ -78,9 +81,17 @@ void Art::useCompute() {
     ep = nullptr;
     ev = nullptr;
     ec = dynamic_cast<EaselCompute*>(easel.get());
+    ev3d = nullptr;
 #else
     ec = nullptr;
 #endif
+}
+void Art::useVertex3D() {
+    easel = std::make_unique<EaselVertex3D>();
+    ep = nullptr;
+    ev = nullptr;
+    ec = nullptr;
+    ev3d = dynamic_cast<EaselVertex3D*>(easel.get());
 }
 
 EaselPlane* Art::eplane() const {
@@ -97,6 +108,10 @@ EaselCompute* Art::ecompute() const {
     assert(ec);
     return ec;
     //return dynamic_cast<EaselCompute*>(easel.get());
+}
+EaselVertex3D* Art::evertex3d() const {
+    assert(ev3d);
+    return ev3d;
 }
 
 void Art::check_shuffle(double current_time) {

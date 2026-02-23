@@ -12,6 +12,7 @@
 #include "acidworm.h"
 #include "hopalong.h"
 #include "attractor.h"
+#include "test3d.hpp"
 #ifndef __APPLE__
 #include "plasmacompute.h"
 #include "sphereofcubes.h"
@@ -19,6 +20,7 @@
 
 
 ArtFactory::ArtFactory() {
+    add_art<Test3D>("Test3D");
     add_art<Cloudlife>("Cloudlife");
     add_art<Minskytron>("Minskytron");
     add_art<IFS>("IFS");

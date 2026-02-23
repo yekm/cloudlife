@@ -74,12 +74,15 @@ protected:
     EaselPlane * ep = nullptr;
     EaselVertex * ev = nullptr;
     EaselCompute * ec = nullptr;
+    class EaselVertex3D * ev3d = nullptr;
     void usePlane();
     void useVertex();
     void useCompute();
+    void useVertex3D();
     EaselPlane* eplane() const;
     EaselVertex* evertex() const;
     EaselCompute* ecompute() const;
+    EaselVertex3D* evertex3d() const;
     
     double shuffle_period = 0, last_shuffle;
 
