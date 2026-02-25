@@ -1,19 +1,14 @@
 #pragma once
 
 // Must define these before including GLFW to get OpenGL extension prototypes
-#define GLFW_INCLUDE_GLCOREARB
-#define GL_GLEXT_PROTOTYPES 1
-#define GL3_PROTOTYPES 1
 
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 // OpenGL debug callback setup
 // Call init_gl_debug() after creating OpenGL context to enable debug output
-
-// OpenGL 4.3+ required for debug output
-#if defined(GL_VERSION_4_3) || defined(GL_KHR_debug)
 
 static const char* get_debug_source(GLenum source) {
     switch (source) {
@@ -113,11 +108,3 @@ static void init_gl_debug() {
     }
 }
 
-#else // GL_DEBUG_OUTPUT not defined
-
-static void init_gl_debug() {
-    fprintf(stderr, "OpenGL debug output not available (GL_DEBUG_OUTPUT not defined).\n");
-    fprintf(stderr, "This requires OpenGL 4.3+ and debug context.\n");
-}
-
-#endif // GL_DEBUG_OUTPUT

@@ -3,8 +3,6 @@
 
 #include <unistd.h> // getopt
 
-#define GL_GLEXT_PROTOTYPES 1
-#define GL3_PROTOTYPES 1
 
 
 #include "imgui.h"
@@ -16,6 +14,7 @@
 #if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <GLES2/gl2.h>
 #endif
+#include <glad/glad.h>
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
 #include "artfactory.h"
@@ -126,6 +125,12 @@ int main(int argc, char *argv[])
         return 1;
     glfwMakeContextCurrent(window);
     glfwSwapInterval(vsync);
+
+    // Initialize GLAD
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        fprintf(stderr, "Failed to initialize GLAD\n");
+        return 1;
+    }
 
     // Initialize OpenGL debug callbacks (only effective in debug builds with OpenGL 4.3+)
     init_gl_debug();
