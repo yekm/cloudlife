@@ -92,9 +92,12 @@ void EaselPlane::begin() {
             nullptr, GL_STREAM_DRAW);
 
 #ifdef __APPLE__
-    // Map the buffer normally on macOS
-    m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+    // Unmap the buffer first, in case it was already mapped
+    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+    // Map the buffer using glMapBufferRange on macOS
+    m_plane = (uint32_t*)glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, texture_size_bytes(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
 #else
+    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
     m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 #endif
 
