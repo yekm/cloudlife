@@ -61,10 +61,11 @@ void EaselVertex::init_shaders() {
     {
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+        glDeleteShader(vertexShader);
+        return;
     }
 
-
-    std::cout << fragmentShaderSource << std::endl;
+    // std::cout << fragmentShaderSource << std::endl;
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     const char * fss = fragmentShaderSource.c_str();
     glShaderSource(fragmentShader, 1, &fss, NULL);
@@ -75,6 +76,9 @@ void EaselVertex::init_shaders() {
     {
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+        return;
     }
 
 

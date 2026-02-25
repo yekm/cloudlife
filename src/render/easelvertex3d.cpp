@@ -135,6 +135,8 @@ void EaselVertex3D::init_shaders() {
     if (!success) {
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+        glDeleteShader(vertexShader);
+        return;
     }
 
     unsigned fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -146,6 +148,9 @@ void EaselVertex3D::init_shaders() {
     if (!success) {
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+        return;
     }
 
     shaderProgram = glCreateProgram();
