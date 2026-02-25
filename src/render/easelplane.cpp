@@ -130,6 +130,10 @@ void EaselPlane::drawdot(int32_t x, int32_t y, uint32_t c) {
         return;
     }
 
+    if (!m_plane) {
+        return;
+    }
+
     m_plane[ y*w + x ] = c;
     ++pixels_drawn;
 }
