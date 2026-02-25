@@ -45,8 +45,8 @@ void PaletteSetting::rescale(uint32_t ncolours) {
 }
 
 uint32_t PaletteSetting::get_color(uint32_t color_n) {
-    if (color_n > color_max)
-        std::cerr << "color_n > color_max " << color_n << " > " << color_max << std::endl;
+    //if (color_n > color_max)
+    //    std::cerr << "color_n > color_max " << color_n << " > " << color_max << std::endl;
     return get_colorf((float)(color_n%color_max)/color_max);
 }
 
