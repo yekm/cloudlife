@@ -58,6 +58,14 @@ cmake --build build -j$(nproc)
 - Use `constexpr` for compile-time constants
 - Prefer `using` over `typedef`
 
+
+### Easel Rendering Backends
+The codebase abstracts OpenGL rendering complexity away from individual "Art" implementations using `Easel` classes.
+- **EaselPlane:** Handles 2D software rendering (pixel manipulation on the CPU). It uses a double-buffered Pixel Buffer Object (PBO) pipeline with `glMapBufferRange` to allow efficient, non-blocking asynchronous GPU uploads while the CPU writes to the next frame.
+- **EaselVertex:** Handles 2D particle/vertex batching. CPU points (`x, y, color`) are batched into a `std::vector<float>` backing buffer and submitted per-frame (or sub-frame) via `glBufferSubData` to a dynamic GPU VBO.
+- **EaselVertex3D:** Similar to `EaselVertex` but handles 3D coordinates, MVP matrices, and camera controls. Utilizes buffer orphaning before `glBufferSubData` uploads to avoid CPU stalls.
+- **EaselCompute:** Leverages OpenGL 4.3+ Compute Shaders to generate image data entirely on the GPU. The texture is written via `imageStore` and later bound to Dear ImGui for rendering. Proper memory barriers (`glMemoryBarrier`) must be used after CPU operations like clearing or dispatching.
+
 ### OpenGL/Graphics
 - Use GLAD loader for OpenGL function pointers
 - Always check for OpenGL errors in debug builds
