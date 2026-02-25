@@ -1,6 +1,7 @@
 #include <vector>
 #include <stdint.h>
 
+#define GLFW_INCLUDE_GLCOREARB
 #define GL_GLEXT_PROTOTYPES 1
 #define GL3_PROTOTYPES 1
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers

@@ -69,11 +69,16 @@ void EaselVertex3D::create_vertex_buffer() {
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-    glBufferStorage(GL_ARRAY_BUFFER, buffer_size, nullptr,
-        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
 
-    mapped_buffer = (float*)glMapBufferRange(GL_ARRAY_BUFFER, 0, buffer_size,
-        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+    if (mapped_buffer) {
+        free(mapped_buffer);
+    }
+    mapped_buffer = (float*)malloc(buffer_size);
+
+    if (!mapped_buffer) {
+        std::cerr << "ERROR: Failed to allocate memory for vertex buffer" << std::endl;
+    }
 
     // x, y, z coords
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
@@ -88,8 +93,7 @@ void EaselVertex3D::create_vertex_buffer() {
 
 void EaselVertex3D::destroy_vertex_buffer() {
     if (mapped_buffer) {
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glUnmapBuffer(GL_ARRAY_BUFFER);
+        free(mapped_buffer);
         mapped_buffer = nullptr;
     }
 
@@ -308,6 +312,11 @@ void EaselVertex3D::render() {
     glPointSize(point_size);
 
     glBindVertexArray(vao);
+    
+    // Upload the data to the GPU buffer before drawing
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, total_vertices * 4 * sizeof(float), mapped_buffer);
+    
     glDrawArrays(GL_POINTS, 0, total_vertices);
 
     if (buffer_fence) {

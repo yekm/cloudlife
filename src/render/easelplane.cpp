@@ -86,13 +86,24 @@ void EaselPlane::begin() {
 
     // Map the write buffer for CPU pixel data generation
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[write_idx]);
+
+    // Unmap any previously mapped buffer just to be safe (INVALID_OPERATION often means it's already mapped)
+    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+    
     // Orphan buffer to avoid synchronization stalls
     glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size_bytes(),
             nullptr, GL_STREAM_DRAW);
+
+#ifdef __APPLE__
+    // Map the buffer normally on macOS
     m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+#else
+    m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+#endif
 
     if (!m_plane) {
-        fprintf(stderr, "ERROR: Failed to map PBO buffer\n");
+        fprintf(stderr, "ERROR: Failed to map PBO buffer (err = 0x%x)\n", glGetError());
+        // Fallback or just ignore, drawing will crash if m_plane is null
     }
 }
 

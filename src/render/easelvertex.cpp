@@ -109,13 +109,12 @@ void EaselVertex::create_vertex_buffer() {
     // Calculate buffer size
     buffer_size = vertex_buffer_maximum() * 3 * sizeof(float);
 
-    // Create immutable storage with persistent mapping flags
-    glBufferStorage(GL_ARRAY_BUFFER, buffer_size, nullptr,
-                    GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-
-    // Persistently map the buffer
-    mapped_buffer = (float*)glMapBufferRange(GL_ARRAY_BUFFER, 0, buffer_size,
-                                              GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
+    
+    if (mapped_buffer) {
+        free(mapped_buffer);
+    }
+    mapped_buffer = (float*)malloc(buffer_size);
 
     if (!mapped_buffer) {
         std::cerr << "ERROR: Failed to persistently map vertex buffer" << std::endl;
@@ -132,8 +131,7 @@ void EaselVertex::create_vertex_buffer() {
 
 void EaselVertex::destroy_vertex_buffer() {
     if (mapped_buffer) {
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glUnmapBuffer(GL_ARRAY_BUFFER);
+        free(mapped_buffer);
         mapped_buffer = nullptr;
     }
 
@@ -216,6 +214,10 @@ void EaselVertex::render() {
                    m_vertices.data(),
                    num_new_vertices * 3 * sizeof(float));
         }
+
+        // Upload the updated data to the GPU buffer
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, buffer_size, mapped_buffer);
     }
 
     glBindVertexArray(vao);

@@ -129,7 +129,7 @@ target_include_directories(clouds
         ${CMAKE_SOURCE_DIR}/external/stb
 )
 
-target_link_libraries(clouds imgui glfw glm OpenGL::GL)
+target_link_libraries(clouds PRIVATE imgui glfw glm OpenGL::GL)
 
 # Main executable
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
@@ -146,7 +146,7 @@ target_include_directories(cloudlife
         ${CMAKE_SOURCE_DIR}/external/stb
 )
 
-target_link_libraries(cloudlife imgui glfw glm OpenGL::GL)
+target_link_libraries(cloudlife PRIVATE imgui glfw glm OpenGL::GL)
 
 # Platform-specific libraries for macOS
 if(APPLE)

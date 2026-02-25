@@ -3,7 +3,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "external/stb/stb_image_write.h"
 
-#include <GL/gl.h>
+#define GL_SILENCE_DEPRECATION
+#include <GLFW/glfw3.h>
 
 #include <vector>
 #include <cstring>
