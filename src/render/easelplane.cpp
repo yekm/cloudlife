@@ -84,6 +84,12 @@ void EaselPlane::begin() {
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
             w, h, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
+    // Unmap current buffer if mapped
+    if (m_plane) {
+        glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+        m_plane = nullptr;
+    }
+
     // Map the write buffer for CPU pixel data generation
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[write_idx]);
     
@@ -92,12 +98,9 @@ void EaselPlane::begin() {
             nullptr, GL_STREAM_DRAW);
 
 #ifdef __APPLE__
-    // Unmap the buffer first, in case it was already mapped
-    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
     // Map the buffer using glMapBufferRange on macOS
     m_plane = (uint32_t*)glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, texture_size_bytes(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
 #else
-    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
     m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 #endif
 
@@ -109,7 +112,10 @@ void EaselPlane::begin() {
 
 
 void EaselPlane::render() {
-    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+    if (m_plane) {
+        glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+        m_plane = nullptr;
+    }
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
     ImGui::GetBackgroundDrawList()->AddImage((void*)(intptr_t)image_texture,
@@ -143,8 +149,13 @@ void EaselPlane::clear() {
         return;
     fill0(m_plane, texture_size_pixels());
     begin();
+    if (m_plane == nullptr)
+        return;
     fill0(m_plane, texture_size_pixels());
-    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+    if (m_plane) {
+        glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+        m_plane = nullptr;
+    }
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
