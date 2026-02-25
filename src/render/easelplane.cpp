@@ -86,9 +86,6 @@ void EaselPlane::begin() {
 
     // Map the write buffer for CPU pixel data generation
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[write_idx]);
-
-    // Unmap any previously mapped buffer just to be safe (INVALID_OPERATION often means it's already mapped)
-    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
     
     // Orphan buffer to avoid synchronization stalls
     glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size_bytes(),
