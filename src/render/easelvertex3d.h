@@ -48,7 +48,6 @@ private:
     // Persistent mapped buffer
     float* mapped_buffer = nullptr;
     size_t buffer_size = 0;
-    GLsync buffer_fence = nullptr;
 
     // 3D Camera State
     glm::vec3 cameraPos;

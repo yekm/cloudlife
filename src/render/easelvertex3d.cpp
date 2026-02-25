@@ -283,13 +283,6 @@ void EaselVertex3D::gui() {
 void EaselVertex3D::render() {
     if (total_vertices == 0) return;
 
-    if (buffer_fence) {
-        GLenum waitReturn = glClientWaitSync(buffer_fence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
-        if (waitReturn == GL_WAIT_FAILED) {
-            std::cerr << "glClientWaitSync failed." << std::endl;
-        }
-    }
-
     glUseProgram(shaderProgram);
 
     // Set matrices
@@ -318,11 +311,6 @@ void EaselVertex3D::render() {
     glBufferSubData(GL_ARRAY_BUFFER, 0, total_vertices * 4 * sizeof(float), mapped_buffer);
     
     glDrawArrays(GL_POINTS, 0, total_vertices);
-
-    if (buffer_fence) {
-        glDeleteSync(buffer_fence);
-    }
-    buffer_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
     total_vertices = 0; // Clear each frame since drawing accumulates new ones
 }
