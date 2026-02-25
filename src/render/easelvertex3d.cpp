@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <iostream>
+#include "gl_state.h"
 #include <cstring>
 
 const char* vertexShaderSource3D = R"(
@@ -95,11 +96,6 @@ void EaselVertex3D::destroy_vertex_buffer() {
     if (mapped_buffer) {
         free(mapped_buffer);
         mapped_buffer = nullptr;
-    }
-
-    if (buffer_fence) {
-        glDeleteSync(buffer_fence);
-        buffer_fence = nullptr;
     }
 
     glDeleteVertexArrays(1, &vao);
@@ -304,9 +300,13 @@ void EaselVertex3D::render() {
         glUniform1f(u_vertexOpacity_loc, cmap_opacity);
     }
 
-    glEnable(GL_BLEND);
+    // Set temporary state for this render call using RAII wrappers from gl_state.h
+    GL_ENABLE_FOR_SCOPE(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
+    // RAII for point size doesn't exist, we must save and restore
+    GLfloat old_point_size;
+    glGetFloatv(GL_POINT_SIZE, &old_point_size);
     glPointSize(point_size);
 
     glBindVertexArray(vao);
@@ -316,6 +316,9 @@ void EaselVertex3D::render() {
     glBufferSubData(GL_ARRAY_BUFFER, 0, total_vertices * 4 * sizeof(float), mapped_buffer);
     
     glDrawArrays(GL_POINTS, 0, total_vertices);
+    
+    // Restore state
+    glPointSize(old_point_size);
 
     total_vertices = 0; // Clear each frame since drawing accumulates new ones
 }
