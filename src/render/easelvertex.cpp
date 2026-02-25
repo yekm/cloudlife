@@ -217,7 +217,31 @@ void EaselVertex::render() {
 
         // Upload the updated data to the GPU buffer
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, buffer_size, mapped_buffer);
+        if (write_end < num_new_vertices) {
+            // Write position wraps: split upload into tail + head
+            unsigned tail_count = write_end;
+            unsigned head_count = num_new_vertices - write_end;
+
+            if (tail_count > 0) {
+                glBufferSubData(GL_ARRAY_BUFFER, 
+                                (maxv - tail_count) * 3 * sizeof(float), 
+                                tail_count * 3 * sizeof(float), 
+                                mapped_buffer + (maxv - tail_count) * 3);
+            }
+            if (head_count > 0) {
+                glBufferSubData(GL_ARRAY_BUFFER, 
+                                0, 
+                                head_count * 3 * sizeof(float), 
+                                mapped_buffer);
+            }
+        } else {
+            // Normal case: contiguous write
+            unsigned write_start = write_end - num_new_vertices;
+            glBufferSubData(GL_ARRAY_BUFFER, 
+                            write_start * 3 * sizeof(float), 
+                            num_new_vertices * 3 * sizeof(float), 
+                            mapped_buffer + write_start * 3);
+        }
     }
 
     glBindVertexArray(vao);
