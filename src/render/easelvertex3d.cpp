@@ -72,14 +72,7 @@ void EaselVertex3D::create_vertex_buffer() {
 
     glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
 
-    if (mapped_buffer) {
-        free(mapped_buffer);
-    }
-    mapped_buffer = (float*)malloc(buffer_size);
-
-    if (!mapped_buffer) {
-        std::cerr << "ERROR: Failed to allocate memory for vertex buffer" << std::endl;
-    }
+    cpu_backing_buffer.resize(buffer_size / sizeof(float));
 
     // x, y, z coords
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
@@ -93,10 +86,8 @@ void EaselVertex3D::create_vertex_buffer() {
 }
 
 void EaselVertex3D::destroy_vertex_buffer() {
-    if (mapped_buffer) {
-        free(mapped_buffer);
-        mapped_buffer = nullptr;
-    }
+    cpu_backing_buffer.clear();
+    cpu_backing_buffer.shrink_to_fit();
 
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
@@ -183,10 +174,10 @@ void EaselVertex3D::drawdot(float x, float y, float z, float c) {
     if (total_vertices >= vertex_buffer_maximum()) return;
 
     size_t index = total_vertices * 4;
-    mapped_buffer[index]     = x;
-    mapped_buffer[index + 1] = y;
-    mapped_buffer[index + 2] = z;
-    mapped_buffer[index + 3] = c;
+    cpu_backing_buffer[index]     = x;
+    cpu_backing_buffer[index + 1] = y;
+    cpu_backing_buffer[index + 2] = z;
+    cpu_backing_buffer[index + 3] = c;
     
     total_vertices++;
 }
@@ -313,7 +304,8 @@ void EaselVertex3D::render() {
     
     // Upload the data to the GPU buffer before drawing
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, total_vertices * 4 * sizeof(float), mapped_buffer);
+    glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW); // Orphan the buffer
+    glBufferSubData(GL_ARRAY_BUFFER, 0, total_vertices * 4 * sizeof(float), cpu_backing_buffer.data());
     
     glDrawArrays(GL_POINTS, 0, total_vertices);
     

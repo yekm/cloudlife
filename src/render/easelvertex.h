@@ -38,8 +38,8 @@ private:
     GLint u_vertexOpacity_loc = -1;
     GLint u_vertexColor_loc = -1;
 
-    // Persistent mapped buffer
-    float* mapped_buffer = nullptr;
+    // CPU backing buffer
+    std::vector<float> cpu_backing_buffer;
     size_t buffer_size = 0;
     GLsync buffer_fence = nullptr;
 };

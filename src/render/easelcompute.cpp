@@ -259,6 +259,9 @@ void EaselCompute::clear() {
         glBindTexture(GL_TEXTURE_2D, output_texture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, zeros.data());
         glBindTexture(GL_TEXTURE_2D, 0);
+        
+        // Memory barrier to make sure the cleared texture is visible to compute shaders
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 }
 

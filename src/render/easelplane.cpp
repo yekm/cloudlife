@@ -97,12 +97,8 @@ void EaselPlane::begin() {
     glBufferData(GL_PIXEL_UNPACK_BUFFER, texture_size_bytes(),
             nullptr, GL_STREAM_DRAW);
 
-#ifdef __APPLE__
-    // Map the buffer using glMapBufferRange on macOS
+    // Map the buffer using glMapBufferRange
     m_plane = (uint32_t*)glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, texture_size_bytes(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-#else
-    m_plane = (uint32_t*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
-#endif
 
     if (!m_plane) {
         fprintf(stderr, "ERROR: Failed to map PBO buffer (err = 0x%x)\n", glGetError());

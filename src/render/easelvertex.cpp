@@ -115,14 +115,7 @@ void EaselVertex::create_vertex_buffer() {
 
     glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
     
-    if (mapped_buffer) {
-        free(mapped_buffer);
-    }
-    mapped_buffer = (float*)malloc(buffer_size);
-
-    if (!mapped_buffer) {
-        std::cerr << "ERROR: Failed to persistently map vertex buffer" << std::endl;
-    }
+    cpu_backing_buffer.resize(buffer_size / sizeof(float));
 
     // Specify the vertex attribute pointers
     glEnableVertexAttribArray(0);
@@ -134,10 +127,8 @@ void EaselVertex::create_vertex_buffer() {
 }
 
 void EaselVertex::destroy_vertex_buffer() {
-    if (mapped_buffer) {
-        free(mapped_buffer);
-        mapped_buffer = nullptr;
-    }
+    cpu_backing_buffer.clear();
+    cpu_backing_buffer.shrink_to_fit();
 
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
@@ -181,7 +172,7 @@ void EaselVertex::render() {
 
 
     // Copy vertex data directly to persistently mapped buffer
-    if (m_vertices.size() > 0 && mapped_buffer) {
+    if (m_vertices.size() > 0 && cpu_backing_buffer.size() > 0) {
         unsigned num_new_vertices = m_vertices.size() / 3;
 
         // Clamp to buffer capacity to prevent overflow
@@ -200,21 +191,21 @@ void EaselVertex::render() {
 
             // Copy tail portion to end of buffer
             if (tail_count > 0) {
-                memcpy(mapped_buffer + (maxv - tail_count) * 3,
+                memcpy(cpu_backing_buffer.data() + (maxv - tail_count) * 3,
                        m_vertices.data(),
                        tail_count * 3 * sizeof(float));
             }
 
             // Copy head portion to beginning of buffer
             if (head_count > 0) {
-                memcpy(mapped_buffer,
+                memcpy(cpu_backing_buffer.data(),
                        m_vertices.data() + tail_count * 3,
                        head_count * 3 * sizeof(float));
             }
         } else {
             // Normal case: contiguous write
             unsigned write_start = write_end - num_new_vertices;
-            memcpy(mapped_buffer + write_start * 3,
+            memcpy(cpu_backing_buffer.data() + write_start * 3,
                    m_vertices.data(),
                    num_new_vertices * 3 * sizeof(float));
         }
@@ -230,13 +221,13 @@ void EaselVertex::render() {
                 glBufferSubData(GL_ARRAY_BUFFER, 
                                 (maxv - tail_count) * 3 * sizeof(float), 
                                 tail_count * 3 * sizeof(float), 
-                                mapped_buffer + (maxv - tail_count) * 3);
+                                cpu_backing_buffer.data() + (maxv - tail_count) * 3);
             }
             if (head_count > 0) {
                 glBufferSubData(GL_ARRAY_BUFFER, 
                                 0, 
                                 head_count * 3 * sizeof(float), 
-                                mapped_buffer);
+                                cpu_backing_buffer.data());
             }
         } else {
             // Normal case: contiguous write
@@ -244,7 +235,7 @@ void EaselVertex::render() {
             glBufferSubData(GL_ARRAY_BUFFER, 
                             write_start * 3 * sizeof(float), 
                             num_new_vertices * 3 * sizeof(float), 
-                            mapped_buffer + write_start * 3);
+                            cpu_backing_buffer.data() + write_start * 3);
         }
     }
 

@@ -45,8 +45,8 @@ private:
     GLint u_view_loc = -1;
     GLint u_model_loc = -1;
 
-    // Persistent mapped buffer
-    float* mapped_buffer = nullptr;
+    // CPU backing buffer
+    std::vector<float> cpu_backing_buffer;
     size_t buffer_size = 0;
 
     // 3D Camera State
