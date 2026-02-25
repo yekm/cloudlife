@@ -253,10 +253,12 @@ void EaselCompute::render() {
 }
 
 void EaselCompute::clear() {
-    // Clear the texture by dispatching a clear shader or glClearTexImage
+    // Clear the texture using glTexSubImage2D for compatibility (OpenGL 3.0+)
     if (output_texture) {
-        GLuint clear_data[4] = {0, 0, 0, 0};
-        glClearTexImage(output_texture, 0, GL_RGBA, GL_UNSIGNED_BYTE, clear_data);
+        std::vector<uint32_t> zeros(w * h, 0);
+        glBindTexture(GL_TEXTURE_2D, output_texture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, zeros.data());
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
 
