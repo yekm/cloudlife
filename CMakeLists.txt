@@ -193,15 +193,11 @@ target_link_libraries(cloudlife PRIVATE imgui glad glfw glm OpenGL::GL)
 
 # Platform-specific libraries for macOS
 if(APPLE)
-    find_library(COCOA_FRAMEWORK Cocoa)
-    find_library(IOKIT_FRAMEWORK IOKit)
-    find_library(CORE_FOUNDATION_FRAMEWORK CoreFoundation)
+    # CoreVideo is required by macOS for some display sync features,
+    # though Cocoa/IOKit/CoreFoundation are already brought in by GLFW.
     find_library(CORE_VIDEO_FRAMEWORK CoreVideo)
 
     target_link_libraries(cloudlife PRIVATE
-        ${COCOA_FRAMEWORK}
-        ${IOKIT_FRAMEWORK}
-        ${CORE_FOUNDATION_FRAMEWORK}
         ${CORE_VIDEO_FRAMEWORK}
     )
 endif()
