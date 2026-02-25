@@ -1,7 +1,7 @@
 #include "screenshot.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "external/stb/stb_image_write.h"
+#include "stb_image_write.h"
 
 #define GL_SILENCE_DEPRECATION
 #include <glad/glad.h>

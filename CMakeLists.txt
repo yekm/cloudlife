@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16)
 
 project(cloudlife 
     VERSION 1.0.0
@@ -27,50 +27,87 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find packages
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
-find_package(GLFW3 REQUIRED)
-set(OpenGL_GL_PREFERENCE GLVND)
-find_package(OpenGL REQUIRED)
-
 # Suppress OpenGL deprecation warnings on macOS
 add_compile_definitions(GL_SILENCE_DEPRECATION)
 
 include(FetchContent)
+
+# GLFW - Window and input management
+FetchContent_Declare(
+    glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw.git
+    GIT_TAG 3.4
+    GIT_SHALLOW TRUE
+)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(glfw)
+
+# GLM - Math library
 FetchContent_Declare(
     glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG        1.0.1
-    #GIT_TAG        0.9.9.8
+    GIT_TAG 1.0.1
+    GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(glm)
 
-# ImGui library
-set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/external/imgui)
-add_library(imgui STATIC)
+# ImGui - Immediate mode GUI
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.0
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(imgui)
 
+add_library(imgui STATIC)
 target_sources(imgui
     PRIVATE
-        ${IMGUI_DIR}/imgui_demo.cpp
-        ${IMGUI_DIR}/imgui_draw.cpp
-        ${IMGUI_DIR}/imgui_tables.cpp
-        ${IMGUI_DIR}/imgui_widgets.cpp
-        ${IMGUI_DIR}/imgui.cpp
-        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
-        ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+        ${imgui_SOURCE_DIR}/imgui_demo.cpp
+        ${imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+        ${imgui_SOURCE_DIR}/imgui.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
 )
 
 target_include_directories(imgui
     PUBLIC 
-        ${IMGUI_DIR}
-        ${IMGUI_DIR}/backends
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
 )
 
-# Glad library
+target_link_libraries(imgui PUBLIC glfw)
+
+# GLAD - OpenGL loader (vendored)
 set(GLAD_DIR ${CMAKE_SOURCE_DIR}/external/glad)
 add_library(glad STATIC ${GLAD_DIR}/src/glad.c)
 target_include_directories(glad PUBLIC ${GLAD_DIR}/include)
 
+# stb - Single header libraries
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(stb)
+
+# colormap-shaders - Shader color maps and C++ colormap library
+FetchContent_Declare(
+    colormap-shaders
+    GIT_REPOSITORY https://github.com/kbinani/colormap-shaders.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(colormap-shaders)
+
+# Find packages
+set(OpenGL_GL_PREFERENCE GLVND)
+find_package(OpenGL REQUIRED)
 
 # Main library with all sources
 set(CLOUDS_SOURCES
@@ -131,8 +168,8 @@ target_include_directories(clouds
         ${CMAKE_SOURCE_DIR}/src/utils
         ${CMAKE_SOURCE_DIR}/src/render
         ${CMAKE_SOURCE_DIR}/src/arts
-        ${CMAKE_SOURCE_DIR}/external/colormap-shaders/include
-        ${CMAKE_SOURCE_DIR}/external/stb
+        ${colormap-shaders_SOURCE_DIR}/include
+        ${stb_SOURCE_DIR}
 )
 
 target_link_libraries(clouds PRIVATE imgui glad glfw glm OpenGL::GL)
@@ -148,8 +185,8 @@ target_include_directories(cloudlife
         ${CMAKE_SOURCE_DIR}/src/utils
         ${CMAKE_SOURCE_DIR}/src/render
         ${CMAKE_SOURCE_DIR}/src/arts
-        ${CMAKE_SOURCE_DIR}/external/colormap-shaders/include
-        ${CMAKE_SOURCE_DIR}/external/stb
+        ${colormap-shaders_SOURCE_DIR}/include
+        ${stb_SOURCE_DIR}
 )
 
 target_link_libraries(cloudlife PRIVATE imgui glad glfw glm OpenGL::GL)
