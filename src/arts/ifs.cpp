@@ -215,7 +215,7 @@ IFS::iterate(int count, int p)
   int tx;
 
 # define STEP()                              \
-    l = &lenses[random() % lensnum]; \
+    l = &lenses[LRAND() % lensnum]; \
     tx = STEPX(l, x, y);                     \
     y = STEPY(l, x, y);                      \
     x = tx
