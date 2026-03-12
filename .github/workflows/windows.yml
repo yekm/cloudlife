@@ -21,3 +21,37 @@ jobs:
 
     - name: Build
       run: cmake --build build --config ${{env.BUILD_TYPE}}
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: cloudlife-windows
+        path: build/bin/Release/cloudlife.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+    - name: Download Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: cloudlife-windows
+
+    - name: Get short commit SHA
+      id: vars
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: latest
+        name: Development Build (Latest)
+        body: |
+          Automated build from the latest commit on `master`.
+          Commit: ${{ github.sha }}
+        files: cloudlife.exe
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
