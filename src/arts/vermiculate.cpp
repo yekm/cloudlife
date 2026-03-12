@@ -17,6 +17,12 @@
 
 
 #include <ctype.h>
+#include <string.h>
+
+#if defined(_MSC_VER)
+#define strdup _strdup
+#endif
+
 #include <math.h>
 
 #include "imgui_elements.h"
@@ -377,7 +383,11 @@ Vermiculate::maininit ()
     {
       int n = random1 (sizeof (sampleStrings) / sizeof (sampleStrings[0]));
       if (oinstring) free (oinstring);
-      instring = oinstring = strdup (sampleStrings[n].str);
+#if defined(_MSC_VER)
+      instring = oinstring = _strdup(sampleStrings[n].str);
+#else
+      instring = oinstring = strdup(sampleStrings[n].str);
+#endif
       speed = sampleStrings[n].speed;
     }
   boxh = 10;

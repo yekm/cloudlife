@@ -230,6 +230,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 # Output directory
+if(MSVC)
+    add_compile_definitions(_USE_MATH_DEFINES)
+endif()
+
 set_target_properties(cloudlife PROPERTIES 
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )

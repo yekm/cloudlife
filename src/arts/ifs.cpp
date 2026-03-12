@@ -31,7 +31,9 @@ Dear ImGui port by Pavel Vasilyev <yekm@299792458.ru>, May 2023
 */
 
 #include <assert.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

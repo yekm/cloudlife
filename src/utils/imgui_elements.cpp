@@ -131,11 +131,14 @@ bool ScrollableSliderFloat(const char* label, float* v, float v_min, float v_max
 }
 
 
+#ifndef _WIN32
 #include <sys/resource.h>
+#endif
 #include "timer.h"
 
 int cpu_load_text_now(char * text)
 {
+#ifndef _WIN32
     static double up = 0, sp = 0;
     static common::Timer old_t;
     static struct rusage old_usage;
@@ -165,6 +168,10 @@ int cpu_load_text_now(char * text)
     return sprintf(text,
         "Usr + Sys = %.2f + %.2f = %.2f\nmaxrss %.2f MB",
         up, sp, up+sp, ru_maxrss);
+#else
+    return sprintf(text,
+        "Usr + Sys = N/A + N/A = N/A\nmaxrss N/A MB");
+#endif
 }
 
 char * cpu_load_text()

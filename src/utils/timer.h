@@ -2,12 +2,22 @@
 #define TIMER_H
 
 #include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace common
 {
 
+#ifdef _WIN32
+class Timer
+{
+public:
+    long long counter;
+#else
 class Timer : public timespec
 {
+#endif
 public:
     Timer();
     Timer restart();
@@ -17,12 +27,8 @@ public:
     Timer operator+(const Timer & a);
     Timer & operator+=(const Timer & a);
 
-    double seconds() {
-        return tv_sec + (double)tv_nsec/1e9;
-    };
-    long unsigned us() {
-        return tv_sec*1e9 + tv_nsec;
-    };
+    double seconds();
+    long unsigned us();
 };
 
 } // namespace common
