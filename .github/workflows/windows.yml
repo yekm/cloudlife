@@ -32,6 +32,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
 
     steps:
     - name: Download Artifact
