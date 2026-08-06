@@ -121,6 +121,7 @@ set(CLOUDS_SOURCES
     src/utils/timer.cpp
     src/utils/random.c
     src/utils/screenshot.cpp
+    src/utils/getopt.cpp
     
     # Rendering system
     src/render/easelplane.cpp
