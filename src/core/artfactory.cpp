@@ -14,6 +14,7 @@
 #include "attractor.h"
 #include "test3d.hpp"
 #ifndef __APPLE__
+#include "acidwarpgpt56terra.h"
 #include "plasmacompute.h"
 #include "sphereofcubes.h"
 #endif
@@ -35,6 +36,7 @@ ArtFactory::ArtFactory() {
     add_art<Hopalong>("Hopalong");
     add_art<Attractor>("Attractor");
 #ifndef __APPLE__
+    add_art<AcidWarpGpt56Terra>("AcidWarp-gpt56-terra");
     add_art<PlasmaCompute>("Plasma (Compute)");
     add_art<SphereOfCubes>("Sphere of Cubes");
 #endif

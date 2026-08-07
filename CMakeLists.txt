@@ -154,6 +154,7 @@ set(CLOUDS_SOURCES
 if(NOT APPLE)
     list(APPEND CLOUDS_SOURCES
         src/render/easelcompute.cpp
+        src/arts/acidwarpgpt56terra.cpp
         src/arts/plasmacompute.cpp
         src/arts/sphereofcubes.cpp
     )
