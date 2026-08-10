@@ -20,8 +20,14 @@ PaletteSetting::PaletteSetting(std::string pname)
     }
 
     vc = VectorCombo("Colormap", names);
-    vc.set_index(pname);
-    current_cmap = maps.at(pname);
+    auto selected = maps.find(pname);
+    if (selected == maps.end() && !names.empty())
+        selected = maps.find(names.front());
+
+    if (selected != maps.end()) {
+        vc.set_index(selected->first);
+        current_cmap = selected->second;
+    }
 }
 
 bool PaletteSetting::RenderGui() {
@@ -29,8 +35,11 @@ bool PaletteSetting::RenderGui() {
     ImGui::SameLine(0, 1);
 
     bool ret = vc.RenderGui();
-    if (ret)
-        current_cmap = maps.at(vc.get_value());
+    if (ret) {
+        auto selected = maps.find(vc.get_value());
+        if (selected != maps.end())
+            current_cmap = selected->second;
+    }
 
     ScrollableSliderUInt("Max colors", &color_max, 1, 1024*32, "%d", 128);
 
@@ -54,6 +63,9 @@ uint32_t PaletteSetting::get_colorf(float color_n) const {
 
     if (invert)
         color_n = 1.0f - color_n;
+
+    if (!current_cmap)
+        return 0;
 
     auto c = current_cmap->getColor(color_n);
 
