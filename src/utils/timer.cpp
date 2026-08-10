@@ -20,7 +20,11 @@ static long long get_counter() {
 
 Timer::Timer()
 {
-    restart();
+#ifdef _WIN32
+    counter = get_counter();
+#else
+    clock_gettime(CLOCK_MONOTONIC_RAW, this);
+#endif
 }
 
 Timer Timer::restart()
