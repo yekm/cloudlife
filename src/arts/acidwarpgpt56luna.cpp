@@ -164,7 +164,7 @@ bool AcidWarpGpt56Luna::render_gui() {
         current_colormap_name = easel->pal.get_cmap().getTitle();
         init_shader();
     }
-    reset |= ScrollableSliderInt("image function", &image_function, 0, 41, "%d", 1);
+    reset |= ScrollableSliderInt("image function", &image_function, 0, 40, "%d", 1);
     ScrollableSliderInt("frames each state", &frames_each_state, 63, 60 * 300, "%d", 60);
     ScrollableSliderFloat("pattern scale", &pattern_scale, 0.25f, 4.0f, "%.2f", 0.05f);
     ScrollableSliderFloat("motion", &motion_speed, 0.0f, 2.0f, "%.2f", 0.02f);

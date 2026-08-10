@@ -330,7 +330,7 @@ bool AcidWarpQwen38Max::render_gui() {
         init_shader();
     }
 
-    re |= ScrollableSliderInt("image func", &func_mode, 0, 41, "%d", 1);
+    re |= ScrollableSliderInt("image func", &func_mode, 0, 40, "%d", 1);
     ScrollableSliderInt("frames each state", &frame_max, 63, 60 * 300, "%d", 60);
     ScrollableSliderFloat("pattern scale", &pattern_scale, 0.25f, 4.0f, "%.2f", 0.05f);
     ScrollableSliderFloat("motion", &motion_speed, 0.0f, 2.0f, "%.2f", 0.02f);

@@ -147,7 +147,7 @@ bool AcidWarpGpt56Terra::render_gui() {
         init_shader();
     }
 
-    ScrollableSliderInt("image function", &image_function, 0, 40, "%d", 1);
+    ScrollableSliderInt("image function", &image_function, 0, 39, "%d", 1);
     ScrollableSliderFloat("pattern scale", &pattern_scale, 0.25f, 4.0f, "%.2f", 0.05f);
     ScrollableSliderFloat("motion speed", &motion_speed, 0.0f, 2.0f, "%.2f", 0.02f);
     ScrollableSliderFloat("palette speed", &palette_speed, 0.0f, 1.0f, "%.2f", 0.01f);
