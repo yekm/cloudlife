@@ -121,7 +121,7 @@ void EaselPlane::render() {
 
 
 void EaselPlane::drawdot(int32_t x, int32_t y, uint32_t c) {
-    if (x >= w || y >= h) {
+    if (x < 0 || y < 0 || x >= w || y >= h) {
         ++pixels_discarded;
         return;
     }
