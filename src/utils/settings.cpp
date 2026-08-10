@@ -53,7 +53,7 @@ uint32_t PaletteSetting::get_color(uint32_t color_n) {
 uint32_t PaletteSetting::get_colorf(float color_n) const {
 
     if (invert)
-        color_n = 1 / color_n;
+        color_n = 1.0f - color_n;
 
     auto c = current_cmap->getColor(color_n);
 
