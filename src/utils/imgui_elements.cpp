@@ -102,8 +102,17 @@ bool ScrollableSliderT(ImGuiDataType data_type, const char* label, T* v, T v_min
             }
             else
             {
+                const ImGuiIO& io = ImGui::GetIO();
+                long double adjusted_factor = static_cast<long double>(scrollFactor);
+                if (io.KeyShift)
+                    adjusted_factor *= 10;
+                if (io.KeyCtrl)
+                    adjusted_factor *= 100;
+                if (io.KeyAlt)
+                    adjusted_factor /= 10;
+
                 const long double adjusted = static_cast<long double>(*v) +
-                    static_cast<long double>(wheel) * scrollFactor;
+                    (wheel > 0 ? adjusted_factor : -adjusted_factor);
                 if (adjusted < static_cast<long double>(v_min))
                     *v = v_min;
                 else if (adjusted > static_cast<long double>(v_max))
