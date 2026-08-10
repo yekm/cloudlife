@@ -12,7 +12,6 @@ struct field {
     unsigned int width = 0;
     unsigned int max_age = 64;
     unsigned int cell_size = 3;
-    unsigned int ticks_per_frame = 1;
     std::vector<uint8_t> cells, new_cells;
 };
 
@@ -53,4 +52,3 @@ private:
     unsigned int do_tick();
 
 };
-
