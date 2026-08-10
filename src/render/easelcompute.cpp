@@ -255,13 +255,15 @@ void EaselCompute::render() {
 void EaselCompute::clear() {
     // Clear the texture using glTexSubImage2D for compatibility (OpenGL 3.0+)
     if (output_texture) {
-        std::vector<uint32_t> zeros(w * h, 0);
+        clear_buffer.resize(static_cast<size_t>(w) * h);
+        std::fill(clear_buffer.begin(), clear_buffer.end(), 0);
         glBindTexture(GL_TEXTURE_2D, output_texture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, zeros.data());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE,
+                        clear_buffer.data());
         glBindTexture(GL_TEXTURE_2D, 0);
         
         // Memory barrier to make sure the cleared texture is visible to compute shaders
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
     }
 }
 

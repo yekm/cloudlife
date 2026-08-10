@@ -10,6 +10,7 @@
 #include <string>
 #include <functional>
 #include <unordered_map>
+#include <vector>
 
 
 class EaselCompute : public Easel {
@@ -61,6 +62,7 @@ private:
     
     // Cached uniform locations
     std::unordered_map<std::string, GLint> uniform_locations;
+    std::vector<uint32_t> clear_buffer;
     
     // Built-in uniforms
     GLint u_resolution_loc = -1;
