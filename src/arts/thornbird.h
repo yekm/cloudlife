@@ -5,7 +5,7 @@
 #include "settings.hpp"
 
 
-typedef struct {
+struct thornbirdstruct {
 	int         maxx;
 	int         maxy;	/* max of the screen */
 	double      a;
@@ -27,7 +27,7 @@ typedef struct {
 	}           tumble;
     int         inc;
 	int         count;
-} thornbirdstruct;
+};
 
 
 class Thornbird : public Art {

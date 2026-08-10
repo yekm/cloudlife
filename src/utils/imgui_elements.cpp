@@ -190,11 +190,11 @@ int cpu_load_text_now(char * text, std::size_t text_size)
     const int written = snprintf(text, text_size,
         "Usr + Sys = %.2f + %.2f = %.2f\nmaxrss %.2f MB",
         up, sp, up+sp, ru_maxrss);
-    return written < 0 ? 0 : std::min(written, static_cast<int>(text_size - 1));
+    return written < 0 ? 0 : (std::min)(written, static_cast<int>(text_size - 1));
 #else
     const int written = snprintf(text, text_size,
         "Usr + Sys = N/A + N/A = N/A\nmaxrss N/A MB");
-    return written < 0 ? 0 : std::min(written, static_cast<int>(text_size - 1));
+    return written < 0 ? 0 : (std::min)(written, static_cast<int>(text_size - 1));
 #endif
 }
 
