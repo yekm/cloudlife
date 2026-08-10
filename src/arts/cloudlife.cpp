@@ -164,9 +164,7 @@ Cloudlife::draw_field()
             rx &= mask;
             ry &= mask;
 
-            uint8_t age = *cell_at(x, y);
-            fgc = get_color_age(age);
-            if (age) {
+            if (*cell_at(x, y)) {
                 drawdot((short) x *size - rx - 1,
                         (short) y *size - ry - 1,
                         fgc);
