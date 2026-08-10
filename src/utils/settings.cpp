@@ -75,7 +75,7 @@ float PaletteSetting::get_next_color_index() {
 }
 
 uint32_t PaletteSetting::get_next_color() {
-    return get_color(get_next_color_index());
+    return get_colorf(get_next_color_index());
 }
 
 const colormap::Colormap & PaletteSetting::get_cmap() {
