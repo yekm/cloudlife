@@ -101,7 +101,7 @@ bool Cloudlife::render_gui() {
     bool up = false;
 
     up |= ScrollableSliderInt("Initial density", &density, 8, 256, "%d", 8);
-    up |= ScrollableSliderUInt("Cell size", &f->cell_size, 1, 32, "%d", 1);
+    up |= ScrollableSliderUInt("Cell size", &f->cell_size, 1, 16, "%d", 1);
     up |= ScrollableSliderUInt("Max age", &f->max_age, 4, 256, "%d", 8);
     //up |= ScrollableSliderUInt("ncolors", &ncolors, 0, 1024, "%d", 8);
     ScrollableSliderUInt("Ticks per frame", &f->ticks_per_frame, 1, 128, "%d", 1);
@@ -265,5 +265,4 @@ bool Cloudlife::render(uint32_t *p) {
 
     return false;
 }
-
 
