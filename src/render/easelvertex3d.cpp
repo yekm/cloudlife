@@ -293,7 +293,7 @@ void EaselVertex3D::render() {
 
     // Set temporary state for this render call using RAII wrappers from gl_state.h
     GL_ENABLE_FOR_SCOPE(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    GL_BLEND_FUNC_FOR_SCOPE(GL_SRC_ALPHA, GL_ONE);
 
     // RAII for point size doesn't exist, we must save and restore
     GLfloat old_point_size;

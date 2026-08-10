@@ -121,7 +121,31 @@ public:
     GLScopedDepthMask& operator=(const GLScopedDepthMask&) = delete;
 };
 
+class GLScopedBlendFunc {
+    GLint srcRgb;
+    GLint dstRgb;
+    GLint srcAlpha;
+    GLint dstAlpha;
+
+public:
+    GLScopedBlendFunc(GLenum src, GLenum dst) {
+        glGetIntegerv(GL_BLEND_SRC_RGB, &srcRgb);
+        glGetIntegerv(GL_BLEND_DST_RGB, &dstRgb);
+        glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcAlpha);
+        glGetIntegerv(GL_BLEND_DST_ALPHA, &dstAlpha);
+        glBlendFunc(src, dst);
+    }
+
+    ~GLScopedBlendFunc() {
+        glBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+    }
+
+    GLScopedBlendFunc(const GLScopedBlendFunc&) = delete;
+    GLScopedBlendFunc& operator=(const GLScopedBlendFunc&) = delete;
+};
+
 // Helper macros for common patterns
 #define GL_ENABLE_FOR_SCOPE(cap) GLScopedEnable _gl_enable_##__LINE__(cap)
 #define GL_DISABLE_FOR_SCOPE(cap) GLScopedDisable _gl_disable_##__LINE__(cap)
 #define GL_VIEWPORT_FOR_SCOPE(x, y, w, h) GLScopedViewport _gl_viewport_##__LINE__(x, y, w, h)
+#define GL_BLEND_FUNC_FOR_SCOPE(src, dst) GLScopedBlendFunc _gl_blend_func_##__LINE__(src, dst)
