@@ -61,7 +61,8 @@ bool Minskytron::render(uint32_t *p) {
     double i = 0;
 
     for (auto & oi : osc) {
-        double o = (1-std::exp(-i*gm/N))/(1-std::exp(-gm));
+        double o = gm == 0.0 ? i / N :
+            (1-std::exp(-i*gm/N))/(1-std::exp(-gm));
         if (dots_clamped > 0) o /= 2;
         if (i > N - dots_clamped) o = 1;
         if (o<0) o=0;
