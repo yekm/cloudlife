@@ -36,9 +36,9 @@ uint32_t pal_rgb(int i) {
   if (i > 256)
     printf("%d ", i);
   return 0xff000000 |
-         (MainPalArray[i*3+0]*4) << 0 |
+         (MainPalArray[i*3+0]*4) << 16 |
          (MainPalArray[i*3+1]*4) << 8 |
-         (MainPalArray[i*3+2]*4) << 16;
+         (MainPalArray[i*3+2]*4) << 0;
 }
 
 bool AcidWarp::render(uint32_t *p) {
@@ -87,7 +87,7 @@ bool AcidWarp::render(uint32_t *p) {
 bool AcidWarp::render_gui() {
   bool up = false, re = false;
 
-  re |= ScrollableSliderInt("image func", &image_func, 0, NUM_IMAGE_FUNCTIONS+1, "%d", 1);
+  re |= ScrollableSliderInt("image func", &image_func, 0, NUM_IMAGE_FUNCTIONS-1, "%d", 1);
   re |= ScrollableSliderInt("pal num", &pal_num, 0, NUM_PALETTE_TYPES, "%d", 1);
   ScrollableSliderInt("frames each state", &frame_max, 0, 60*300, "%d", 60);
   //up |= ScrollableSliderInt("resolution", &RES, 0, 3, "%d", 0);

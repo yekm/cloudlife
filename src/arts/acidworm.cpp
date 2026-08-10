@@ -131,9 +131,9 @@ static uint32_t pal_rgb(int i) {
   if (i >= 256)
     printf("%d ", i);
   return 0xff000000 |
-         (pal[i*3+0]*4) << 0 |
+         (pal[i*3+0]*4) << 16 |
          (pal[i*3+1]*4) << 8 |
-         (pal[i*3+2]*4) << 16;
+         (pal[i*3+2]*4) << 0;
 }
 
 
