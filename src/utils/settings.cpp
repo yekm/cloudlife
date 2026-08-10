@@ -3,6 +3,7 @@
 
 #include "colormap/colormap.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 
 #include "imgui_elements.h"
 #include <algorithm>
@@ -109,7 +110,20 @@ bool VectorCombo::RenderGui() {
 
     int size = items.size();
     const char* combo_preview_value = pb->c_str();
-    if (ImGui::BeginCombo(name.c_str(), combo_preview_value, 0))
+    const bool combo_open = ImGui::BeginCombo(name.c_str(), combo_preview_value, 0);
+    ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
+    if (!combo_open && ImGui::IsItemHovered() && ImGui::GetIO().MouseWheel != 0.0f)
+    {
+        item_current_idx += ImGui::GetIO().MouseWheel > 0.0f ? -1 : 1;
+        if (item_current_idx < 0)
+            item_current_idx = size - 1;
+        else if (item_current_idx >= size)
+            item_current_idx = 0;
+        value = items.at(item_current_idx);
+        ret = true;
+    }
+
+    if (combo_open)
     {
         auto pb = items.begin();
         for (int n = 0; n < size; n++)

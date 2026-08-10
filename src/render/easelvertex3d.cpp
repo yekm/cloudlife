@@ -201,14 +201,14 @@ void EaselVertex3D::updateCameraVectors() {
 void EaselVertex3D::gui() {
     if (ImGui::CollapsingHeader("EaselVertex3D Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Text("Vertices: %d / %d", total_vertices, vertex_buffer_maximum());
-        ImGui::SliderFloat("Point Size", &point_size, 0.1f, 10.0f);
+        ScrollableSliderFloat("Point Size", &point_size, 0.1f, 10.0f, "%.1f", 0.1f);
         
         ImGui::Separator();
         ImGui::Text("Camera Controls");
         ImGui::DragFloat3("Position", glm::value_ptr(cameraPos), 0.1f);
         if (ImGui::DragFloat("Yaw", &yaw, 1.0f)) updateCameraVectors();
         if (ImGui::DragFloat("Pitch", &pitch, 1.0f, -89.0f, 89.0f)) updateCameraVectors();
-        ImGui::SliderFloat("Zoom (FOV)", &zoom, 1.0f, 120.0f);
+        ScrollableSliderFloat("Zoom (FOV)", &zoom, 1.0f, 120.0f, "%.1f", 1.0f);
         
         ImGui::Separator();
         ImGui::Text("Colormap Options");
@@ -216,7 +216,7 @@ void EaselVertex3D::gui() {
             build_fragment_shader_source();
             reload_shaders();
         }
-        ImGui::SliderFloat("Opacity", &cmap_opacity, 0.0f, 1.0f);
+        ScrollableSliderFloat("Opacity", &cmap_opacity, 0.0f, 1.0f, "%.2f", 0.02f);
         
         if (ImGui::Button("Reset Camera")) {
             cameraPos   = glm::vec3(0.0f, 0.0f,  3.0f);

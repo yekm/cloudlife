@@ -1,6 +1,7 @@
 #include "test3d.hpp"
 
 #include "imgui.h"
+#include "imgui_elements.h"
 #include "easelvertex3d.h"
 #include "random.h"
 #include <cmath>
@@ -8,7 +9,7 @@
 bool Test3D::render_gui() {
     bool changed = false;
     if (ImGui::CollapsingHeader("Test3D Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-        changed = ImGui::SliderInt("Points per frame", &points_per_frame, 10, 10000);
+        changed = ScrollableSliderInt("Points per frame", &points_per_frame, 10, 10000, "%d", 1);
     }
     return changed;
 }
