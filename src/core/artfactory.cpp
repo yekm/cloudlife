@@ -15,6 +15,7 @@
 #include "test3d.hpp"
 #ifndef __APPLE__
 #include "acidwarpgpt56terra.h"
+#include "acidwarpgpt56luna.h"
 #include "acidwarpqwen38max.h"
 #include "plasmacompute.h"
 #include "sphereofcubes.h"
@@ -38,6 +39,7 @@ ArtFactory::ArtFactory() {
     add_art<Attractor>("Attractor");
 #ifndef __APPLE__
     add_art<AcidWarpGpt56Terra>("AcidWarp-gpt56-terra");
+    add_art<AcidWarpGpt56Luna>("AcidWarp-gpt56-luna");
     add_art<AcidWarpQwen38Max>("AcidWarp-qwen38-max");
     add_art<PlasmaCompute>("Plasma (Compute)");
     add_art<SphereOfCubes>("Sphere of Cubes");

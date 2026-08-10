@@ -10,7 +10,7 @@
 ```
 explore project. focus on EaselCompute easel and PlasmaCompute art.
 thoroughly analyze original AcidWarp art. make new AcidWarp-llm-name art based on it,
-but make it more efficient: use compute shaders and colormap-shaders.
+but make it more efficient: use compute shaders and colormap-shaders. dont try to run binary, just write the code.
 ```
 
 ### notes
