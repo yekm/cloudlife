@@ -239,8 +239,9 @@ unsigned int Cloudlife::do_tick()
 bool Cloudlife::render(uint32_t *p) {
     unsigned int count = 0;
 
-    for (int i=0; i<f->ticks_per_frame; ++i)
-        count = do_tick();
+    draw_field();
+
+    count = do_tick();
 
     if (count < (f->height + f->width) / 4) {
         populate_field(density);
@@ -260,9 +261,7 @@ bool Cloudlife::render(uint32_t *p) {
         }
     }
 */
-    draw_field();
     cycles++;
 
     return false;
 }
-
