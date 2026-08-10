@@ -141,8 +141,14 @@ bool ScrollableSliderFloat(const char* label, float* v, float v_min, float v_max
 #endif
 #include "timer.h"
 
-int cpu_load_text_now(char * text)
+#include <algorithm>
+#include <cstdio>
+
+int cpu_load_text_now(char * text, std::size_t text_size)
 {
+    if (!text || text_size == 0)
+        return 0;
+
 #ifndef _WIN32
     static double up = 0, sp = 0;
     static common::Timer old_t;
@@ -158,8 +164,10 @@ int cpu_load_text_now(char * text)
     double stt = usage.ru_stime.tv_sec + usage.ru_stime.tv_usec / 1e6;
 
     double dt = (t - old_t).seconds();
-    up = 100.0 * (utt - outt) / dt;
-    sp = 100.0 * (stt - ostt) / dt;
+    if (dt > 0.0) {
+        up = 100.0 * (utt - outt) / dt;
+        sp = 100.0 * (stt - ostt) / dt;
+    }
 
     //printf("%.3f %.3f %.3f %.3f %.3f %.3f %.3f\n", dt,
     //        up, sp, utt, stt, outt, ostt);
@@ -170,12 +178,14 @@ int cpu_load_text_now(char * text)
 
     ru_maxrss = usage.ru_maxrss / 1024;
 
-    return sprintf(text,
+    const int written = snprintf(text, text_size,
         "Usr + Sys = %.2f + %.2f = %.2f\nmaxrss %.2f MB",
         up, sp, up+sp, ru_maxrss);
+    return written < 0 ? 0 : std::min(written, static_cast<int>(text_size - 1));
 #else
-    return sprintf(text,
+    const int written = snprintf(text, text_size,
         "Usr + Sys = N/A + N/A = N/A\nmaxrss N/A MB");
+    return written < 0 ? 0 : std::min(written, static_cast<int>(text_size - 1));
 #endif
 }
 
@@ -186,7 +196,7 @@ char * cpu_load_text()
     char *t;
 
     if (c % 120 == 0) {
-        cpu_load_text_now(text);
+        cpu_load_text_now(text, sizeof(text));
     }
     c++;
 
@@ -195,7 +205,7 @@ char * cpu_load_text()
 
 void cpu_load_gui()
 {
-    ImGui::Text(cpu_load_text());
+    ImGui::TextUnformatted(cpu_load_text());
 }
 
 #if 0

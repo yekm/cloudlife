@@ -1,7 +1,9 @@
 #include <cstdint>
 #include <memory>
 
-#include "getopt.hpp"
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 
 
