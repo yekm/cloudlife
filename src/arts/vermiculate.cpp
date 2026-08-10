@@ -552,8 +552,8 @@ bool Vermiculate::move (unsigned char thr)
         }
       else
         LP->deg +=
-          (tanof[LP->deg] >
-           dy / dx) ? -abs (LP->circturn) : abs (LP->circturn);
+           (dx != 0 && tanof[LP->deg] > dy / dx) ?
+            -abs (LP->circturn) : abs (LP->circturn);
     }
 
   wraparound (LP->deg, 0, degs);
