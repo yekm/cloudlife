@@ -50,7 +50,7 @@ bool PaletteSetting::RenderGui() {
 }
 
 void PaletteSetting::rescale(uint32_t ncolours) {
-    color_max = ncolours;
+    color_max = std::max<uint32_t>(ncolours, 1);
 }
 
 uint32_t PaletteSetting::get_color(uint32_t color_n) {
@@ -76,7 +76,7 @@ uint32_t PaletteSetting::get_colorf(float color_n) const {
 }
 
 float PaletteSetting::get_color_index(uint32_t color_n) const {
-    return (float)color_n / color_max;
+    return static_cast<float>(color_n) / static_cast<float>(std::max<uint32_t>(color_max, 1));
 }
 
 float PaletteSetting::get_next_color_index() {
