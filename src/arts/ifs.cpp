@@ -210,8 +210,8 @@ IFS::iterate(int count, int p)
 {
   int i;
   Lens *l;
-  int x = x;
-  int y = y;
+  int x = 0;
+  int y = 0;
   int tx;
 
 # define STEP()                              \
@@ -239,6 +239,15 @@ IFS::iterate(int count, int p)
 
   x = x;
   y = y;
+}
+
+static int bounded_iteration_count(int base, int exponent)
+{
+  constexpr int max_iterations = 1 << 20;
+  int count = 1;
+  for (int i = 0; i < exponent && count <= max_iterations / base; ++i)
+    count *= base;
+  return count > max_iterations / base ? max_iterations : count;
 }
 
 /* Come on and iterate, iterate, iterate and sing... *
@@ -269,7 +278,7 @@ bool IFS::render(uint32_t *p)
       if (brecurse)
         recurse(x, y, length - 1, i);
       else
-        iterate(pow(lensnum, length - 1), i);
+        iterate(bounded_iteration_count(lensnum, length - 1), i);
     }
   }
   else {
@@ -277,7 +286,7 @@ bool IFS::render(uint32_t *p)
     if (brecurse)
       recurse(x, y, length, 0);
     else
-      iterate(pow(lensnum, length), 0);
+      iterate(bounded_iteration_count(lensnum, length), 0);
   }
 
   for(i = 0; i < lensnum; i++) {
