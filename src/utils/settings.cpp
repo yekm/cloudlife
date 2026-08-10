@@ -85,6 +85,12 @@ const colormap::Colormap & PaletteSetting::get_cmap() {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool VectorCombo::RenderGui() {
+    if (items.empty())
+        return false;
+
+    if (item_current_idx < 0 || item_current_idx >= static_cast<int>(items.size()))
+        item_current_idx = 0;
+
     bool ret = false;
     auto pb = items.begin();
     std::advance(pb, item_current_idx);
@@ -117,10 +123,14 @@ bool VectorCombo::RenderGui() {
 
 void VectorCombo::set_index(std::string p) {
     auto it = std::find(items.begin(), items.end(), p);
-    set_index(std::distance(items.begin(), it));
+    if (it != items.end())
+        set_index(static_cast<int>(std::distance(items.begin(), it)));
 }
 
 void VectorCombo::set_index(int i) {
+    if (i < 0 || i >= static_cast<int>(items.size()))
+        return;
+
     item_current_idx = i;
     value = items.at(item_current_idx);
 }
