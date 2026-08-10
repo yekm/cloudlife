@@ -36,9 +36,9 @@ uint32_t pal_rgb(int i) {
   if (i > 256)
     printf("%d ", i);
   return 0xff000000 |
-         (MainPalArray[i*3+0]*4) << 16 |
+         (MainPalArray[i*3+0]*4) << 0 |
          (MainPalArray[i*3+1]*4) << 8 |
-         (MainPalArray[i*3+2]*4) << 0;
+         (MainPalArray[i*3+2]*4) << 16;
 }
 
 bool AcidWarp::render(uint32_t *p) {
