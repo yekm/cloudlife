@@ -32,10 +32,12 @@ bool save_framebuffer_to_png(const std::string& filename, int width, int height)
     std::vector<unsigned char> pixels(pixel_count * 4);
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     
-    std::vector<unsigned char> flipped(width * height * 4);
+    std::vector<unsigned char> flipped(pixel_count * 4);
     for (int y = 0; y < height; y++) {
-        std::memcpy(&flipped[y * width * 4], 
-                    &pixels[(height - 1 - y) * width * 4], 
+        const auto row = static_cast<std::size_t>(y) * row_size;
+        const auto source_row = static_cast<std::size_t>(height - 1 - y) * row_size;
+        std::memcpy(&flipped[row],
+                    &pixels[source_row],
                     row_size);
     }
     
