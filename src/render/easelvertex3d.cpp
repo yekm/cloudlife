@@ -171,6 +171,7 @@ void EaselVertex3D::drawdot(int32_t x, int32_t y, uint32_t c) {
 }
 
 void EaselVertex3D::drawdot(float x, float y, float z, float c) {
+    if (geometry_frozen) return;
     if (total_vertices >= vertex_buffer_maximum()) return;
 
     size_t index = total_vertices * 4;
@@ -180,10 +181,24 @@ void EaselVertex3D::drawdot(float x, float y, float z, float c) {
     cpu_backing_buffer[index + 3] = c;
     
     total_vertices++;
+    geometry_dirty = true;
+}
+
+void EaselVertex3D::freeze_geometry() {
+    frozen_vertices = total_vertices;
+    geometry_frozen = true;
+    geometry_dirty = true;
+}
+
+void EaselVertex3D::set_model_matrix(const glm::mat4& model) {
+    model_matrix = model;
 }
 
 void EaselVertex3D::clear() {
     total_vertices = 0;
+    frozen_vertices = 0;
+    geometry_frozen = false;
+    geometry_dirty = true;
 }
 
 void EaselVertex3D::updateCameraVectors() {
@@ -284,8 +299,7 @@ void EaselVertex3D::render() {
     glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     glUniformMatrix4fv(u_view_loc, 1, GL_FALSE, glm::value_ptr(view));
     
-    glm::mat4 model = glm::mat4(1.0f);
-    glUniformMatrix4fv(u_model_loc, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(u_model_loc, 1, GL_FALSE, glm::value_ptr(model_matrix));
 
     if (use_colormap) {
         glUniform1f(u_vertexOpacity_loc, cmap_opacity);
@@ -302,15 +316,22 @@ void EaselVertex3D::render() {
 
     glBindVertexArray(vao);
     
-    // Upload the data to the GPU buffer before drawing
+    const unsigned vertices_to_draw = geometry_frozen ? frozen_vertices : total_vertices;
+
+    // Frozen geometry is uploaded once; dynamic geometry retains the old behavior.
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW); // Orphan the buffer
-    glBufferSubData(GL_ARRAY_BUFFER, 0, total_vertices * 4 * sizeof(float), cpu_backing_buffer.data());
+    if (!geometry_frozen || geometry_dirty) {
+        glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, vertices_to_draw * 4 * sizeof(float),
+            cpu_backing_buffer.data());
+        geometry_dirty = false;
+    }
     
-    glDrawArrays(GL_POINTS, 0, total_vertices);
+    glDrawArrays(GL_POINTS, 0, vertices_to_draw);
     
     // Restore state
     glPointSize(old_point_size);
 
-    total_vertices = 0; // Clear each frame since drawing accumulates new ones
+    if (!geometry_frozen)
+        total_vertices = 0; // Dynamic geometry accumulates new points each frame.
 }

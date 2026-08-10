@@ -18,6 +18,7 @@ private:
     bool render(uint32_t* p) override;
 
     void rebuild_chains();
+    void rebuild_geometry();
 
     std::vector<std::vector<uint32_t>> chains;
     int maximum = 20000;

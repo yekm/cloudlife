@@ -36,20 +36,20 @@ void CollatzBirb3D::rebuild_chains() {
         if (chain.size() > 1)
             chains.push_back(std::move(chain));
     }
+    rebuild_geometry();
 }
 
-bool CollatzBirb3D::render(uint32_t*) {
+void CollatzBirb3D::rebuild_geometry() {
     auto* e3d = evertex3d();
     const unsigned capacity = easel->vertex_buffer_maximum();
     unsigned emitted = 0;
-    const glm::mat4 global_rotation = glm::rotate(glm::mat4(1.0f), rotation,
-        glm::vec3(0.0f, 1.0f, 0.0f));
+    e3d->clear();
 
     for (const auto& source_chain : chains) {
         if (emitted >= capacity)
             break;
 
-        glm::mat4 orientation = global_rotation;
+        glm::mat4 orientation(1.0f);
         glm::vec3 position(0.0f);
         float red = 92.0f;
         float green = 92.0f;
@@ -85,6 +85,12 @@ bool CollatzBirb3D::render(uint32_t*) {
         }
     }
 
+    e3d->freeze_geometry();
+}
+
+bool CollatzBirb3D::render(uint32_t*) {
+    evertex3d()->set_model_matrix(glm::rotate(glm::mat4(1.0f), rotation,
+        glm::vec3(0.0f, 1.0f, 0.0f)));
     rotation += rotation_speed;
     return false;
 }
@@ -94,9 +100,12 @@ bool CollatzBirb3D::render_gui() {
     if (ImGui::CollapsingHeader("Collatz Birb 3D Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
         changed |= ScrollableSliderInt("Maximum seed", &maximum, 100, 100000, "%d", 100);
         changed |= ScrollableSliderInt("Points per segment", &points_per_segment, 1, 6, "%d", 1);
-        ScrollableSliderFloat("Segment length", &segment_length, 0.005f, 0.1f, "%.3f", 0.005f);
-        ScrollableSliderFloat("Even angle", &even_angle, -0.5f, 0.5f, "%.4f", 0.01f);
-        ScrollableSliderFloat("Odd angle", &odd_angle, -0.5f, 0.5f, "%.4f", 0.01f);
+        changed |= ScrollableSliderFloat("Segment length", &segment_length, 0.005f, 0.1f,
+            "%.3f", 0.005f);
+        changed |= ScrollableSliderFloat("Even angle", &even_angle, -0.5f, 0.5f,
+            "%.4f", 0.01f);
+        changed |= ScrollableSliderFloat("Odd angle", &odd_angle, -0.5f, 0.5f,
+            "%.4f", 0.01f);
         ScrollableSliderFloat("Rotation speed", &rotation_speed, -0.02f, 0.02f, "%.4f", 0.001f);
         ImGui::Text("Chains: %zu", chains.size());
     }

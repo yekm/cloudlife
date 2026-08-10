@@ -19,6 +19,8 @@ public:
 
     void drawdot(int32_t x, int32_t y, uint32_t c) override;
     void drawdot(float x, float y, float z, float c);
+    void freeze_geometry();
+    void set_model_matrix(const glm::mat4& model);
 
     virtual void render() override;
     virtual void clear() override;
@@ -32,6 +34,9 @@ private:
     void destroy_vertex_buffer();
     
     unsigned total_vertices = 0;
+    unsigned frozen_vertices = 0;
+    bool geometry_frozen = false;
+    bool geometry_dirty = true;
     unsigned vao, vbo;
     GLuint shaderProgram;
 
@@ -44,6 +49,7 @@ private:
     GLint u_projection_loc = -1;
     GLint u_view_loc = -1;
     GLint u_model_loc = -1;
+    glm::mat4 model_matrix = glm::mat4(1.0f);
 
     // CPU backing buffer
     std::vector<float> cpu_backing_buffer;
