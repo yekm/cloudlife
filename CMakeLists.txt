@@ -155,6 +155,7 @@ if(NOT APPLE)
     list(APPEND CLOUDS_SOURCES
         src/render/easelcompute.cpp
         src/arts/acidwarpgpt56terra.cpp
+        src/arts/acidwarpqwen38max.cpp
         src/arts/plasmacompute.cpp
         src/arts/sphereofcubes.cpp
     )
