@@ -1,6 +1,11 @@
 #include "timer.h"
 #include <time.h>
 
+namespace
+{
+constexpr long NANOSECONDS_PER_SECOND = 1000000000L;
+}
+
 namespace common
 {
 
@@ -74,10 +79,10 @@ Timer & Timer::operator+=(const Timer & a)
 #else
     tv_sec += a.tv_sec;
     tv_nsec += a.tv_nsec;
-    if(tv_nsec < 1e9)
+    if(tv_nsec >= NANOSECONDS_PER_SECOND)
     {
         ++tv_sec;
-        tv_nsec -= 1e9;
+        tv_nsec -= NANOSECONDS_PER_SECOND;
     }
 #endif
     return *this;
@@ -95,7 +100,8 @@ long unsigned Timer::us() {
 #ifdef _WIN32
     return (long unsigned)((counter * 1000000LL) / get_frequency());
 #else
-    return tv_sec*1e9 + tv_nsec;
+    return static_cast<long unsigned>(tv_sec) * 1000000UL +
+        static_cast<long unsigned>(tv_nsec) / 1000UL;
 #endif
 }
 
