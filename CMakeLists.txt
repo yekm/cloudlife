@@ -157,6 +157,7 @@ if(NOT APPLE)
         src/arts/acidwarpgpt56terra.cpp
         src/arts/acidwarpgpt56luna.cpp
         src/arts/acidwarpqwen38max.cpp
+        src/arts/acidwarpm3.cpp
         src/arts/plasmacompute.cpp
         src/arts/sphereofcubes.cpp
     )

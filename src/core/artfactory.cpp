@@ -17,6 +17,7 @@
 #include "acidwarpgpt56terra.h"
 #include "acidwarpgpt56luna.h"
 #include "acidwarpqwen38max.h"
+#include "acidwarpm3.h"
 #include "plasmacompute.h"
 #include "sphereofcubes.h"
 #endif
@@ -41,6 +42,7 @@ ArtFactory::ArtFactory() {
     add_art<AcidWarpGpt56Terra>("AcidWarp-gpt56-terra");
     add_art<AcidWarpGpt56Luna>("AcidWarp-gpt56-luna");
     add_art<AcidWarpQwen38Max>("AcidWarp-qwen38-max");
+    add_art<AcidWarpM3>("AcidWarp-minimaxm3");
     add_art<PlasmaCompute>("Plasma (Compute)");
     add_art<SphereOfCubes>("Sphere of Cubes");
 #endif
