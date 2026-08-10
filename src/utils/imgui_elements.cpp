@@ -102,9 +102,14 @@ bool ScrollableSliderT(ImGuiDataType data_type, const char* label, T* v, T v_min
             }
             else
             {
-                *v += wheel * scrollFactor;
-                if (*v < v_min) { *v = v_min; }
-                else if (*v > v_max) { *v = v_max; }
+                const long double adjusted = static_cast<long double>(*v) +
+                    static_cast<long double>(wheel) * scrollFactor;
+                if (adjusted < static_cast<long double>(v_min))
+                    *v = v_min;
+                else if (adjusted > static_cast<long double>(v_max))
+                    *v = v_max;
+                else
+                    *v = static_cast<T>(adjusted);
                 rv = true;
             }
         }
