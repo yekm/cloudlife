@@ -224,6 +224,7 @@ unsigned int Cloudlife::do_tick()
 {
     unsigned int x, y;
     unsigned int count = 0;
+    std::fill(f->new_cells.begin(), f->new_cells.end(), 0);
     for (x = 1; x < f->width - 1; x++) {
         for (y = 1; y < f->height - 1; y++) {
             count += *new_cell_at(x, y) = is_alive(x, y);
