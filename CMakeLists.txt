@@ -150,6 +150,7 @@ set(CLOUDS_SOURCES
     src/arts/acidworm.cpp
     src/arts/hopalong.cpp
     src/arts/hopalong3d.cpp
+    src/arts/collatzbirb3d.cpp
     src/arts/attractor.cpp
 )
 
