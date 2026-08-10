@@ -182,16 +182,17 @@ void EaselVertex::render() {
 
         // Calculate write position (end of current data, modulo buffer size)
         unsigned write_end = total_vertices % maxv;
+        unsigned write_start = (write_end + maxv - num_new_vertices) % maxv;
 
         // Handle buffer wrap-around
-        if (write_end < num_new_vertices) {
+        if (write_start + num_new_vertices > maxv) {
             // Write position wraps: split into tail + head
-            unsigned tail_count = write_end;                    // Vertices to end of buffer
-            unsigned head_count = num_new_vertices - write_end; // Vertices from start
+            unsigned tail_count = maxv - write_start;
+            unsigned head_count = num_new_vertices - tail_count;
 
             // Copy tail portion to end of buffer
             if (tail_count > 0) {
-                memcpy(cpu_backing_buffer.data() + (maxv - tail_count) * 3,
+                memcpy(cpu_backing_buffer.data() + write_start * 3,
                        m_vertices.data(),
                        tail_count * 3 * sizeof(float));
             }
@@ -204,7 +205,6 @@ void EaselVertex::render() {
             }
         } else {
             // Normal case: contiguous write
-            unsigned write_start = write_end - num_new_vertices;
             memcpy(cpu_backing_buffer.data() + write_start * 3,
                    m_vertices.data(),
                    num_new_vertices * 3 * sizeof(float));
@@ -212,16 +212,16 @@ void EaselVertex::render() {
 
         // Upload the updated data to the GPU buffer
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        if (write_end < num_new_vertices) {
+        if (write_start + num_new_vertices > maxv) {
             // Write position wraps: split upload into tail + head
-            unsigned tail_count = write_end;
-            unsigned head_count = num_new_vertices - write_end;
+            unsigned tail_count = maxv - write_start;
+            unsigned head_count = num_new_vertices - tail_count;
 
             if (tail_count > 0) {
                 glBufferSubData(GL_ARRAY_BUFFER, 
-                                (maxv - tail_count) * 3 * sizeof(float), 
+                                write_start * 3 * sizeof(float),
                                 tail_count * 3 * sizeof(float), 
-                                cpu_backing_buffer.data() + (maxv - tail_count) * 3);
+                                cpu_backing_buffer.data() + write_start * 3);
             }
             if (head_count > 0) {
                 glBufferSubData(GL_ARRAY_BUFFER, 
@@ -231,7 +231,6 @@ void EaselVertex::render() {
             }
         } else {
             // Normal case: contiguous write
-            unsigned write_start = write_end - num_new_vertices;
             glBufferSubData(GL_ARRAY_BUFFER, 
                             write_start * 3 * sizeof(float), 
                             num_new_vertices * 3 * sizeof(float), 
