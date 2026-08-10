@@ -149,6 +149,7 @@ set(CLOUDS_SOURCES
     src/arts/acidwarp.cpp
     src/arts/acidworm.cpp
     src/arts/hopalong.cpp
+    src/arts/hopalong3d.cpp
     src/arts/attractor.cpp
 )
 

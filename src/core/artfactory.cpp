@@ -11,6 +11,7 @@
 #include "acidwarp.h"
 #include "acidworm.h"
 #include "hopalong.h"
+#include "hopalong3d.hpp"
 #include "attractor.h"
 #include "test3d.hpp"
 #ifndef __APPLE__
@@ -37,6 +38,7 @@ ArtFactory::ArtFactory() {
     add_art<AcidWarp>("AcidWarp");
     add_art<AcidWorm>("AcidWorm");
     add_art<Hopalong>("Hopalong");
+    add_art<Hopalong3D>("Hopalong 3D");
     add_art<Attractor>("Attractor");
 #ifndef __APPLE__
     add_art<AcidWarpGpt56Terra>("AcidWarp-gpt56-terra");
