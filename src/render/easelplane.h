@@ -30,11 +30,11 @@ private:
     int texture_size_pixels();
 
     typedef uint32_t pixel_t;
-    pixel_t *image_data = NULL;
+    pixel_t *image_data = nullptr;
     std::vector<pixel_t> image_data_vector;
 
-    GLuint image_texture;
-    GLuint pboIds[2];
+    GLuint image_texture = 0;
+    GLuint pboIds[2] = {0, 0};
     int pbo_index = 0;
-    pixel_t* m_plane;
+    pixel_t* m_plane = nullptr;
 };

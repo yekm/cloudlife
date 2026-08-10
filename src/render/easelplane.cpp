@@ -144,6 +144,9 @@ void EaselPlane::gui() {
 }
 
 void EaselPlane::clear() {
+    if (image_data_vector.empty())
+        return;
+
     begin();
     if (m_plane == nullptr)
         return;

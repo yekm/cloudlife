@@ -77,8 +77,8 @@ public:
         w = _w; h = _h;
         reset();
     }
-    int w, h;
-    int ww, wh;
+    int w = 0, h = 0;
+    int ww = 0, wh = 0;
 
     PaletteSetting pal;
 
@@ -109,4 +109,3 @@ private:
     std::deque<Pixel> buffer;
 };
 */
-
