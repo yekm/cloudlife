@@ -15,6 +15,7 @@
 #include "collatzbirb3d.hpp"
 #include "attractor.h"
 #include "test3d.hpp"
+#include "physarum.hpp"
 #ifndef __APPLE__
 #include "acidwarpgpt56terra.h"
 #include "acidwarpgpt56luna.h"
@@ -42,6 +43,7 @@ ArtFactory::ArtFactory() {
     add_art<Hopalong3D>("Hopalong 3D");
     add_art<CollatzBirb3D>("Collatz Birb 3D");
     add_art<Attractor>("Attractor");
+    add_art<Physarum>("Physarum");
 #ifndef __APPLE__
     add_art<AcidWarpGpt56Terra>("AcidWarp-gpt56-terra");
     add_art<AcidWarpGpt56Luna>("AcidWarp-gpt56-luna");

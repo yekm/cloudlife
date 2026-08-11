@@ -152,6 +152,7 @@ set(CLOUDS_SOURCES
     src/arts/hopalong3d.cpp
     src/arts/collatzbirb3d.cpp
     src/arts/attractor.cpp
+    src/arts/physarum.cpp
 )
 
 # Compute shaders require OpenGL 4.3+ (not available on macOS)
