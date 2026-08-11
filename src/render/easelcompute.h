@@ -33,6 +33,11 @@ public:
     // Dispatch compute (called automatically in render())
     void dispatch();
 
+    // Allows multi-pass compute arts to manage dispatches themselves while
+    // retaining this easel's output texture and presentation code.
+    void set_auto_dispatch(bool enabled);
+    GLuint get_output_texture() const;
+
     virtual void begin() override;
     virtual void render() override;
     virtual void clear() override;
@@ -55,6 +60,7 @@ private:
 
     GLuint compute_program = 0;
     GLuint output_texture = 0;
+    bool auto_dispatch = true;
     GLuint pbo = 0;  // Optional: for reading back to CPU if needed
     
     std::string compute_source;

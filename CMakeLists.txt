@@ -165,6 +165,7 @@ if(NOT APPLE)
         src/arts/acidwarpm3.cpp
         src/arts/plasmacompute.cpp
         src/arts/sphereofcubes.cpp
+        src/arts/physarumgpu.cpp
     )
 endif()
 

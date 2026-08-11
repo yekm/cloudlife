@@ -238,9 +238,17 @@ void EaselCompute::dispatch() {
     dispatch_count++;
 }
 
+void EaselCompute::set_auto_dispatch(bool enabled) {
+    auto_dispatch = enabled;
+}
+
+GLuint EaselCompute::get_output_texture() const {
+    return output_texture;
+}
+
 void EaselCompute::render() {
     // Dispatch compute to generate the image
-    dispatch();
+    if (auto_dispatch) dispatch();
     
     // Draw the generated texture as a fullscreen quad
     ImGui::GetBackgroundDrawList()->AddImage(

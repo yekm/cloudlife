@@ -23,6 +23,7 @@
 #include "acidwarpm3.h"
 #include "plasmacompute.h"
 #include "sphereofcubes.h"
+#include "physarumgpu.hpp"
 #endif
 
 
@@ -51,6 +52,7 @@ ArtFactory::ArtFactory() {
     add_art<AcidWarpM3>("AcidWarp-minimaxm3");
     add_art<PlasmaCompute>("Plasma (Compute)");
     add_art<SphereOfCubes>("Sphere of Cubes");
+    add_art<PhysarumGPU>("PhysarumGPU");
 #endif
 
     vc = VectorCombo("Art", art_items);
