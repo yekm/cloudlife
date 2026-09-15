@@ -2,6 +2,16 @@
 
 Guide for AI coding agents working on the cloudlife repository.
 
+## Agent Coordination
+
+Follow `docs/agent-workflow.md` for delegation, role selection, and validation.
+For substantial work, delegate concrete independent subtasks when useful work can
+continue in parallel. Keep small or tightly coupled changes with the primary agent.
+Use the role model and reasoning settings in `.codex/agents/*.toml`; if the runtime
+only exposes generic spawning, pass those settings explicitly with a fresh or
+partial context and include the role instructions in the assignment.
+
+
 ## Project Overview
 
 Cloudlife is a screensaver/visualization application using Dear ImGui, OpenGL, and GLFW. It ports classic xscreensaver hacks to a modern OpenGL-based renderer with an interactive GUI.
