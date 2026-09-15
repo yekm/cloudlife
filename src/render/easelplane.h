@@ -8,12 +8,11 @@
 class EaselPlane : public Easel {
 public:
     EaselPlane();
-    ~EaselPlane();
+    ~EaselPlane() override;
 
     //void append(Pixel && p);
     void drawdot(int32_t x, int32_t y, uint32_t c) override;
 
-    virtual void begin() override;
     virtual void render() override;
     virtual void clear() override;
     void clear1();
@@ -26,15 +25,15 @@ private:
 
     void make_pbos();
     void destroy_pbos();
-    int texture_size_bytes();
-    int texture_size_pixels();
+    void upload_image();
+    size_t texture_size_bytes() const;
+    size_t texture_size_pixels() const;
 
-    typedef uint32_t pixel_t;
-    pixel_t *image_data = nullptr;
+    using pixel_t = uint32_t;
+    // The CPU image persists across frames, including frames that only update a few pixels.
     std::vector<pixel_t> image_data_vector;
 
     GLuint image_texture = 0;
     GLuint pboIds[2] = {0, 0};
     int pbo_index = 0;
-    pixel_t* m_plane = nullptr;
 };

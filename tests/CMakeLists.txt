@@ -10,6 +10,7 @@ function(add_cloudlife_test name)
 endfunction()
 
 add_cloudlife_test(art_schedule_test art_schedule_test.cpp)
+add_cloudlife_test(easelplane_test easelplane_test.cpp)
 
 option(CLOUDLIFE_BUILD_GL_TESTS "Build integration tests requiring a window system and OpenGL" OFF)
 if(CLOUDLIFE_BUILD_GL_TESTS)
