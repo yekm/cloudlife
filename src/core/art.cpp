@@ -115,8 +115,17 @@ EaselVertex3D* Art::evertex3d() const {
 }
 
 void Art::check_shuffle(double current_time) {
-    double elapsed = current_time - last_shuffle;
-    if (elapsed > shuffle_period) {
+    if (shuffle_period <= 0)
+        return;
+
+    // Start each art's interval on its first update, even when selected long
+    // after application startup. Restart the interval if the clock is reset.
+    if (last_shuffle < 0 || current_time < last_shuffle) {
+        last_shuffle = current_time;
+        return;
+    }
+
+    if (current_time - last_shuffle >= shuffle_period) {
         shuffle();
         last_shuffle = current_time;
     }

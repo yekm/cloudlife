@@ -208,9 +208,6 @@ int main(int argc, char *argv[])
                     1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);
 
-                if (shuffle_mode)
-                    art->check_shuffle(glfwGetTime());
-
             }
             ImGui::Text(info);
 
@@ -222,6 +219,9 @@ int main(int argc, char *argv[])
             art->resized(sw, sh);
             glViewport(0, 0, sw, sh);
         }
+
+        if (shuffle_mode)
+            art->check_shuffle(glfwGetTime());
 
         {
             GL_ENABLE_FOR_SCOPE(GL_BLEND);

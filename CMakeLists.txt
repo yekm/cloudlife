@@ -257,3 +257,9 @@ set_target_properties(cloudlife PROPERTIES
 
 # Install
 install(TARGETS cloudlife DESTINATION bin)
+
+option(CLOUDLIFE_BUILD_TESTS "Build focused regression tests" OFF)
+if(CLOUDLIFE_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

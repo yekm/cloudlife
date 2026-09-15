@@ -1,0 +1,12 @@
+function(add_cloudlife_test name)
+    add_executable(${name} ${ARGN})
+    target_include_directories(${name} PRIVATE $<TARGET_PROPERTY:clouds,INCLUDE_DIRECTORIES>)
+    target_link_libraries(${name} PRIVATE clouds imgui glad glfw glm OpenGL::GL)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(${name} PRIVATE -fsanitize=address)
+        target_link_options(${name} PRIVATE -fsanitize=address)
+    endif()
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+add_cloudlife_test(art_schedule_test art_schedule_test.cpp)

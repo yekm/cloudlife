@@ -84,8 +84,7 @@ protected:
     EaselCompute* ecompute() const;
     EaselVertex3D* evertex3d() const;
     
-    double shuffle_period = 0, last_shuffle;
+    double shuffle_period = 0, last_shuffle = -1;
 
     std::string m_name;
 };
-
