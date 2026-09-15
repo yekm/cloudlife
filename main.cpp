@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
     int vsync = 1;
     int artarg = -1;
     bool shuffle_mode = false;
-    bool save_every_frame = false, save_frame = false;
+    bool save_every_frame = false;
     bool hide_gui = false;
     const char *title = "Dear ImGui screensaver";
 
@@ -167,6 +167,7 @@ int main(int argc, char *argv[])
 
     while (!glfwWindowShouldClose(window))
     {
+        bool save_frame = false;
         glfwPollEvents();
 
         glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
@@ -230,14 +231,16 @@ int main(int argc, char *argv[])
             art->draw();
         }
 
-        if (ImGui::IsKeyPressed(ImGuiKey_F12) || save_frame || save_every_frame) {
-            // TODO: works only with EaselVertex and width/height is always like fullscreen
-            art->save_frame();
-        }
+        const bool save_requested = ImGui::IsKeyPressed(ImGuiKey_F12) || save_frame || save_every_frame;
 
         ImGui::Render();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        // Plane and compute images reach the framebuffer through ImGui. Capture
+        // the completed frame (including visible controls) before swapping it.
+        if (save_requested)
+            art->save_frame();
 
         glfwSwapBuffers(window);
 

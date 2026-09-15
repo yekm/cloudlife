@@ -16,6 +16,10 @@ if(CLOUDLIFE_BUILD_GL_TESTS)
     add_cloudlife_test(application_smoke_test application_smoke_test.cpp)
     add_test(NAME application_lifetime_vertex COMMAND application_smoke_test 12)
     add_test(NAME application_lifetime_vertex3d COMMAND application_smoke_test 0)
+    add_test(NAME application_capture_plane COMMAND application_smoke_test 1 --capture)
+    add_test(NAME application_capture_vertex COMMAND application_smoke_test 12 --capture)
+    add_test(NAME application_capture_gui COMMAND application_smoke_test 1 --capture-gui)
     set_tests_properties(application_smoke_test application_lifetime_vertex
-        application_lifetime_vertex3d PROPERTIES SKIP_RETURN_CODE 77)
+        application_lifetime_vertex3d application_capture_plane application_capture_vertex
+        application_capture_gui PROPERTIES SKIP_RETURN_CODE 77)
 endif()
