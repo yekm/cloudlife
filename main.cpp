@@ -21,8 +21,6 @@
 #include "gl_debug.h"
 #include "gl_state.h"
 
-std::unique_ptr<Art> art;
-
 static GLFWwindow* window;
 static int sw = 1024, sh = 1024;
 
@@ -121,14 +119,18 @@ int main(int argc, char *argv[])
 #endif
 
     window = glfwCreateWindow(sw, sh, title, NULL, NULL);
-    if (window == NULL)
+    if (window == NULL) {
+        glfwTerminate();
         return 1;
+    }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(vsync);
 
     // Initialize GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         fprintf(stderr, "Failed to initialize GLAD\n");
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return 1;
     }
 
@@ -157,7 +159,7 @@ int main(int argc, char *argv[])
     ArtFactory af;
     if (artarg != -1)
         af.set_art(artarg);
-    art = af.get_art();
+    auto art = af.get_art();
 
     get_window_size();
     art->resized(sw, sh);
@@ -242,6 +244,9 @@ int main(int argc, char *argv[])
         if (art->clear_every != 0 && art->frame_number % art->clear_every == 0)
             art->clear();
     }
+
+    // Art and Easel destructors release GL resources and need a live context.
+    art.reset();
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

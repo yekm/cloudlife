@@ -10,3 +10,12 @@ function(add_cloudlife_test name)
 endfunction()
 
 add_cloudlife_test(art_schedule_test art_schedule_test.cpp)
+
+option(CLOUDLIFE_BUILD_GL_TESTS "Build integration tests requiring a window system and OpenGL" OFF)
+if(CLOUDLIFE_BUILD_GL_TESTS)
+    add_cloudlife_test(application_smoke_test application_smoke_test.cpp)
+    add_test(NAME application_lifetime_vertex COMMAND application_smoke_test 12)
+    add_test(NAME application_lifetime_vertex3d COMMAND application_smoke_test 0)
+    set_tests_properties(application_smoke_test application_lifetime_vertex
+        application_lifetime_vertex3d PROPERTIES SKIP_RETURN_CODE 77)
+endif()
