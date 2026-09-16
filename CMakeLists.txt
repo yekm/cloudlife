@@ -55,6 +55,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 
+# umappp - Header-only C++ implementation of UMAP
+FetchContent_Declare(
+    umappp
+    GIT_REPOSITORY https://github.com/libscran/umappp.git
+    GIT_TAG v3.3.2
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(umappp)
+
 # ImGui - Immediate mode GUI
 FetchContent_Declare(
     imgui
@@ -151,6 +160,7 @@ set(CLOUDS_SOURCES
     src/arts/hopalong.cpp
     src/arts/hopalong3d.cpp
     src/arts/collatzbirb3d.cpp
+    src/arts/primeumap3d.cpp
     src/arts/attractor.cpp
     src/arts/physarum.cpp
 )
@@ -183,7 +193,7 @@ target_include_directories(clouds
         ${stb_SOURCE_DIR}
 )
 
-target_link_libraries(clouds PRIVATE imgui glad glfw glm OpenGL::GL)
+target_link_libraries(clouds PRIVATE imgui glad glfw glm libscran::umappp OpenGL::GL)
 
 # Main executable
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
