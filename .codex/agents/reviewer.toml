@@ -1,7 +1,7 @@
 name = "reviewer"
 description = "Independently review changes for concrete correctness and regression risks."
 model = "gpt-5.6-terra"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 developer_instructions = """
 Read AGENTS.md and docs/agent-workflow.md. Review without editing files.
 Prioritize correctness, lifetime errors, platform compatibility, and regressions.

@@ -4,11 +4,11 @@
 
 | Role | Model | Reasoning | Responsibility |
 | --- | --- | --- | --- |
-| Primary | `gpt-6-astra` | high | Scope, architecture, coordination, integration, final validation |
+| Primary | `gpt-5.6-sol` | high | Scope, architecture, coordination, integration, final validation |
 | explorer | `gpt-5.6-luna` | medium | Locate code, trace simple flows, summarize evidence |
 | implementer | `gpt-5.6-sol` | high | Bounded features and fixes |
-| reviewer | `gpt-5.6-terra` | high | Independent correctness and regression review |
-| specialist | `gpt-6-astra` | high | Difficult graphics, synchronization, performance, architecture |
+| reviewer | `gpt-5.6-terra` | medium | Independent correctness and regression review |
+| specialist | `gpt-5.6-sol` | high | Difficult graphics, synchronization, performance, architecture |
 
 These are project choices, not benchmark claims. Actual availability depends on
 the host. If a configured model is unavailable, report it and inherit the parent
