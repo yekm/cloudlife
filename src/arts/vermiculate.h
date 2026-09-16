@@ -85,6 +85,8 @@ private:
 
   real sinof[degs], cosof[degs], tanof[degs];
   std::vector<uint32_t> point;
+  // ID 0 is empty; live colors reach thrmax + 1, trails reach 2 * thrmax + 1.
+  float color_indices[thrmax * 2 + 2] = {};
 
   linedata thread[thrmax];
   banktype bank;

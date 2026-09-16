@@ -126,9 +126,7 @@ void Vermiculate::clearscreen ()
 void
 Vermiculate::sp (int x, int y, uint32_t c)
 {
-  uint32_t color = easel->pal.get_color(c);
-  if (c == 0)
-    color = 0;
+  uint32_t color = c == 0 ? 0 : easel->pal.get_colorf(color_indices[c]);
   drawdot(x, y, color);
 
   point[(easel->w * y) + x] = c;
@@ -162,8 +160,10 @@ Vermiculate::palupdate (bool forceUpdate)
 void
 Vermiculate::randpal ()
 {
-  int ncolors = tailmax - 1;
-  easel->pal.rescale(ncolors);
+  // The original assigns random colors to these IDs, rather than sampling
+  // neighboring entries at the beginning of a smooth palette.
+  for (int c = 1; c <= thrmax * 2 + 1; c++)
+    color_indices[c] = static_cast<float>(random1(1U << 24)) / (1U << 24);
 }
 
 void
