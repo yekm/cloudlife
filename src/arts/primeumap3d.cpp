@@ -21,7 +21,6 @@ namespace {
 
 constexpr int MAX_INTEGER_COUNT = 1000000;
 constexpr int MAX_NEIGHBORS = 64;
-constexpr int SPECTRAL_INITIALIZATION_LIMIT = 50000;
 constexpr int FACTOR_COUNT_BASE = 8;
 constexpr unsigned INDEX_BITS = 20;
 constexpr uint64_t INDEX_MASK = (uint64_t{1} << INDEX_BITS) - 1;
@@ -29,17 +28,17 @@ constexpr size_t PROGRESS_INTERVAL = 4096;
 
 uint64_t make_entry(int subset_product, int factor_count, int observation) {
     const uint64_t key = static_cast<uint64_t>(subset_product) * FACTOR_COUNT_BASE +
-        static_cast<uint64_t>(factor_count);
-    return (key << INDEX_BITS) | static_cast<uint64_t>(observation);
+        factor_count;
+    return (key << INDEX_BITS) | observation;
 }
 
 uint64_t entry_key(int subset_product, int factor_count) {
     return static_cast<uint64_t>(subset_product) * FACTOR_COUNT_BASE +
-        static_cast<uint64_t>(factor_count);
+        factor_count;
 }
 
 int entry_observation(uint64_t entry) {
-    return static_cast<int>(entry & INDEX_MASK);
+    return entry & INDEX_MASK;
 }
 
 int count_bits(unsigned value) {
@@ -90,13 +89,13 @@ struct PrimeIndexData {
     std::vector<uint32_t> subset_offsets;
 
     std::pair<const int*, const int*> factor_range(int observation) const {
-        const auto begin = factor_offsets[static_cast<size_t>(observation)];
-        const auto end = factor_offsets[static_cast<size_t>(observation) + 1];
+        const auto begin = factor_offsets[observation];
+        const auto end = factor_offsets[observation + 1];
         return {factors.data() + begin, factors.data() + end};
     }
 
     EntryCursor entries_for(int subset_product, int factor_count) const {
-        const size_t key = static_cast<size_t>(entry_key(subset_product, factor_count));
+        const size_t key = entry_key(subset_product, factor_count);
         return {subset_offsets[key], subset_offsets[key + 1]};
     }
 };
@@ -109,10 +108,10 @@ std::shared_ptr<PrimeIndexData> build_prime_index(
     const std::function<void(bool)>& begin_indexing) {
     auto output = std::make_shared<PrimeIndexData>();
     output->integer_count = count;
-    output->factor_offsets.resize(static_cast<size_t>(count) + 1);
+    output->factor_offsets.resize(count + 1);
 
     const int largest = count + 1;
-    std::vector<int> smallest_factor(static_cast<size_t>(largest) + 1, 0);
+    std::vector<int> smallest_factor(largest + 1, 0);
     for (int value = 2; value <= largest; ++value) {
         if (smallest_factor[value] != 0)
             continue;
@@ -126,8 +125,8 @@ std::shared_ptr<PrimeIndexData> build_prime_index(
     }
 
     completed.store(0, std::memory_order_relaxed);
-    total.store(static_cast<uint64_t>(count), std::memory_order_relaxed);
-    output->factors.reserve(static_cast<size_t>(count) * 3);
+    total.store(count, std::memory_order_relaxed);
+    output->factors.reserve(count * 3);
     for (int observation = 0; observation < count; ++observation) {
         int value = observation + 2;
         int factor_count = 0;
@@ -139,11 +138,10 @@ std::shared_ptr<PrimeIndexData> build_prime_index(
                 value /= factor;
         }
         output->maximum_factor_count = std::max(output->maximum_factor_count, factor_count);
-        output->factor_offsets[static_cast<size_t>(observation) + 1] =
-            static_cast<uint32_t>(output->factors.size());
+        output->factor_offsets[observation + 1] = output->factors.size();
 
-        if ((static_cast<size_t>(observation) + 1) % PROGRESS_INTERVAL == 0) {
-            completed.store(static_cast<uint64_t>(observation) + 1, std::memory_order_relaxed);
+        if ((observation + 1) % PROGRESS_INTERVAL == 0) {
+            completed.store(observation + 1, std::memory_order_relaxed);
             if (cancelled.load(std::memory_order_relaxed))
                 return nullptr;
         }
@@ -153,10 +151,10 @@ std::shared_ptr<PrimeIndexData> build_prime_index(
         throw std::runtime_error("prime-factor subset key is too small");
 
     begin_indexing(false);
-    output->subset_entries.reserve(static_cast<size_t>(count) * 8);
+    output->subset_entries.reserve(count * 8);
     for (int observation = 0; observation < count; ++observation) {
         const auto range = output->factor_range(observation);
-        const int factor_count = static_cast<int>(range.second - range.first);
+        const int factor_count = range.second - range.first;
         const unsigned subset_count = 1u << factor_count;
         for (unsigned mask = 1; mask < subset_count; ++mask) {
             int product = 1;
@@ -167,23 +165,23 @@ std::shared_ptr<PrimeIndexData> build_prime_index(
             output->subset_entries.push_back(make_entry(product, factor_count, observation));
         }
 
-        if ((static_cast<size_t>(observation) + 1) % PROGRESS_INTERVAL == 0) {
-            completed.store(static_cast<uint64_t>(observation) + 1, std::memory_order_relaxed);
+        if ((observation + 1) % PROGRESS_INTERVAL == 0) {
+            completed.store(observation + 1, std::memory_order_relaxed);
             if (cancelled.load(std::memory_order_relaxed))
                 return nullptr;
         }
     }
 
-    completed.store(static_cast<uint64_t>(count), std::memory_order_relaxed);
+    completed.store(count, std::memory_order_relaxed);
     begin_indexing(true);
     std::sort(output->subset_entries.begin(), output->subset_entries.end());
     if (cancelled.load(std::memory_order_relaxed))
         return nullptr;
 
-    const size_t key_count = static_cast<size_t>(count + 2) * FACTOR_COUNT_BASE;
+    const size_t key_count = (count + 2) * FACTOR_COUNT_BASE;
     output->subset_offsets.assign(key_count + 1, 0);
     for (const uint64_t entry : output->subset_entries) {
-        const size_t key = static_cast<size_t>(entry >> INDEX_BITS);
+        const size_t key = entry >> INDEX_BITS;
         ++output->subset_offsets[key + 1];
     }
     for (size_t key = 1; key < output->subset_offsets.size(); ++key)
@@ -195,12 +193,12 @@ void append_neighbors_for_score(const PrimeIndexData& index, int observation,
                                 const int* query_begin, const int* query_end,
                                 const std::vector<NeighborBucket>& buckets,
                                 size_t bucket_begin, size_t bucket_end,
-                                int neighbor_count,
+                                size_t neighbor_count,
                                 std::vector<std::pair<int, float>>& output) {
     std::vector<EntryCursor> cursors;
     for (size_t bucket_index = bucket_begin; bucket_index < bucket_end; ++bucket_index) {
         const auto& bucket = buckets[bucket_index];
-        const int query_factor_count = static_cast<int>(query_end - query_begin);
+        const int query_factor_count = query_end - query_begin;
         const unsigned subset_count = 1u << query_factor_count;
         for (unsigned mask = 1; mask < subset_count; ++mask) {
             if (count_bits(mask) != bucket.shared_count)
@@ -217,7 +215,7 @@ void append_neighbors_for_score(const PrimeIndexData& index, int observation,
     }
 
     const double group_distance = buckets[bucket_begin].distance;
-    while (!cursors.empty() && static_cast<int>(output.size()) < neighbor_count) {
+    while (!cursors.empty() && output.size() < neighbor_count) {
         int candidate = std::numeric_limits<int>::max();
         for (const auto& cursor : cursors) {
             if (cursor.position != cursor.end) {
@@ -245,9 +243,9 @@ void append_neighbors_for_score(const PrimeIndexData& index, int observation,
                                                 candidate_range.first, candidate_range.second);
         if (shared == 0)
             continue;
-        const double denominator = std::sqrt(static_cast<double>(
-            (query_end - query_begin) * (candidate_range.second - candidate_range.first)));
-        const double distance = 1.0 - static_cast<double>(shared) / denominator;
+        const double denominator = std::sqrt(
+            (query_end - query_begin) * (candidate_range.second - candidate_range.first));
+        const double distance = 1.0 - shared / denominator;
         if (distance == group_distance)
             output.emplace_back(candidate, static_cast<float>(distance));
     }
@@ -256,15 +254,14 @@ void append_neighbors_for_score(const PrimeIndexData& index, int observation,
 std::vector<std::pair<int, float>> find_neighbors(const PrimeIndexData& index,
                                                    int observation, int requested_neighbors) {
     const auto query_range = index.factor_range(observation);
-    const int query_factor_count = static_cast<int>(query_range.second - query_range.first);
-    const int neighbor_count = std::min(requested_neighbors, index.integer_count - 1);
+    const int query_factor_count = query_range.second - query_range.first;
+    const size_t neighbor_count = std::min(requested_neighbors, index.integer_count - 1);
 
     std::vector<NeighborBucket> buckets;
     for (int shared = 1; shared <= query_factor_count; ++shared) {
         for (int factor_count = shared; factor_count <= index.maximum_factor_count; ++factor_count) {
-            const double denominator = std::sqrt(
-                static_cast<double>(query_factor_count * factor_count));
-            buckets.push_back({1.0 - static_cast<double>(shared) / denominator,
+            const double denominator = std::sqrt(query_factor_count * factor_count);
+            buckets.push_back({1.0 - shared / denominator,
                                shared, factor_count});
         }
     }
@@ -277,9 +274,9 @@ std::vector<std::pair<int, float>> find_neighbors(const PrimeIndexData& index,
     });
 
     std::vector<std::pair<int, float>> output;
-    output.reserve(static_cast<size_t>(neighbor_count));
+    output.reserve(neighbor_count);
     size_t bucket = 0;
-    while (bucket < buckets.size() && static_cast<int>(output.size()) < neighbor_count) {
+    while (bucket < buckets.size() && output.size() < neighbor_count) {
         size_t bucket_end = bucket + 1;
         while (bucket_end < buckets.size() &&
                buckets[bucket_end].distance == buckets[bucket].distance) {
@@ -291,7 +288,7 @@ std::vector<std::pair<int, float>> find_neighbors(const PrimeIndexData& index,
     }
 
     for (int candidate = 0;
-         candidate < index.integer_count && static_cast<int>(output.size()) < neighbor_count;
+         candidate < index.integer_count && output.size() < neighbor_count;
          ++candidate) {
         if (candidate == observation)
             continue;
@@ -305,49 +302,15 @@ std::vector<std::pair<int, float>> find_neighbors(const PrimeIndexData& index,
 }
 
 umappp::NeighborList<int, float> build_neighbor_list(
-    const PrimeIndexData& index, int requested_neighbors, int requested_threads,
+    const PrimeIndexData& index, int requested_neighbors,
     const std::atomic<bool>& cancelled, std::atomic<uint64_t>& completed) {
-    umappp::NeighborList<int, float> output(static_cast<size_t>(index.integer_count));
-    std::atomic<int> next_observation{0};
-    std::atomic<bool> failed{false};
-    std::exception_ptr failure;
-    std::mutex failure_mutex;
-    const int thread_count = std::max(1, std::min(requested_threads, index.integer_count));
-
-    auto query_rows = [&]() {
-        try {
-            while (!cancelled.load(std::memory_order_relaxed) &&
-                   !failed.load(std::memory_order_relaxed)) {
-                const int observation = next_observation.fetch_add(1, std::memory_order_relaxed);
-                if (observation >= index.integer_count)
-                    break;
-                output[observation] = find_neighbors(index, observation, requested_neighbors);
-                completed.fetch_add(1, std::memory_order_relaxed);
-            }
-        } catch (...) {
-            std::lock_guard<std::mutex> lock(failure_mutex);
-            if (!failure)
-                failure = std::current_exception();
-            failed.store(true, std::memory_order_relaxed);
-        }
-    };
-
-    std::vector<std::thread> helpers;
-    helpers.reserve(static_cast<size_t>(thread_count - 1));
-    try {
-        for (int thread = 1; thread < thread_count; ++thread)
-            helpers.emplace_back(query_rows);
-    } catch (...) {
-        failed.store(true, std::memory_order_relaxed);
-        for (auto& helper : helpers)
-            helper.join();
-        throw;
+    umappp::NeighborList<int, float> output(index.integer_count);
+    for (int observation = 0; observation < index.integer_count; ++observation) {
+        if (cancelled.load(std::memory_order_relaxed))
+            break;
+        output[observation] = find_neighbors(index, observation, requested_neighbors);
+        completed.store(observation + 1, std::memory_order_relaxed);
     }
-    query_rows();
-    for (auto& helper : helpers)
-        helper.join();
-    if (failure)
-        std::rethrow_exception(failure);
     return output;
 }
 
@@ -397,7 +360,7 @@ void PrimeUmap3D::launch_pending_worker() {
     pending_request = false;
     cancel_requested.store(false, std::memory_order_release);
     worker_active.store(true, std::memory_order_release);
-    set_phase(Phase::Factoring, 0, static_cast<uint64_t>(next_parameters.integer_count),
+    set_phase(Phase::Factoring, 0, next_parameters.integer_count,
               "Factoring integers");
     try {
         worker = std::thread(&PrimeUmap3D::rebuild_embedding, this, next_parameters, generation);
@@ -452,7 +415,7 @@ void PrimeUmap3D::publish_embedding(const std::vector<float>& embedding, int cou
     float maximum[3] = {embedding[0], embedding[1], embedding[2]};
     for (int observation = 1; observation < count; ++observation) {
         for (int dimension = 0; dimension < 3; ++dimension) {
-            const float value = embedding[static_cast<size_t>(observation) * 3 + dimension];
+            const float value = embedding[observation * 3 + dimension];
             minimum[dimension] = std::min(minimum[dimension], value);
             maximum[dimension] = std::max(maximum[dimension], value);
         }
@@ -463,16 +426,16 @@ void PrimeUmap3D::publish_embedding(const std::vector<float>& embedding, int cou
         largest_span = std::max(largest_span, maximum[dimension] - minimum[dimension]);
     const float scale = largest_span > 0.0f ? 2.6f / largest_span : 1.0f;
 
-    std::vector<float> vertices(static_cast<size_t>(count) * 4);
+    std::vector<float> vertices(count * 4);
     for (int observation = 0; observation < count; ++observation) {
-        const size_t source = static_cast<size_t>(observation) * 3;
-        const size_t target = static_cast<size_t>(observation) * 4;
+        const size_t source = observation * 3;
+        const size_t target = observation * 4;
         for (int dimension = 0; dimension < 3; ++dimension) {
             const float center = (minimum[dimension] + maximum[dimension]) * 0.5f;
             vertices[target + dimension] = (embedding[source + dimension] - center) * scale;
         }
         vertices[target + 3] = static_cast<float>(observation) /
-            static_cast<float>(std::max(1, count - 1));
+            std::max(1, count - 1);
     }
 
     std::lock_guard<std::mutex> lock(worker_mutex);
@@ -503,12 +466,12 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
         }
 
         if (!index) {
-            set_phase(Phase::Factoring, 0, static_cast<uint64_t>(job.integer_count),
+            set_phase(Phase::Factoring, 0, job.integer_count,
                       "Factoring integers");
             index = build_prime_index(job.integer_count, cancel_requested,
                 progress_completed, progress_total, [this, &job](bool sorting) {
                     set_phase(Phase::Indexing, 0,
-                        sorting ? 0 : static_cast<uint64_t>(job.integer_count),
+                        sorting ? 0 : job.integer_count,
                         sorting ? "Sorting prime-factor subset index"
                                 : "Building prime-factor subset index");
                 });
@@ -523,31 +486,31 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
         if (cancel_requested.load(std::memory_order_relaxed))
             return;
 
-        set_phase(Phase::Neighbors, 0, static_cast<uint64_t>(job.integer_count),
+        set_phase(Phase::Neighbors, 0, job.integer_count,
                   "Building exact nearest neighbors");
-        auto neighbor_list = build_neighbor_list(*index, job.neighbors, job.worker_threads,
+        auto neighbor_list = build_neighbor_list(*index, job.neighbors,
             cancel_requested, progress_completed);
         if (cancel_requested.load(std::memory_order_relaxed))
             return;
 
-        std::vector<float> embedding(static_cast<size_t>(job.integer_count) * 3);
+        std::vector<float> embedding(job.integer_count * 3);
         umappp::Options options;
         options.num_epochs = job.epochs;
         options.min_dist = job.min_distance;
         options.repulsion_strength = job.repulsion_strength;
-        options.initialize_seed = static_cast<umappp::RngEngine::result_type>(job.random_seed);
-        options.optimize_seed = static_cast<umappp::RngEngine::result_type>(job.random_seed);
+        options.initialize_seed = job.random_seed;
+        options.optimize_seed = job.random_seed;
         options.num_threads = job.worker_threads;
         options.num_threads_spectral = job.worker_threads;
-        options.num_threads_optimize = 1;
-        if (job.integer_count > SPECTRAL_INITIALIZATION_LIMIT) {
+        options.num_threads_optimize = job.worker_threads;
+        if (!job.spectral_initialization) {
             options.initialize_method = umappp::InitializeMethod::RANDOM;
         } else {
             options.initialize_spectral_jitter = true;
         }
 
-        const std::string initialization = job.integer_count > SPECTRAL_INITIALIZATION_LIMIT
-            ? "Initializing UMAP layout (random initialization for large dataset)"
+        const std::string initialization = !job.spectral_initialization
+            ? "Initializing UMAP layout (random)"
             : "Initializing UMAP layout (spectral)";
         set_phase(Phase::Initializing, 0, 0, initialization);
         auto umap = umappp::initialize(std::move(neighbor_list), 3, embedding.data(), options);
@@ -555,19 +518,16 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
             return;
         publish_embedding(embedding, job.integer_count, generation, false);
 
-        const int epoch_chunk = 1;//job.integer_count >= 50000 ? 1 : 5;
-        const int preview_stride = std::max(1, job.epochs / 100);
-        set_phase(Phase::Optimizing, 0, static_cast<uint64_t>(job.epochs),
+        set_phase(Phase::Optimizing, 0, job.epochs,
                   "Optimizing UMAP layout");
         while (umap.epoch() < umap.num_epochs()) {
-            const int epoch_limit = std::min(umap.epoch() + epoch_chunk, umap.num_epochs());
+            const int epoch_limit = std::min(umap.epoch() + 1, umap.num_epochs());
             umap.run(embedding.data(), epoch_limit);
-            progress_completed.store(static_cast<uint64_t>(umap.epoch()), std::memory_order_relaxed);
+            progress_completed.store(umap.epoch(), std::memory_order_relaxed);
             if (cancel_requested.load(std::memory_order_relaxed))
                 return;
-            if (umap.epoch() == umap.num_epochs() || umap.epoch() % preview_stride == 0)
-                publish_embedding(embedding, job.integer_count, generation,
-                                  umap.epoch() == umap.num_epochs());
+            publish_embedding(embedding, job.integer_count, generation,
+                              umap.epoch() == umap.num_epochs());
         }
 
         const double elapsed = std::chrono::duration<double>(
@@ -616,7 +576,8 @@ bool PrimeUmap3D::render_gui() {
         changed |= ScrollableSliderInt("Random seed", &parameters.random_seed,
             0, 1000000, "%d", 1);
         changed |= ScrollableSliderInt("Worker threads", &parameters.worker_threads,
-            1, 32, "%d", 1);
+            1, 64, "%d", 1);
+        changed |= ImGui::Checkbox("Spectral initialization", &parameters.spectral_initialization);
         ScrollableSliderFloat("Rotation speed", &rotation_speed, -0.02f, 0.02f,
             "%.4f", 0.001f);
 
@@ -645,11 +606,8 @@ bool PrimeUmap3D::render_gui() {
             ImGui::ProgressBar(progress, ImVec2(-FLT_MIN, 0.0f), status_copy.c_str());
         }
 
-        if (parameters.integer_count > SPECTRAL_INITIALIZATION_LIMIT) {
-            ImGui::TextWrapped("Large datasets use random initialization to avoid an expensive, non-cancellable spectral decomposition.");
-        }
         const double estimated_gib = 0.15 +
-            static_cast<double>(parameters.integer_count) * parameters.neighbors * 48.0 /
+            parameters.integer_count * 48.0 * parameters.neighbors /
                 (1024.0 * 1024.0 * 1024.0);
         ImGui::Text("Estimated peak CPU memory: at least %.2f GiB", estimated_gib);
         if (estimated_gib > 2.0) {

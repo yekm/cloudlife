@@ -24,6 +24,7 @@ private:
         int epochs = 200;
         int random_seed = 42;
         int worker_threads = 1;
+        bool spectral_initialization = true;
         float min_distance = 0.1f;
         float repulsion_strength = 1.0f;
     };
