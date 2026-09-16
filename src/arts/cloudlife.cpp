@@ -36,6 +36,9 @@
 
 void Cloudlife::resize_field(int fw, int fh) {
     int s = fw * fh * sizeof(unsigned char);
+    if (f->width == 0) {
+        easel->pal.rescale(64);
+    }
     f->width = fw;
     f->height = fh;
 
@@ -44,7 +47,6 @@ void Cloudlife::resize_field(int fw, int fh) {
     std::fill(f->cells.begin(), f->cells.end(), 0);
     std::fill(f->new_cells.begin(), f->new_cells.end(), 0);
 
-    easel->pal.rescale(f->max_age);
 }
 
 unsigned char *Cloudlife::cell_at(unsigned int x, unsigned int y)
@@ -103,8 +105,11 @@ bool Cloudlife::render_gui() {
     up |= ScrollableSliderInt("Initial density", &density, 8, 256, "%d", 8);
     up |= ScrollableSliderUInt("Cell size", &f->cell_size, 1, 16, "%d", 1);
     up |= ScrollableSliderUInt("Max age", &f->max_age, 4, 255, "%d", 8);
-    //up |= ScrollableSliderUInt("ncolors", &ncolors, 0, 1024, "%d", 8);
-    up |= ImGui::ColorEdit4("Foreground", (float*)&foreground);
+    ScrollableSliderUInt("Color cycle interval", &cycle_colors, 0, 64, "%d ticks", 1);
+    ImGui::TextUnformatted("Set interval to 0 for a fixed foreground color.");
+    if (cycle_colors == 0) {
+        up |= ImGui::ColorEdit4("Foreground", (float*)&foreground);
+    }
     up |= ImGui::ColorEdit4("Backgroud", (float*)&background);
     up |= ImGui::ColorEdit4("Clear color", (float*)&clear_color);
 
@@ -133,10 +138,6 @@ void Cloudlife::populate_edges(unsigned int p)
 
 //--------------------------------------------------------------
 
-uint32_t Cloudlife::get_color_age(int age) {
-    return easel->pal.get_color(age);
-}
-
 void
 Cloudlife::draw_field()
 {
@@ -144,18 +145,23 @@ Cloudlife::draw_field()
     unsigned int rx, ry = 0;	/* random amount to offset the dot */
     unsigned int size = 1 << f->cell_size;
     unsigned int mask = size - 1;
-    unsigned int fg_count, bg_count;
     uint32_t fgc, bgc;
 
-    fgc = ImGui::GetColorU32(foreground);
-    //fgc = get_color_age(colorindex);// original color behaviour?
+    if (cycle_colors != 0) {
+        if (colortimer == 0 || colortimer > cycle_colors) {
+            // Count backwards through the palette, as in the original hack.
+            cycling_color = easel->pal.get_colorf(1.0f - easel->pal.get_next_color_index());
+            colortimer = cycle_colors;
+        }
+        colortimer--;
+        fgc = cycling_color;
+    } else {
+        fgc = ImGui::GetColorU32(foreground);
+    }
     bgc = ImGui::GetColorU32(background);
 
     /* columns 0 and width-1 are off screen and not drawn. */
     for (y = 1; y < f->height - 1; y++) {
-        fg_count = 0;
-        bg_count = 0;
-
         /* rows 0 and height-1 are off screen and not drawn. */
         for (x = 1; x < f->width - 1; x++) {
             rx = xoshiro256plus();
@@ -250,15 +256,6 @@ bool Cloudlife::render(uint32_t *p) {
         do_tick();
         populate_edges(0);
     }
-/*
-    if (ncolors) {
-        if (colortimer) {
-            colorindex--;
-            if (colorindex == 0)
-                colorindex = ncolors;
-        }
-    }
-*/
     cycles++;
 
     return false;
