@@ -119,6 +119,7 @@ FetchContent_MakeAvailable(colormap-shaders)
 # Find packages
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
+find_package(Threads REQUIRED)
 
 # Main library with all sources
 set(CLOUDS_SOURCES
@@ -193,7 +194,7 @@ target_include_directories(clouds
         ${stb_SOURCE_DIR}
 )
 
-target_link_libraries(clouds PRIVATE imgui glad glfw glm libscran::umappp OpenGL::GL)
+target_link_libraries(clouds PRIVATE imgui glad glfw glm libscran::umappp OpenGL::GL Threads::Threads)
 
 # Main executable
 add_executable(cloudlife main.cpp $<TARGET_OBJECTS:clouds>)
@@ -210,7 +211,7 @@ target_include_directories(cloudlife
         ${stb_SOURCE_DIR}
 )
 
-target_link_libraries(cloudlife PRIVATE imgui glad glfw glm OpenGL::GL)
+target_link_libraries(cloudlife PRIVATE imgui glad glfw glm OpenGL::GL Threads::Threads)
 
 # Platform-specific libraries for macOS
 if(APPLE)

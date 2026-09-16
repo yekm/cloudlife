@@ -9,8 +9,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <vector>
+#include <cstddef>
 #include <string>
+#include <vector>
 
 class EaselVertex3D : public Easel {
 public:
@@ -19,6 +20,9 @@ public:
 
     void drawdot(int32_t x, int32_t y, uint32_t c) override;
     void drawdot(float x, float y, float z, float c);
+    // Replaces the persistent point cloud with packed x, y, z, color values.
+    // Call this on the rendering thread; the GPU upload is deferred until render().
+    bool replace_geometry(std::vector<float> vertices);
     void freeze_geometry();
     void set_model_matrix(const glm::mat4& model);
 
@@ -32,6 +36,8 @@ private:
     void build_fragment_shader_source();
     void create_vertex_buffer();
     void destroy_vertex_buffer();
+    void ensure_cpu_capacity(std::size_t required_floats);
+    void ensure_gpu_capacity(std::size_t required_bytes);
     
     unsigned total_vertices = 0;
     unsigned frozen_vertices = 0;
@@ -53,7 +59,7 @@ private:
 
     // CPU backing buffer
     std::vector<float> cpu_backing_buffer;
-    size_t buffer_size = 0;
+    std::size_t gpu_buffer_size = 0;
 
     // 3D Camera State
     glm::vec3 cameraPos;

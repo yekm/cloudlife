@@ -3,10 +3,12 @@
 #include "imgui.h"
 #include "imgui_elements.h"
 
-#include <stdio.h>
-#include <iostream>
 #include "gl_state.h"
-#include <cstring>
+
+#include <algorithm>
+#include <cstdio>
+#include <iostream>
+#include <utility>
 
 const char* vertexShaderSource3D = R"(
     #version 330 core
@@ -62,17 +64,11 @@ EaselVertex3D::~EaselVertex3D() {
 }
 
 void EaselVertex3D::create_vertex_buffer() {
-    buffer_size = vertex_buffer_maximum() * 4 * sizeof(float); // x, y, z, c
-
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
 
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-    glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
-
-    cpu_backing_buffer.resize(buffer_size / sizeof(float));
 
     // x, y, z coords
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
@@ -91,6 +87,26 @@ void EaselVertex3D::destroy_vertex_buffer() {
 
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
+}
+
+void EaselVertex3D::ensure_cpu_capacity(size_t required_floats) {
+    if (required_floats <= cpu_backing_buffer.size())
+        return;
+
+    if (required_floats > cpu_backing_buffer.capacity()) {
+        const size_t current_capacity = cpu_backing_buffer.capacity();
+        const size_t grown_capacity = current_capacity > 0 ? current_capacity * 2 : 4096;
+        cpu_backing_buffer.reserve(std::max(required_floats, grown_capacity));
+    }
+    cpu_backing_buffer.resize(required_floats);
+}
+
+void EaselVertex3D::ensure_gpu_capacity(size_t required_bytes) {
+    if (required_bytes <= gpu_buffer_size)
+        return;
+
+    const size_t grown_capacity = gpu_buffer_size > 0 ? gpu_buffer_size * 2 : 4096 * sizeof(float);
+    gpu_buffer_size = std::max(required_bytes, grown_capacity);
 }
 
 void EaselVertex3D::build_fragment_shader_source() {
@@ -175,6 +191,7 @@ void EaselVertex3D::drawdot(float x, float y, float z, float c) {
     if (total_vertices >= vertex_buffer_maximum()) return;
 
     size_t index = total_vertices * 4;
+    ensure_cpu_capacity(index + 4);
     cpu_backing_buffer[index]     = x;
     cpu_backing_buffer[index + 1] = y;
     cpu_backing_buffer[index + 2] = z;
@@ -182,6 +199,27 @@ void EaselVertex3D::drawdot(float x, float y, float z, float c) {
     
     total_vertices++;
     geometry_dirty = true;
+}
+
+bool EaselVertex3D::replace_geometry(std::vector<float> vertices) {
+    if (vertices.size() % 4 != 0) {
+        std::fprintf(stderr, "EaselVertex3D: packed geometry must contain x, y, z, color values\n");
+        return false;
+    }
+
+    const size_t vertex_count = vertices.size() / 4;
+    if (vertex_count > vertex_buffer_maximum()) {
+        std::fprintf(stderr, "EaselVertex3D: geometry contains %zu vertices; maximum is %u\n",
+                     vertex_count, vertex_buffer_maximum());
+        return false;
+    }
+
+    cpu_backing_buffer = std::move(vertices);
+    total_vertices = static_cast<unsigned>(vertex_count);
+    frozen_vertices = total_vertices;
+    geometry_frozen = true;
+    geometry_dirty = true;
+    return true;
 }
 
 void EaselVertex3D::freeze_geometry() {
@@ -215,7 +253,7 @@ void EaselVertex3D::updateCameraVectors() {
 
 void EaselVertex3D::gui() {
     if (ImGui::CollapsingHeader("EaselVertex3D Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Text("Vertices: %d / %d", total_vertices, vertex_buffer_maximum());
+        ImGui::Text("Vertices: %u / %u", total_vertices, vertex_buffer_maximum());
         ScrollableSliderFloat("Point Size", &point_size, 0.1f, 10.0f, "%.1f", 0.1f);
         
         ImGui::Separator();
@@ -318,11 +356,15 @@ void EaselVertex3D::render() {
     
     const unsigned vertices_to_draw = geometry_frozen ? frozen_vertices : total_vertices;
 
-    // Frozen geometry is uploaded once; dynamic geometry retains the old behavior.
+    // Orphan before every changed upload to avoid waiting for a draw that is still consuming
+    // the previous contents. Frozen geometry is unchanged between these dirty uploads.
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     if (!geometry_frozen || geometry_dirty) {
-        glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_DYNAMIC_DRAW);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, vertices_to_draw * 4 * sizeof(float),
+        const size_t upload_size = static_cast<size_t>(vertices_to_draw) * 4 * sizeof(float);
+        ensure_gpu_capacity(upload_size);
+        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(gpu_buffer_size), nullptr,
+                     GL_DYNAMIC_DRAW);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(upload_size),
             cpu_backing_buffer.data());
         geometry_dirty = false;
     }
