@@ -114,6 +114,31 @@ To add a new screensaver:
 4. Add files to `CLOUDS_SOURCES` in `CMakeLists.txt`
 5. Rebuild: `cmake --build build -j$(nproc)`
 
+## Porting from xscreensaver
+
+Follow the initial Hopalong port in commits `02fc782` and `a4e8ab4`:
+
+1. Import the original xscreensaver source unchanged as a separate first step,
+   retaining its copyright, permission notice, comments, and revision history.
+   Keep this import separate from the adaptation so the port can be compared
+   directly with its source. When commits are requested, use separate import
+   and port commits, as in the Hopalong example.
+2. Adapt the imported source into an `Art` implementation. Move per-screen state
+   into the art instance, connect initialization and drawing to the Cloudlife
+   lifecycle, and replace xscreensaver/X11 window, drawing, random, and resource
+   APIs with the corresponding Cloudlife and Easel facilities.
+3. Expose the original useful parameters through Dear ImGui controls, register
+   the art with the factory, add it to CMake, and record attribution in README.md.
+
+While porting, most of the original lines should stay untouched if possible.
+Preserve the original algorithm, formulas, control flow, variable names, comments,
+and formatting wherever the integration permits. Limit changes to what is needed
+to make the port work in Cloudlife; avoid unrelated cleanup, renaming, reformatting,
+modernization, or optimization in the initial port. This preservation rule takes
+precedence over the general style guidelines for imported code. Apply project
+style to newly written integration code. Keep later fixes and improvements
+separate from the initial port so their behavioral changes are easy to review.
+
 ## Dependencies
 
 - **GLFW3** - Window/input management
