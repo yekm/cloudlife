@@ -12,6 +12,8 @@ public:
 
     unsigned shuffles = 0;
 
+    std::string about() const override { return "Scheduling test fixture."; }
+
 private:
     bool render(uint32_t*) override { return false; }
     void shuffle() override { ++shuffles; }

@@ -6,10 +6,47 @@
 #include <vector>
 #include <memory>
 #include <deque>
+#include <string>
 
 
 class Minskytron : public Art {
 public:
+    std::string about() const override
+    {
+        return "Minskytron traces its origin to Marvin Minsky's early-1960s Tri-Pos display demonstration "
+               "on the DEC PDP-1. This attribution is recorded in the repository README and in the linked "
+               "PDP-1 reconstruction. The related circle algorithm appears as Minsky's item 149 in MIT's "
+               "HAKMEM, AI Memo 239, dated 29 February 1972. Cloudlife implements coupled integer "
+               "oscillators directly rather than emulating the original machine.\n\n"
+               "A basic shift-and-add oscillator repeatedly changes its coordinates using additions and "
+               "subtractions of small fractions of the other coordinate. When those fractions are powers of "
+               "two, right shifts replace multiplication. Updating one coordinate and then using its new "
+               "value in the other update can create approximately elliptical motion. Minskytron connects "
+               "three such coordinate pairs so that each oscillator also responds to the others.\n\n"
+               "In this implementation a cycle updates the six integer coordinates sequentially:\n"
+               "ya += (xa + xb) >> s0; xa -= (ya - yb) >> s1;\n"
+               "yb += (xb - xc) >> s2; xb -= (yb - yc) >> s3;\n"
+               "yc += (xc - xa) >> s4; xc -= (yc - ya) >> s5.\n"
+               "The six shifts control coupling strength and asymmetry. Their values come from six five-bit "
+               "groups of the Test word, each increased by one. This differs from the original PDP-1's "
+               "smaller test-word groups, so the linked emulator provides historical context rather than "
+               "identical numerical presets.\n\n"
+               "After each cycle the three positions are appended to a bounded history. The renderer "
+               "redraws that history with separate oscillator colors and an opacity curve based on relative "
+               "age. Max dots controls history length, and Cycles controls the number of new steps per "
+               "frame. Gamma changes the opacity profile; Dots clamped gamma makes the newest portion fully "
+               "bright while reducing the older portion's opacity.\n\n"
+               "Texture power sets a square image whose side length is 2 raised to the selected value, and "
+               "the oscillator coordinates are projected from their high bits onto this image. Changing the "
+               "Test word or texture size resets the oscillators. Try coordinated changes to pairs of shift "
+               "groups for different scales, then asymmetric changes for distorted loops and interwoven "
+               "motion. Osc1, osc2, and osc3 color distinguish the three paths.\n\n"
+               "Further reading:\n"
+               "https://www.masswerk.at/minskytron/\n"
+               "https://www.inwap.com/pdp10/hbaker/hakmem/hacks.html#item149\n"
+               "https://en.wikipedia.org/wiki/PDP-1";
+    }
+
     Minskytron()
         : Art("Minskytron") {}
 

@@ -33,9 +33,40 @@ void Art::resized(int _w, int _h) {
 bool Art::gui() {
     if (ImGui::Button("Shuffle"))
         shuffle();
+    ImGui::SameLine();
+    if (ImGui::Button("About"))
+        m_show_about = true;
     easel->gui();
 
     bool resize_pbo = render_gui();
+
+    if (m_show_about) {
+        ImGui::SetNextWindowSize(ImVec2(720, 600), ImGuiCond_FirstUseEver);
+        const std::string title = "About " + m_name + "###ArtAbout";
+        if (ImGui::Begin(title.c_str(), &m_show_about, ImGuiWindowFlags_HorizontalScrollbar)) {
+            const std::string description = about();
+            ImGui::PushTextWrapPos(0.0f);
+            size_t start = 0;
+            while (start < description.size()) {
+                const size_t end = description.find('\n', start);
+                const std::string line = description.substr(start, end - start);
+                if (line.compare(0, 8, "https://") == 0 || line.compare(0, 7, "http://") == 0) {
+                    ImGui::PushID(static_cast<int>(start));
+                    ImGui::TextLinkOpenURL(line.c_str());
+                    ImGui::PopID();
+                } else if (line.empty()) {
+                    ImGui::Spacing();
+                } else {
+                    ImGui::TextUnformatted(line.c_str());
+                }
+                if (end == std::string::npos)
+                    break;
+                start = end + 1;
+            }
+            ImGui::PopTextWrapPos();
+        }
+        ImGui::End();
+    }
 
     return resize_pbo;
 }

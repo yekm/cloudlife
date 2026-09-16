@@ -6,6 +6,42 @@
 
 class AcidWarpGpt56Luna : public Art {
 public:
+    std::string about() const override
+    {
+        return "History and provenance\n"
+               "This is Cloudlife's Gpt56Luna compute-shader interpretation of AcidWarp. The inherited program "
+               "was created by Noah Spurrier: readme.md and the archived AcidWarp source carry his 1992 and 1993 "
+               "copyright notice. The archive's README identifies Steven Wills as the author of the Linux port "
+               "of the DOS program. These credits describe the original lineage; the available comments do not "
+               "establish the author or creation date of this particular GPU variant.\n"
+               "\n"
+               "Algorithm\n"
+               "Each pixel is evaluated independently. Pixel coordinates are centered and divided by half the "
+               "shorter image dimension, preserving circular geometry across different aspect ratios. The "
+               "pattern scale multiplies those coordinates. A selected scalar field combines distance from the "
+               "center, atan-based polar angle, horizontal and vertical trigonometric waves, and rings around "
+               "several randomly chosen centers. Other functions combine fields by multiplication, make angular "
+               "sectors and repeated grids, or mix a vertically stretched field with the original. The shader "
+               "implements function numbers 0 through 40 as interpretations of the classic pattern families.\n"
+               "\n"
+               "The original recursive rain functions depend on previously calculated scanline pixels. Functions "
+               "28, 29, 33, and 34 instead use a rotated, quantized hash field to create diagonal streaks that "
+               "can be calculated in parallel. This is an approximation, not a reproduction of the original "
+               "recurrence.\n"
+               "\n"
+               "The fractional part of the field plus a palette phase selects the active colormap. All three "
+               "color channels share this phase. Palette speed advances it once per rendered frame, so colors "
+               "can flow even with geometric motion set to zero. A CPU state machine selects an image, fades it "
+               "in, holds the rotating palette, and fades out toward black or white. Fades reach their endpoint "
+               "after about 63 frames; frames each state also sets the hold time. Controls choose the function, "
+               "scale, motion, palette speed, state duration, and fade color.\n"
+               "\n"
+               "References\n"
+               "https://noah.org/acidwarp/\n"
+               "https://en.wikipedia.org/wiki/Color_cycling\n"
+               "https://en.wikipedia.org/wiki/Procedural_texture";
+    }
+
     AcidWarpGpt56Luna();
 
 private:

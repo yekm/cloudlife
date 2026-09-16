@@ -1,13 +1,60 @@
 #pragma once
 
+// https://github.com/nicoptere/physarum
+// https://github.com/fogleman/physarum
+
 #include "art.hpp"
 
 #include <array>
 #include <random>
 #include <vector>
+#include <string>
 
 class Physarum : public Art {
 public:
+    std::string about() const override
+    {
+        return "History and provenance\n"
+               "The header cites the nicoptere/physarum and fogleman/physarum repositories as references. They "
+               "provide JavaScript/WebGL and Go examples of slime-mold-inspired simulation. The local source "
+               "does not record an author or creation date for the Cloudlife implementation or establish that it "
+               "is a direct copy of either project. The biological inspiration is Physarum polycephalum, whose "
+               "trail-following behavior motivates this simplified agent model.\n"
+               "\n"
+               "Algorithm\n"
+               "Each species has particles with a position and heading, a trail grid, and its own movement and "
+               "sensing parameters. Initialization scatters particles and headings randomly, fills trails with "
+               "small random values, and normally makes species attracted to their own trails and repelled by "
+               "other species. Before moving particles, the simulation constructs one sensed field per species "
+               "as a weighted sum of all trail grids. The attraction matrix supplies those weights, with "
+               "positive values attracting and negative values repelling.\n"
+               "\n"
+               "Each particle samples that field ahead and at two directions offset by sensor angle, all at the "
+               "configured sensor distance. If the forward signal is weaker than both side signals, it chooses a "
+               "random turn direction. Otherwise it turns toward the stronger side, or keeps its direction when "
+               "side signals tie. It moves by step distance and adds deposition amount to its own species' trail "
+               "at the destination. Grid sampling and deposition wrap periodically at the image boundaries.\n"
+               "\n"
+               "After all particles move, each species' grid is blurred by horizontal and vertical three-sample "
+               "averages, equivalent to a 3 by 3 box filter, and multiplied by its decay factor. Thus deposited "
+               "material diffuses and gradually disappears. Rendering maps trail intensity through a clamped "
+               "square root, adds fixed species colors, and clips the summed RGB values. CPU cost is controlled "
+               "by limiting the simulation's longer dimension to roughly 512 cells and scaling it to the "
+               "display.\n"
+               "\n"
+               "Controls set particles per species, species count, simulation steps per frame, and the selected "
+               "species' sensor angle/distance, turn angle, step distance, deposition, decay, and attraction "
+               "from each species. Population changes and shuffle reinitialize the simulation. Networks emerge "
+               "from local feedback; this is an artistic model rather than a complete biological simulation.\n"
+               "\n"
+               "References\n"
+               "https://github.com/nicoptere/physarum\n"
+               "https://github.com/fogleman/physarum\n"
+               "https://en.wikipedia.org/wiki/Physarum_polycephalum\n"
+               "https://en.wikipedia.org/wiki/Chemotaxis\n"
+               "https://en.wikipedia.org/wiki/Agent-based_model";
+    }
+
     Physarum();
 
 private:

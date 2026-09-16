@@ -24,6 +24,10 @@ public:
     /* returns true if there is a need to recreate PBOs */
     bool gui();
 
+    // History, algorithm, and references displayed by the shared About window.
+    // Put article URLs on separate lines to render them as clickable links.
+    virtual std::string about() const = 0;
+
     /* draws a picture into tex_w x tex_h uint32_t RGBA memory buffer */
     void draw();
 
@@ -59,6 +63,8 @@ public:
     void save_frame();
 
 private:
+    bool m_show_about = false;
+
     virtual void resize(int _w, int _h) { default_resize(_w, _h); };
     virtual bool render_gui() {return false;}
     virtual bool render(uint32_t *p) = 0;
