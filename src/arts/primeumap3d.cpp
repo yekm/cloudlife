@@ -14,6 +14,8 @@
 #include <exception>
 #include <functional>
 #include <limits>
+#include <numeric>
+#include <random>
 #include <stdexcept>
 #include <utility>
 
@@ -26,10 +28,10 @@ constexpr unsigned INDEX_BITS = 20;
 constexpr uint64_t INDEX_MASK = (uint64_t{1} << INDEX_BITS) - 1;
 constexpr size_t PROGRESS_INTERVAL = 4096;
 
-uint64_t make_entry(int subset_product, int factor_count, int observation) {
+uint64_t make_entry(int subset_product, int factor_count, int rank) {
     const uint64_t key = static_cast<uint64_t>(subset_product) * FACTOR_COUNT_BASE +
         factor_count;
-    return (key << INDEX_BITS) | observation;
+    return (key << INDEX_BITS) | rank;
 }
 
 uint64_t entry_key(int subset_product, int factor_count) {
@@ -37,7 +39,7 @@ uint64_t entry_key(int subset_product, int factor_count) {
         factor_count;
 }
 
-int entry_observation(uint64_t entry) {
+int entry_rank(uint64_t entry) {
     return entry & INDEX_MASK;
 }
 
@@ -83,6 +85,8 @@ struct EntryCursor {
 struct PrimeIndexData {
     int integer_count = 0;
     int maximum_factor_count = 0;
+    int random_seed = 0;
+    std::vector<int> rank_to_observation;
     std::vector<uint32_t> factor_offsets;
     std::vector<int> factors;
     std::vector<uint64_t> subset_entries;
@@ -103,11 +107,19 @@ struct PrimeIndexData {
 namespace {
 
 std::shared_ptr<PrimeIndexData> build_prime_index(
-    int count, const std::atomic<bool>& cancelled,
+    int count, int random_seed, const std::atomic<bool>& cancelled,
     std::atomic<uint64_t>& completed, std::atomic<uint64_t>& total,
     const std::function<void(bool)>& begin_indexing) {
     auto output = std::make_shared<PrimeIndexData>();
     output->integer_count = count;
+    output->random_seed = random_seed;
+    output->rank_to_observation.resize(count);
+    std::iota(output->rank_to_observation.begin(), output->rank_to_observation.end(), 0);
+    std::mt19937 random_engine(random_seed);
+    std::shuffle(output->rank_to_observation.begin(), output->rank_to_observation.end(), random_engine);
+    std::vector<int> observation_to_rank(count);
+    for (int rank = 0; rank < count; ++rank)
+        observation_to_rank[output->rank_to_observation[rank]] = rank;
     output->factor_offsets.resize(count + 1);
 
     const int largest = count + 1;
@@ -162,7 +174,8 @@ std::shared_ptr<PrimeIndexData> build_prime_index(
                 if (mask & (1u << factor))
                     product *= range.first[factor];
             }
-            output->subset_entries.push_back(make_entry(product, factor_count, observation));
+            output->subset_entries.push_back(
+                make_entry(product, factor_count, observation_to_rank[observation]));
         }
 
         if ((observation + 1) % PROGRESS_INTERVAL == 0) {
@@ -193,7 +206,7 @@ void append_neighbors_for_score(const PrimeIndexData& index, int observation,
                                 const int* query_begin, const int* query_end,
                                 const std::vector<NeighborBucket>& buckets,
                                 size_t bucket_begin, size_t bucket_end,
-                                size_t neighbor_count,
+                                size_t neighbor_count, int first_rank,
                                 std::vector<std::pair<int, float>>& output) {
     std::vector<EntryCursor> cursors;
     for (size_t bucket_index = bucket_begin; bucket_index < bucket_end; ++bucket_index) {
@@ -209,26 +222,40 @@ void append_neighbors_for_score(const PrimeIndexData& index, int observation,
                     product *= query_begin[factor];
             }
             auto cursor = index.entries_for(product, bucket.factor_count);
-            if (cursor.position != cursor.end)
-                cursors.push_back(cursor);
+            // Rotate the seeded random order independently for each query. Split
+            // each posting at the pivot so merging still visits every candidate once.
+            const auto split = std::lower_bound(
+                index.subset_entries.begin() + cursor.position,
+                index.subset_entries.begin() + cursor.end,
+                make_entry(product, bucket.factor_count, first_rank));
+            const size_t split_position = split - index.subset_entries.begin();
+            if (split_position != cursor.end)
+                cursors.push_back({split_position, cursor.end});
+            if (cursor.position != split_position)
+                cursors.push_back({cursor.position, split_position});
         }
     }
 
     const double group_distance = buckets[bucket_begin].distance;
     while (!cursors.empty() && output.size() < neighbor_count) {
-        int candidate = std::numeric_limits<int>::max();
+        int candidate_rank = -1;
+        int candidate_order = std::numeric_limits<int>::max();
         for (const auto& cursor : cursors) {
             if (cursor.position != cursor.end) {
-                candidate = std::min(candidate,
-                    entry_observation(index.subset_entries[cursor.position]));
+                const int rank = entry_rank(index.subset_entries[cursor.position]);
+                const int order = (rank - first_rank + index.integer_count) % index.integer_count;
+                if (order < candidate_order) {
+                    candidate_rank = rank;
+                    candidate_order = order;
+                }
             }
         }
-        if (candidate == std::numeric_limits<int>::max())
+        if (candidate_rank < 0)
             break;
 
         for (auto& cursor : cursors) {
             while (cursor.position != cursor.end &&
-                   entry_observation(index.subset_entries[cursor.position]) == candidate) {
+                   entry_rank(index.subset_entries[cursor.position]) == candidate_rank) {
                 ++cursor.position;
             }
         }
@@ -236,6 +263,7 @@ void append_neighbors_for_score(const PrimeIndexData& index, int observation,
             return cursor.position == cursor.end;
         }), cursors.end());
 
+        const int candidate = index.rank_to_observation[candidate_rank];
         if (candidate == observation)
             continue;
         const auto candidate_range = index.factor_range(candidate);
@@ -256,6 +284,12 @@ std::vector<std::pair<int, float>> find_neighbors(const PrimeIndexData& index,
     const auto query_range = index.factor_range(observation);
     const int query_factor_count = query_range.second - query_range.first;
     const size_t neighbor_count = std::min(requested_neighbors, index.integer_count - 1);
+
+    std::seed_seq row_seed{static_cast<unsigned>(index.random_seed),
+                          static_cast<unsigned>(observation)};
+    std::mt19937 random_engine(row_seed);
+    std::uniform_int_distribution<int> sample_observation(0, index.integer_count - 1);
+    const int first_rank = sample_observation(random_engine);
 
     std::vector<NeighborBucket> buckets;
     for (int shared = 1; shared <= query_factor_count; ++shared) {
@@ -283,14 +317,18 @@ std::vector<std::pair<int, float>> find_neighbors(const PrimeIndexData& index,
             ++bucket_end;
         }
         append_neighbors_for_score(index, observation, query_range.first, query_range.second,
-                                   buckets, bucket, bucket_end, neighbor_count, output);
+                                   buckets, bucket, bucket_end, neighbor_count, first_rank, output);
         bucket = bucket_end;
     }
 
-    for (int candidate = 0;
-         candidate < index.integer_count && output.size() < neighbor_count;
-         ++candidate) {
-        if (candidate == observation)
+    // Rejection sampling gives distinct, uniformly chosen distance-1 neighbors
+    // without scanning the full dataset for every isolated prime.
+    while (output.size() < neighbor_count) {
+        const int candidate = sample_observation(random_engine);
+        if (candidate == observation ||
+            std::any_of(output.begin(), output.end(), [candidate](const auto& neighbor) {
+                return neighbor.first == candidate;
+            }))
             continue;
         const auto candidate_range = index.factor_range(candidate);
         if (count_shared_factors(query_range.first, query_range.second,
@@ -458,7 +496,8 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
         std::shared_ptr<PrimeIndexData> index;
         {
             std::lock_guard<std::mutex> lock(worker_mutex);
-            if (cached_index && cached_index->integer_count == job.integer_count) {
+            if (cached_index && cached_index->integer_count == job.integer_count &&
+                cached_index->random_seed == job.random_seed) {
                 index = cached_index;
             } else {
                 cached_index.reset();
@@ -468,7 +507,7 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
         if (!index) {
             set_phase(Phase::Factoring, 0, job.integer_count,
                       "Factoring integers");
-            index = build_prime_index(job.integer_count, cancel_requested,
+            index = build_prime_index(job.integer_count, job.random_seed, cancel_requested,
                 progress_completed, progress_total, [this, &job](bool sorting) {
                     set_phase(Phase::Indexing, 0,
                         sorting ? 0 : job.integer_count,
