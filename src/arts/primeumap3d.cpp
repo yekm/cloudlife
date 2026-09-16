@@ -611,7 +611,7 @@ bool PrimeUmap3D::render_gui() {
             0.0f, 0.99f, "%.2f", 0.02f);
         changed |= ScrollableSliderInt("Epochs", &parameters.epochs, 50, 1000, "%d", 50);
         changed |= ScrollableSliderFloat("Repulsion strength", &parameters.repulsion_strength,
-            0.1f, 3.0f, "%.2f", 0.1f);
+            0.1f, 100.0f, "%.2f", 0.1f);
         changed |= ScrollableSliderInt("Random seed", &parameters.random_seed,
             0, 1000000, "%d", 1);
         changed |= ScrollableSliderInt("Worker threads", &parameters.worker_threads,

@@ -67,14 +67,14 @@ public:
 
 private:
     struct Parameters {
-        int integer_count = 500;
-        int neighbors = 15;
-        int epochs = 200;
+        int integer_count = 5000;
+        int neighbors = 13;
+        int epochs = 300;
         int random_seed = 42;
         int worker_threads = 1;
         bool spectral_initialization = true;
         float min_distance = 0.1f;
-        float repulsion_strength = 1.0f;
+        float repulsion_strength = 30.0f;
     };
 
     enum class Phase : int {
