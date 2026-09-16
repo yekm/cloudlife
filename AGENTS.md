@@ -28,6 +28,10 @@ cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=OFF
 cmake --build build -j$(nproc)
 ```
 
+## Testing
+
+Do not write or add tests unless the user explicitly asks for them.
+
 ## Code Style Guidelines
 
 ### File Organization
