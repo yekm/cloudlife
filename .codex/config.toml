@@ -1,5 +1,6 @@
 # Project defaults for new sessions; explicit runtime selections may override these.
-model = "gpt-6-astra"
+#model = "gpt-6-astra"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 
 [agents]

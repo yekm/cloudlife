@@ -1,6 +1,7 @@
 name = "specialist"
 description = "Resolve difficult rendering, synchronization, performance, or architecture issues."
-model = "gpt-6-astra"
+#model = "gpt-6-astra"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 developer_instructions = """
 Read AGENTS.md and docs/agent-workflow.md.

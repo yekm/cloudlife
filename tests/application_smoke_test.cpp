@@ -148,6 +148,12 @@ int main(int argc, char** argv)
     }
     if (!window_created)
         return 77;
+    const int selected_id = argc > 1 ? std::atoi(argv[1]) : 1;
+    if (((selected_id == 0 || selected_id == 12) && !GLAD_GL_VERSION_3_3) ||
+        (selected_id >= 17 && !GLAD_GL_VERSION_4_3)) {
+        std::puts("Requested renderer is unsupported by this test context; skipping.");
+        return 77;
+    }
     if (result != 0 || frames != 3 || lifetime_failed || capture_failed) {
         if (capture_failed)
             std::fprintf(stderr, "Screenshot pixels did not match the completed nonempty frame or PNGs were missing\n");

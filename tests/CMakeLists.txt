@@ -11,6 +11,7 @@ endfunction()
 
 add_cloudlife_test(art_schedule_test art_schedule_test.cpp)
 add_cloudlife_test(easelplane_test easelplane_test.cpp)
+add_cloudlife_test(artfactory_test artfactory_test.cpp)
 
 option(CLOUDLIFE_BUILD_GL_TESTS "Build integration tests requiring a window system and OpenGL" OFF)
 if(CLOUDLIFE_BUILD_GL_TESTS)
@@ -23,4 +24,8 @@ if(CLOUDLIFE_BUILD_GL_TESTS)
     set_tests_properties(application_smoke_test application_lifetime_vertex
         application_lifetime_vertex3d application_capture_plane application_capture_vertex
         application_capture_gui PROPERTIES SKIP_RETURN_CODE 77)
+    if(NOT APPLE)
+        add_test(NAME application_capture_compute COMMAND application_smoke_test 21 --capture)
+        set_tests_properties(application_capture_compute PROPERTIES SKIP_RETURN_CODE 77)
+    endif()
 endif()
