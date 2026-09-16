@@ -1,5 +1,7 @@
 #pragma once
 
+// https://github.com/SpectralFlame/Collatz-birb-3D
+
 #include "art.hpp"
 
 #include <cstdint>
