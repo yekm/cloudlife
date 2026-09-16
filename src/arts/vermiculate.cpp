@@ -381,7 +381,8 @@ Vermiculate::maininit ()
 {
   if (!instring)
     {
-      int n = random1 (sizeof (sampleStrings) / sizeof (sampleStrings[0]));
+      int n = selected_sample >= 0 ? selected_sample :
+        random1 (sizeof (sampleStrings) / sizeof (sampleStrings[0]));
       if (oinstring) free (oinstring);
 #if defined(_MSC_VER)
       instring = oinstring = _strdup(sampleStrings[n].str);
@@ -400,6 +401,7 @@ Vermiculate::maininit ()
   ogd = 8;
   ch = '\0';
   erasing = true;
+  autopal = false;
   {
     unsigned char thr;
     for (thr = 1; thr <= thrmax; thr++)
@@ -697,8 +699,8 @@ bool Vermiculate::render (uint32_t *p)
       if (oinstring) free (oinstring);
       instring = oinstring = 0;
       maininit();
+      consume_instring();
       reset_p = true;
-      autopal = false;
     }
 
   //if (this_delay == 0 && loop++ < 1000)
@@ -710,19 +712,37 @@ bool Vermiculate::render (uint32_t *p)
 
 bool Vermiculate::render_gui ()
 {
-    bool up = false;
+    bool preset_changed = false;
+    const std::string preview = selected_sample < 0 ? "Random" :
+        "Sample " + std::to_string(selected_sample + 1);
+    if (ImGui::BeginCombo("Sample", preview.c_str())) {
+        if (ImGui::Selectable("Random", selected_sample < 0)) {
+            preset_changed = selected_sample != -1;
+            selected_sample = -1;
+        }
+        const int sample_count = sizeof(sampleStrings) / sizeof(sampleStrings[0]);
+        for (int i = 0; i < sample_count; ++i) {
+            const bool selected = selected_sample == i;
+            const std::string label = "Sample " + std::to_string(i + 1);
+            if (ImGui::Selectable(label.c_str(), selected)) {
+                preset_changed = selected_sample != i;
+                selected_sample = i;
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", sampleStrings[i].str);
+            if (selected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
 
     ScrollableSliderInt("ticks", &max_ticks, 0, 20000, "%d", 8);
     ScrollableSliderInt("cycles", &cycles, 0, 1024, "%d", 1);
-    //up |= ScrollableSliderInt("Speed", &speed, 1, 1024, "%d", 1);
-
-	// TODO: select instring
-
-    if (up) {
+    if (preset_changed) {
         resize(easel->w, easel->h);
     }
 
-    return up;
+    return false;
 }
 
 

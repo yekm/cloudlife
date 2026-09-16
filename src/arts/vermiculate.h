@@ -58,7 +58,8 @@ public:
                "erase wall sections. Old positions are erased or recolored as the circular history "
                "advances, and threads trapped without movement can trigger a reset.\n\n"
                "The archived program includes a compact command language for configuring these behaviors. "
-               "This port selects from stored command strings, so many detailed rules are preset rather "
+               "The Sample selector chooses a stored command string or picks one randomly on reset, so "
+               "many detailed rules are preset rather "
                "than individually exposed as sliders. Cycles controls the number of movement rounds "
                "performed per frame; even zero still performs the first round. Ticks sets the reset "
                "threshold within a frame's movement batch. The current counter starts again each frame, so "
@@ -82,6 +83,7 @@ private:
   char *oinstring = 0;       /* allocated */
   const char *instring = 0;  /* consumed */
   int max_ticks = 20000;
+  int selected_sample = -1;  // -1 keeps random preset selection on reset.
 
   real sinof[degs], cosof[degs], tanof[degs];
   std::vector<uint32_t> point;
@@ -124,4 +126,3 @@ private:
 
 
 };
-
