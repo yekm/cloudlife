@@ -45,7 +45,7 @@ public:
     bool RenderGui() override;
 
     void rescale(uint32_t ncolours);
-    uint32_t get_color_count() const { return color_max; }
+    uint32_t get_color_count() const;
     uint32_t get_color(uint32_t color_n);
     uint32_t get_colorf(float color_n) const;
     float get_color_index(uint32_t color_n) const;
@@ -58,6 +58,7 @@ private:
     uint32_t color_max = 1024;
     uint32_t current_color = 0;
     bool invert = false;
+    bool cyclic = false;
 
     VectorCombo vc;
 

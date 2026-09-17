@@ -8,8 +8,46 @@
 #include "imgui_elements.h"
 #include <algorithm>
 #include <iterator>
+#include <cmath>
+#include <limits>
+#include <utility>
 
 #include <iostream>
+
+namespace {
+
+// Preserve the colormap interface while traversing two mirrored copies of its domain.
+class CyclicColormap : public colormap::Colormap {
+public:
+    explicit CyclicColormap(std::shared_ptr<const colormap::Colormap> cmap)
+        : m_cmap(std::move(cmap)) {}
+
+    colormap::Color getColor(double x) const override
+    {
+        x -= std::floor(x);
+        return m_cmap->getColor(1.0 - std::abs(2.0 * x - 1.0));
+    }
+
+    std::string getTitle() const override { return m_cmap->getTitle() + " (cyclic)"; }
+    std::string getCategory() const override { return m_cmap->getCategory(); }
+
+    std::string getSource() const override
+    {
+        // Rename the library function in the generated shader, leaving library files intact.
+        return "\n#define colormap cloudlife_base_colormap\n" + m_cmap->getSource() + R"(
+#undef colormap
+vec4 colormap(float x)
+{
+    return cloudlife_base_colormap(1.0 - abs(2.0 * fract(x) - 1.0));
+}
+)";
+    }
+
+private:
+    std::shared_ptr<const colormap::Colormap> m_cmap;
+};
+
+} // namespace
 
 PaletteSetting::PaletteSetting(std::string pname)
     : Setting("Palette") {
@@ -32,19 +70,24 @@ PaletteSetting::PaletteSetting(std::string pname)
 }
 
 bool PaletteSetting::RenderGui() {
+    bool ret = vc.RenderGui();
+
     ImGui::Checkbox("invert", &invert);
     ImGui::SameLine(0, 1);
-
-    bool ret = vc.RenderGui();
+    ret = ImGui::Checkbox("cyclic", &cyclic) || ret;
     if (ret) {
         auto selected = maps.find(vc.get_value());
-        if (selected != maps.end())
-            current_cmap = selected->second;
+        if (selected != maps.end()) {
+            if (cyclic)
+                current_cmap = std::make_shared<CyclicColormap>(selected->second);
+            else
+                current_cmap = selected->second;
+        }
     }
 
     ScrollableSliderUInt("Max colors", &color_max, 1, 1024*32, "%d", 128);
 
-    ImGui::Text("current color / max %d / %d", current_color, color_max);
+    ImGui::Text("current color / max %u / %u", current_color, get_color_count());
     // ImGui::Text("current color %x", get_color(current_color)); // slow!
 
     return ret;
@@ -54,10 +97,19 @@ void PaletteSetting::rescale(uint32_t ncolours) {
     color_max = std::max<uint32_t>(ncolours, 1);
 }
 
+uint32_t PaletteSetting::get_color_count() const
+{
+    if (!cyclic)
+        return color_max;
+    return static_cast<uint32_t>(std::min<uint64_t>(uint64_t(color_max) * 2,
+                                                   std::numeric_limits<uint32_t>::max()));
+}
+
 uint32_t PaletteSetting::get_color(uint32_t color_n) {
     //if (color_n > color_max)
     //    std::cerr << "color_n > color_max " << color_n << " > " << color_max << std::endl;
-    return get_colorf((float)(color_n%color_max)/color_max);
+    const auto count = get_color_count();
+    return get_colorf(static_cast<float>(color_n % count) / count);
 }
 
 uint32_t PaletteSetting::get_colorf(float color_n) const {
@@ -77,14 +129,14 @@ uint32_t PaletteSetting::get_colorf(float color_n) const {
 }
 
 float PaletteSetting::get_color_index(uint32_t color_n) const {
-    return static_cast<float>(color_n) / static_cast<float>(std::max<uint32_t>(color_max, 1));
+    return static_cast<float>(color_n) / static_cast<float>(get_color_count());
 }
 
 float PaletteSetting::get_next_color_index() {
     ++current_color;
-    if (current_color > color_max)
+    if (current_color > get_color_count())
         current_color = 0;
-    return (float)current_color / color_max;
+    return static_cast<float>(current_color) / get_color_count();
 }
 
 uint32_t PaletteSetting::get_next_color() {
