@@ -33,208 +33,64 @@
 #define LYAP_PATCHLEVEL 4
 #define LYAP_VERSION "#(@) lyap 2.3 2/20/92"
 
-#include <assert.h>
-#include <math.h>
+#include "xlyap.hpp"
 
-#include "screenhack.h"
-#include "yarandom.h"
-#include "hsv.h"
+#include "easelplane.h"
+#include "random.h"
+#include "imgui.h"
 
-#ifndef HAVE_JWXYZ
-# include <X11/cursorfont.h> 
-#endif
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
 
-static const char *xlyap_defaults [] = {
-  ".background:         black",
-  ".foreground:         white",
-/*  ".lowrez:           true", */
-  "*fpsSolid:		true",
-  "*randomize:          true",
-  "*builtin:            -1",
-  "*minColor:           1",
-  "*maxColor:           256",
-  "*dwell:              50",
-  "*useLog:             false",
-  "*colorExponent:      1.0",
-  "*colorOffset:        0",
-  "*randomForce:        ",              /* 0.5 */
-  "*settle:             50",
-  "*minA:               2.0",
-  "*minB:               2.0",
-  "*wheels:             7",
-  "*function:           10101010",
-  "*forcingFunction:    abbabaab",
-  "*bRange:             ",              /* 2.0 */
-  "*startX:             0.65",
-  "*mapIndex:           ",              /* 0 */
-  "*outputFile:         ",
-  "*beNegative:         false",
-  "*rgbMax:             65000",
-  "*spinLength:         256",
-  "*show:               false",
-  "*aRange:             ",              /* 2.0 */
-  "*delay:              10000",
-  "*linger:             5",
-  "*colors:             200",
-#ifdef HAVE_MOBILE
-  "*ignoreRotation:     True",
-#endif
-  0
-};
-
-static XrmOptionDescRec xlyap_options [] = {
-  { "-randomize", ".randomize", XrmoptionNoArg, "true" },
-  { "-builtin",   ".builtin",   XrmoptionSepArg, 0 },
-  { "-C", ".minColor",          XrmoptionSepArg, 0 },   /* n */
-  { "-D", ".dwell",             XrmoptionSepArg, 0 },   /* n */
-  { "-L", ".useLog",            XrmoptionNoArg, "true" },
-  { "-M", ".colorExponent",     XrmoptionSepArg, 0 },   /* r */
-  { "-O", ".colorOffset",       XrmoptionSepArg, 0 },   /* n */
-  { "-R", ".randomForce",       XrmoptionSepArg, 0 },   /* p */
-  { "-S", ".settle",            XrmoptionSepArg, 0 },   /* n */
-  { "-a", ".minA",              XrmoptionSepArg, 0 },   /* r */
-  { "-b", ".minB",              XrmoptionSepArg, 0 },   /* n */
-  { "-c", ".wheels",            XrmoptionSepArg, 0 },   /* n */
-  { "-F", ".function",          XrmoptionSepArg, 0 },   /* 10101010 */
-  { "-f", ".forcingFunction",   XrmoptionSepArg, 0 },   /* abbabaab */
-  { "-h", ".bRange",            XrmoptionSepArg, 0 },   /* r */
-  { "-i", ".startX",            XrmoptionSepArg, 0 },   /* r */
-  { "-m", ".mapIndex",          XrmoptionSepArg, 0 },   /* n */
-  { "-o", ".outputFile",        XrmoptionSepArg, 0 },   /* filename */
-  { "-p", ".beNegative",        XrmoptionNoArg, "true" },
-  { "-r", ".rgbMax",            XrmoptionSepArg, 0 },   /* n */
-  { "-s", ".spinLength",        XrmoptionSepArg, 0 },   /* n */
-  { "-v", ".show",              XrmoptionNoArg, "true" },
-  { "-w", ".aRange",            XrmoptionSepArg, 0 },   /* r */
-  { "-delay", ".delay",         XrmoptionSepArg, 0 },   /* delay */
-  { "-linger", ".linger",       XrmoptionSepArg, 0 },   /* linger */
-  { 0, 0, 0, 0 }
-};
-
+// The imported mathematical routines and preset table retain their original formatting.
+// X11 drawing/resources are replaced by instance state, EaselPlane and ImGui controls.
+namespace xlyap {
 
 #define ABS(a)  (((a)<0) ? (0-(a)) : (a) )
-#define Min(x,y) ((x < y)?x:y)
-#define Max(x,y) ((x > y)?x:y)
-
-#ifdef SIXTEEN_COLORS
-# define MAXPOINTS  128
-# ifdef BIGMEM
-#  define MAXFRAMES 4
-# else  /* !BIGMEM */
-#  define MAXFRAMES 2
-# endif /* !BIGMEM */
-# define MAXCOLOR 16
-#else  /* !SIXTEEN_COLORS */
-# define MAXPOINTS  256
-# ifdef BIGMEM
-#  define MAXFRAMES 8
-# else  /* !BIGMEM */
-#  define MAXFRAMES 2
-# endif /* !BIGMEM */
-# define MAXCOLOR 256
-#endif /* !SIXTEEN_COLORS */
-
-
+#define MAXCOLOR 256
 #define MAXINDEX 64
-#define FUNCMAXINDEX 16
-#define MAXWHEELS 7
 #define NUMMAPS 5
-#define NBUILTINS 22
-
-#ifndef TRUE
-# define TRUE 1
-# define FALSE 0
-#endif
-
-
-typedef struct {
-  int x, y;
-} xy_t;
-
-#if 0
-typedef struct {
-  int start_x, start_y;
-  int last_x, last_y;
-} rubber_band_data_t;
-#endif
-
-typedef struct {
-# ifndef HAVE_JWXYZ
-  Cursor band_cursor;
-# endif
-  double p_min, p_max, q_min, q_max;
-/*  rubber_band_data_t rubber_band;*/
-} image_data_t;
-
-typedef struct points_t {
-  XPoint data[MAXCOLOR][MAXPOINTS];
-  int npoints[MAXCOLOR];
-} points_t;
-
+#define NBUILTINS 23 // The original table includes case 22 as well.
+#define TRUE 1
+#define FALSE 0
 
 typedef double (*PFD)(double,double);
 
-/* #### What was this for?  Everything was drawn twice, to the window and 
-   to this, and this was never displayed! */
-/*#define BACKING_PIXMAP*/
-
 struct state {
-  Display *dpy;
-  Screen *screen;
-  Visual *visual;
-  Colormap cmap;
-
-  unsigned long foreground, background;
-
-  Window canvas;
-  int delay, linger;
-
-  unsigned int maxcolor, startcolor, mincolindex;
-  int color_offset;
-  int dwell, settle;
-  int width, height, xposition, yposition;
-
-  points_t Points;
-/*  image_data_t rubber_data;*/
-
-  GC Data_GC[MAXCOLOR]/*, RubberGC*/;
-  PFD map, deriv;
-
-  int aflag, bflag, wflag, hflag, Rflag;
-
-  int   maxindex;
-  int   funcmaxindex;
-  double  min_a, min_b, a_range, b_range, minlyap;
-  double  max_a, max_b;
-  double  start_x, lyapunov, a_inc, b_inc, a, b;
-  int   numcolors, numfreecols, lowrange;
-  xy_t  point;
-#ifdef BACKING_PIXMAP
-  Pixmap  pixmap;
-#endif
-/*  XColor  Colors[MAXCOLOR];*/
-  double  *exponents[MAXFRAMES];
-  double  a_minimums[MAXFRAMES], b_minimums[MAXFRAMES];
-  double  a_maximums[MAXFRAMES], b_maximums[MAXFRAMES];
-  double  minexp, maxexp, prob;
-  int     expind[MAXFRAMES], resized[MAXFRAMES];
-  int     numwheels, force, Force, negative;
-  int     rgb_max, nostart, stripe_interval;
-  int     save, show, useprod, spinlength;
-  int     maxframe, frame, dorecalc, mapindex, run;
-  char    *outname;
-
-  int sendpoint_index;
-
-  int   forcing[MAXINDEX];
-  int   Forcing[FUNCMAXINDEX];
-
-  int reset_countdown;
-
-  int ncolors;
-  XColor colors[MAXCOLOR];
+    XLyap* art = nullptr;
+    PFD map = nullptr, deriv = nullptr;
+    int dwell = 50, settle = 50;
+    int width = 0, height = 0;
+    struct { int x = 0, y = 0; } point;
+    int run = 1, mapindex = 0;
+    int aflag = 0, bflag = 0, wflag = 0, hflag = 0;
+    int maxindex = 8, force = 0, Rflag = 0;
+    int forcing[MAXINDEX] = {};
+    double min_a = 2.0, min_b = 2.0, a_range = 2.0, b_range = 2.0;
+    double max_a = 4.0, max_b = 4.0, a_inc = 0.0, b_inc = 0.0;
+    double a = 0.0, b = 0.0, start_x = 0.65, lyapunov = 0.0;
+    double minlyap = 1.0, maxexp = 1.0, minexp = -1.0, prob = 0.5;
+    int maxcolor = MAXCOLOR, startcolor = 0, mincolindex = 33;
+    int numcolors = 200, numfreecols = 167, lowrange = 33;
+    int color_offset = 0, negative = 1, useprod = 1;
+    int sendpoint_index = 0;
+    int preset = -1;
+    bool randomize = true, paused = false;
+    float linger = 5.0f;
+    double completed_at = -1.0;
+    char forcing_text[MAXINDEX + 1] = "abbabaab";
+    char deterministic_text[MAXINDEX + 1] = "abbabaab";
+    std::vector<double> exponents;
+    size_t completed = 0, recolor = 0;
+    std::array<uint32_t, MAXCOLOR> colors = {};
 };
 
+static void setforcing(struct state *st);
+static int sendpoint(struct state *st, double expo);
 
 static const double pmins[NUMMAPS] = { 2.0, 0.0, 0.0, 0.0, 0.0 };
 static const double pmaxs[NUMMAPS] = { 4.0, 1.0, 6.75, 6.75, 16.0 };
@@ -265,51 +121,6 @@ static const PFD Derivs[NUMMAPS] = { dlogistic, dcircle, dleftlog,
                                      drightlog, ddoublelog };
 
 
-/****************************************************************************/
-
-/* other function declarations
- */
-
-static void resize(struct state *);
-/*static void Spin(struct state *);*/
-static void show_defaults(struct state *);
-/*static void StartRubberBand(struct state *, image_data_t *, XEvent *);
-static void TrackRubberBand(struct state *, image_data_t *, XEvent *);
-static void EndRubberBand(struct state *, image_data_t *, XEvent *);*/
-/*static void CreateXorGC(struct state *);*/
-static void InitBuffer(struct state *);
-static void BufferPoint(struct state *, int color, int x, int y);
-static void FlushBuffer(struct state *);
-static void init_data(struct state *);
-static void init_color(struct state *);
-static void parseargs(struct state *);
-static void Clear(struct state *);
-static void setupmem(struct state *);
-static int complyap(struct state *);
-static Bool Getkey(struct state *, XKeyEvent *);
-static int sendpoint(struct state *, double expo);
-/*static void save_to_file(struct state *);*/
-static void setforcing(struct state *);
-static void check_params(struct state *, int mapnum, int parnum);
-static void usage(struct state *);
-static void Destroy_frame(struct state *);
-static void freemem(struct state *);
-static void Redraw(struct state *);
-static void redraw(struct state *, double *exparray, int index, int cont);
-static void recalc(struct state *);
-/*static void SetupCorners(XPoint *, image_data_t *);
-static void set_new_params(struct state *, image_data_t *);*/
-static void go_down(struct state *);
-static void go_back(struct state *);
-static void go_init(struct state *);
-static void jumpwin(struct state *);
-static void print_help(struct state *);
-static void print_values(struct state *);
-
-
-/****************************************************************************/
-
-
 /* complyap() is the guts of the program. This is where the Lyapunov exponent
  * is calculated. For each iteration (past some large number of iterations)
  * calculate the logarithm of the absolute value of the derivative at that
@@ -327,23 +138,12 @@ complyap(struct state *st)
 
   if (!st->run)
     return TRUE;
-  st->a += st->a_inc;
-  if (st->a >= st->max_a) {
-    if (sendpoint(st, st->lyapunov) == TRUE)
-      return FALSE;
-    else {
-      FlushBuffer(st);
-      /*      if (savefile)
-              save_to_file(); */
-      return TRUE;
-    }
-  }
-  if (st->b >= st->max_b) {
-    FlushBuffer(st);
-    /*    if (savefile)
-          save_to_file();*/
-    return TRUE;
-  }
+  if (st->width > 1 && st->point.x == st->width - 1)
+    return sendpoint(st, st->lyapunov) == TRUE ? FALSE : TRUE;
+  // The original increments a before evaluating and reuses the last exponent
+  // at the right edge. Keep those samples while drawing only valid pixels.
+  st->a = st->min_a + std::min(st->point.x + 1, st->width - 1) * st->a_inc;
+  st->b = st->min_b + st->point.y * st->b_inc;
   prod = 1.0;
   total = 0.0;
   bindex = 0;
@@ -432,7 +232,7 @@ complyap(struct state *st)
   if (sendpoint(st, st->lyapunov) == TRUE)
     return FALSE;
   else {
-    FlushBuffer(st);
+
     /*    if (savefile)
           save_to_file();*/
     return TRUE;
@@ -508,465 +308,6 @@ ddoublelog(double x, double r)   /* derivative of the double logistic */
   return(r * ((2.0 * x) - (6.0 * d) + (4.0 * x * d)));
 }
 
-static void
-init_data(struct state *st)
-{
-  st->numcolors = get_integer_resource (st->dpy, "colors", "Integer");
-  if (st->numcolors < 2)
-    st->numcolors = 2;
-  if (st->numcolors > st->maxcolor)
-    st->numcolors = st->maxcolor;
-  st->numfreecols = st->numcolors - st->mincolindex;
-  st->lowrange = st->mincolindex - st->startcolor;
-  st->a_inc = st->a_range / (double)st->width;
-  st->b_inc = st->b_range / (double)st->height;
-  st->point.x = -1;
-  st->point.y = 0;
-  st->a = /*st->rubber_data.p_min = */st->min_a;
-  st->b = /*st->rubber_data.q_min = */st->min_b;
-/*  st->rubber_data.p_max = st->max_a;
-  st->rubber_data.q_max = st->max_b;*/
-  if (st->show)
-    show_defaults(st);
-  InitBuffer(st);
-}
-
-#if 0
-static void
-hls2rgb(int hue_light_sat[3],
-        int rgb[3])             /*      Each in range [0..65535]        */
-{
-  unsigned short r, g, b;
-  hsv_to_rgb((int) (hue_light_sat[0] / 10),             /* 0-3600 -> 0-360 */
-             (int) ((hue_light_sat[2]/1000.0) * 64435), /* 0-1000 -> 0-65535 */
-             (int) ((hue_light_sat[1]/1000.0) * 64435), /* 0-1000 -> 0-65535 */
-             &r, &g, &b);
-  rgb[0] = r;
-  rgb[1] = g;
-  rgb[2] = b;
-}
-#endif /* 0 */
-
-
-static void
-init_color(struct state *st)
-{
-  int i;
-  if (st->ncolors)
-    free_colors (st->screen, st->cmap, st->colors, st->ncolors);
-  st->ncolors = st->maxcolor;
-  make_smooth_colormap(st->screen, st->visual, st->cmap,
-                       st->colors, &st->ncolors, True, NULL, True);
-
-  for (i = 0; i < st->maxcolor; i++) {
-    if (! st->Data_GC[i]) {
-      XGCValues gcv;
-      gcv.background = BlackPixelOfScreen(st->screen);
-      st->Data_GC[i] = XCreateGC(st->dpy, st->canvas, GCBackground, &gcv);
-    }
-    XSetForeground(st->dpy, st->Data_GC[i],
-                   st->colors[((int) ((i / ((float)st->maxcolor)) *
-                                      st->ncolors))].pixel);
-  }
-}
-
-
-static void
-parseargs(struct state *st)
-{
-  int i;
-  int bindex=0, findex;
-  char *s, *ch;
-
-  st->map = Maps[0];
-  st->deriv = Derivs[0];
-  st->maxexp=st->minlyap; st->minexp= -1.0 * st->minlyap;
-
-  st->mincolindex = get_integer_resource(st->dpy, "minColor", "Integer");
-  st->dwell = get_integer_resource(st->dpy, "dwell", "Integer");
-#ifdef MAPS
-  {
-    char *optarg = get_string_resource(st->dpy, "function", "String");
-    funcmaxindex = strlen(optarg);
-    if (funcmaxindex > FUNCMAXINDEX)
-      usage();
-    ch = optarg;
-    st->Force++;
-    for (findex=0;findex<funcmaxindex;findex++) {
-      st->Forcing[findex] = (int)(*ch++ - '0');;
-      if (st->Forcing[findex] >= NUMMAPS)
-        usage();
-    }
-    if (optarg) free (optarg);
-  }
-#endif
-  if (get_boolean_resource(st->dpy, "useLog", "Boolean"))
-    st->useprod=0;
-
-  st->minlyap=ABS(get_float_resource(st->dpy, "colorExponent", "Float"));
-  st->maxexp=st->minlyap;
-  st->minexp= -1.0 * st->minlyap;
-
-  st->color_offset = get_integer_resource(st->dpy, "colorOffset", "Integer");
-
-  st->maxcolor=ABS(get_integer_resource(st->dpy, "maxColor", "Integer"));
-  if ((st->maxcolor - st->startcolor) <= 0)
-    st->startcolor = get_pixel_resource(st->dpy, st->cmap,
-                                        "background", "Background");
-  if ((st->maxcolor - st->mincolindex) <= 0) {
-    st->mincolindex = 1;
-    st->color_offset = 0;
-  }
-
-  s = get_string_resource(st->dpy, "randomForce", "Float");
-  if (s && *s) {
-    st->prob=atof(s); st->Rflag++; setforcing(st);
-  }
-  if (s) free (s);
-
-  st->settle = get_integer_resource(st->dpy, "settle", "Integer");
-
-#if 0
-  s = get_string_resource(st->dpy, "minA", "Float");
-  if (s && *s) {
-    st->min_a = atof(s);
-    st->aflag++;
-  }
-  if (s) free (s);
-  
-  s = get_string_resource(st->dpy, "minB", "Float");
-  if (s && *s) {
-    st->min_b=atof(s); st->bflag++;
-  }
-  if (s) free (s);
-#else
-  st->min_a = get_float_resource (st->dpy, "minA", "Float");
-  st->aflag++;
-  st->min_b = get_float_resource (st->dpy, "minB", "Float");
-  st->bflag++;
-#endif
-
-  
-  st->numwheels = get_integer_resource(st->dpy, "wheels", "Integer");
-
-  s = get_string_resource(st->dpy, "forcingFunction", "String");
-  if (s && *s) {
-    st->maxindex = strlen(s);
-    if (st->maxindex > MAXINDEX)
-      usage(st);
-    ch = s;
-    st->force++;
-    while (bindex < st->maxindex) {
-      if (*ch == 'a')
-        st->forcing[bindex++] = 0;
-      else if (*ch == 'b')
-        st->forcing[bindex++] = 1;
-      else
-        usage(st);
-      ch++;
-    }
-  }
-  if (s) free (s);
-
-  s = get_string_resource(st->dpy, "bRange", "Float");
-  if (s && *s) {
-    st->b_range = atof(s);
-    st->hflag++;
-  }
-  if (s) free (s);
-
-  st->start_x = get_float_resource(st->dpy, "startX", "Float");
-
-  s = get_string_resource(st->dpy, "mapIndex", "Integer");
-  if (s && *s) {
-    st->mapindex=atoi(s);
-    if ((st->mapindex >= NUMMAPS) || (st->mapindex < 0))
-      usage(st);
-    st->map = Maps[st->mapindex];
-    st->deriv = Derivs[st->mapindex];
-    if (!st->aflag)
-      st->min_a = amins[st->mapindex];
-    if (!st->wflag)
-      st->a_range = aranges[st->mapindex];
-    if (!st->bflag)
-      st->min_b = bmins[st->mapindex];
-    if (!st->hflag)
-      st->b_range = branges[st->mapindex];
-    if (!st->Force)
-      for (i=0;i<FUNCMAXINDEX;i++)
-        st->Forcing[i] = st->mapindex;
-  }
-  if (s) free (s);
-
-  st->outname = get_string_resource(st->dpy, "outputFile", "Integer");
-
-  if (get_boolean_resource(st->dpy, "beNegative", "Boolean"))
-    st->negative--;
-
-  st->rgb_max = get_integer_resource(st->dpy, "rgbMax", "Integer");
-  st->spinlength = get_integer_resource(st->dpy, "spinLength", "Integer");
-  st->show = get_boolean_resource(st->dpy, "show", "Boolean");
-
-  s = get_string_resource(st->dpy, "aRange", "Float");
-  if (s && *s) {
-    st->a_range = atof(s); st->wflag++;
-  }
-  if (s) free (s);
-
-  st->max_a = st->min_a + st->a_range;
-  st->max_b = st->min_b + st->b_range;
-
-  st->a_minimums[0] = st->min_a; st->b_minimums[0] = st->min_b;
-  st->a_maximums[0] = st->max_a; st->b_maximums[0] = st->max_b;
-
-  if (st->Force)
-    if (st->maxindex == st->funcmaxindex)
-      for (findex=0;findex<st->funcmaxindex;findex++)
-        check_params(st, st->Forcing[findex],st->forcing[findex]);
-    else
-      fprintf(stderr, "Warning! Unable to check parameters\n");
-  else
-    check_params(st, st->mapindex,2);
-}
-
-static void
-check_params(struct state *st, int mapnum, int parnum)
-{
-
-  if (parnum != 1) {
-    if ((st->max_a > pmaxs[mapnum]) || (st->min_a < pmins[mapnum])) {
-      fprintf(stderr, "Warning! Parameter 'a' out of range.\n");
-      fprintf(stderr, "You have requested a range of (%f,%f).\n",
-              st->min_a,st->max_a);
-      fprintf(stderr, "Valid range is (%f,%f).\n",
-              pmins[mapnum],pmaxs[mapnum]);
-    }
-  }
-  if (parnum != 0) {
-    if ((st->max_b > pmaxs[mapnum]) || (st->min_b < pmins[mapnum])) {
-      fprintf(stderr, "Warning! Parameter 'b' out of range.\n");
-      fprintf(stderr, "You have requested a range of (%f,%f).\n",
-              st->min_b,st->max_b);
-      fprintf(stderr, "Valid range is (%f,%f).\n",
-              pmins[mapnum],pmaxs[mapnum]);
-    }
-  }
-}
-
-static void
-usage(struct state *st)
-{
-  fprintf(stderr,"lyap [-BLs][-W#][-H#][-a#][-b#][-w#][-h#][-x xstart]\n");
-  fprintf(stderr,"\t[-M#][-S#][-D#][-f string][-r#][-O#][-C#][-c#][-m#]\n");
-#ifdef MAPS
-  fprintf(stderr,"\t[-F string]\n");
-#endif
-  fprintf(stderr,"\tWhere: -C# specifies the minimum color index\n");
-  fprintf(stderr,"\t       -r# specifies the maxzimum rgb value\n");
-  fprintf(stderr,"\t       -u displays this message\n");
-  fprintf(stderr,"\t       -a# specifies the minimum horizontal parameter\n");
-  fprintf(stderr,"\t       -b# specifies the minimum vertical parameter\n");
-  fprintf(stderr,"\t       -w# specifies the horizontal parameter range\n");
-  fprintf(stderr,"\t       -h# specifies the vertical parameter range\n");
-  fprintf(stderr,"\t       -D# specifies the dwell\n");
-  fprintf(stderr,"\t       -S# specifies the settle\n");
-  fprintf(stderr,"\t       -H# specifies the initial window height\n");
-  fprintf(stderr,"\t       -W# specifies the initial window width\n");
-  fprintf(stderr,"\t       -O# specifies the color offset\n");
-  fprintf(stderr,"\t       -c# specifies the desired color wheel\n");
-  fprintf(stderr,"\t       -m# specifies the desired map (0-4)\n");
-  fprintf(stderr,"\t       -f aabbb specifies a forcing function of 00111\n");
-#ifdef MAPS
-  fprintf(stderr,"\t       -F 00111 specifies the function forcing function\n");
-#endif
-  fprintf(stderr,"\t       -L indicates use log(x)+log(y) rather than log(xy)\n");
-  fprintf(stderr,"\tDuring display :\n");
-  fprintf(stderr,"\t       Use the mouse to zoom in on an area\n");
-  fprintf(stderr,"\t       e or E recalculates color indices\n");
-  fprintf(stderr,"\t       f or F saves exponents to a file\n");
-  fprintf(stderr,"\t       KJmn increase/decrease minimum negative exponent\n");
-  fprintf(stderr,"\t       r or R redraws\n");
-  fprintf(stderr,"\t       s or S spins the colorwheel\n");
-  fprintf(stderr,"\t       w or W changes the color wheel\n");
-  fprintf(stderr,"\t       x or X clears the window\n");
-  fprintf(stderr,"\t       q or Q exits\n");
-  exit(1);
-}
-
-static void
-Cycle_frames(struct state *st)
-{
-  int i;
-  for (i=0;i<=st->maxframe;i++)
-    redraw(st, st->exponents[i], st->expind[i], 1);
-}
-
-#if 0
-static void
-Spin(struct state *st)
-{
-  int i, j;
-  long tmpxcolor;
-
-  if (!mono_p) {
-    for (j=0;j<st->spinlength;j++) {
-      tmpxcolor = st->Colors[st->mincolindex].pixel;
-      for (i=st->mincolindex;i<st->numcolors-1;i++)
-        st->Colors[i].pixel = st->Colors[i+1].pixel;
-      st->Colors[st->numcolors-1].pixel = tmpxcolor;
-      XStoreColors(st->dpy, st->cmap, st->Colors, st->numcolors);
-    }
-    for (j=0;j<st->spinlength;j++) {
-      tmpxcolor = st->Colors[st->numcolors-1].pixel;
-      for (i=st->numcolors-1;i>st->mincolindex;i--)
-        st->Colors[i].pixel = st->Colors[i-1].pixel;
-      st->Colors[st->mincolindex].pixel = tmpxcolor;
-      XStoreColors(st->dpy, st->cmap, st->Colors, st->numcolors);
-    }
-  }
-}
-#endif
-
-static Bool
-Getkey(struct state *st, XKeyEvent *event)
-{
-  unsigned char key;
-  int i;
-  if (XLookupString(event, (char *)&key, sizeof(key), (KeySym *)0,
-                    (XComposeStatus *) 0) > 0) {
-
-    if (st->reset_countdown)
-      st->reset_countdown = st->linger;
-
-    switch (key) {
-    case '<': st->dwell /= 2; if (st->dwell < 1) st->dwell = 1; return True;
-    case '>': st->dwell *= 2; return True;
-    case '[': st->settle /= 2; if (st->settle < 1) st->settle = 1; return True;
-    case ']': st->settle *= 2; return True;
-    case 'd': go_down(st); return True;
-    case 'D': FlushBuffer(st); return True;
-    case 'e':
-    case 'E': FlushBuffer(st);
-      st->dorecalc = (!st->dorecalc);
-      if (st->dorecalc)
-        recalc(st);
-      else {
-        st->maxexp = st->minlyap; st->minexp = -1.0 * st->minlyap;
-      }
-      redraw(st, st->exponents[st->frame], st->expind[st->frame], 1);
-      return True;
-    case 'f':
-      /*  case 'F': save_to_file(); return True;*/
-    case 'i': if (st->stripe_interval > 0) {
-        st->stripe_interval--;
-        if (!mono_p) {
-          init_color(st);
-        }
-      }
-      return True;
-    case 'I': st->stripe_interval++;
-      if (!mono_p) {
-        init_color(st);
-      }
-      return True;
-    case 'K': if (st->minlyap > 0.05)
-        st->minlyap -= 0.05;
-      return True;
-    case 'J': st->minlyap += 0.05;
-      return True;
-    case 'm': st->mapindex++;
-      if (st->mapindex >= NUMMAPS)
-        st->mapindex=0;
-      st->map = Maps[st->mapindex];
-      st->deriv = Derivs[st->mapindex];
-      if (!st->aflag)
-        st->min_a = amins[st->mapindex];
-      if (!st->wflag)
-        st->a_range = aranges[st->mapindex];
-      if (!st->bflag)
-        st->min_b = bmins[st->mapindex];
-      if (!st->hflag)
-        st->b_range = branges[st->mapindex];
-      if (!st->Force)
-        for (i=0;i<FUNCMAXINDEX;i++)
-          st->Forcing[i] = st->mapindex;
-      st->max_a = st->min_a + st->a_range;
-      st->max_b = st->min_b + st->b_range;
-      st->a_minimums[0] = st->min_a; st->b_minimums[0] = st->min_b;
-      st->a_maximums[0] = st->max_a; st->b_maximums[0] = st->max_b;
-      st->a_inc = st->a_range / (double)st->width;
-      st->b_inc = st->b_range / (double)st->height;
-      st->point.x = -1;
-      st->point.y = 0;
-      st->a = /*st->rubber_data.p_min = */st->min_a;
-      st->b = /*st->rubber_data.q_min = */st->min_b;
-/*      st->rubber_data.p_max = st->max_a;
-      st->rubber_data.q_max = st->max_b;*/
-      Clear(st);
-      return True;
-    case 'M': if (st->minlyap > 0.005)
-        st->minlyap -= 0.005;
-      return True;
-    case 'N': st->minlyap += 0.005;
-      return True;
-    case 'p':
-    case 'P': st->negative = (!st->negative);
-      FlushBuffer(st); redraw(st, st->exponents[st->frame], 
-                              st->expind[st->frame], 1);
-      return True;
-    case 'r': FlushBuffer(st); redraw(st, st->exponents[st->frame], 
-                                      st->expind[st->frame], 1);
-      return True;
-    case 'R': FlushBuffer(st); Redraw(st); return True;
-    case 's':
-      st->spinlength=st->spinlength/2;
-#if 0
-    case 'S': if (!mono_p)
-        Spin(st);
-      st->spinlength=st->spinlength*2; return True;
-#endif
-    case 'u': go_back(st); return True;
-    case 'U': go_init(st); return True;
-    case 'v':
-    case 'V': print_values(st); return True;
-    case 'W': if (st->numwheels < MAXWHEELS)
-        st->numwheels++;
-      else
-        st->numwheels = 0;
-      if (!mono_p) {
-        init_color(st);
-      }
-      return True;
-    case 'w': if (st->numwheels > 0)
-        st->numwheels--;
-      else
-        st->numwheels = MAXWHEELS;
-      if (!mono_p) {
-        init_color(st);
-      }
-      return True;
-    case 'x': Clear(st); return True;
-    case 'X': Destroy_frame(st); return True;
-    case 'z': Cycle_frames(st); redraw(st, st->exponents[st->frame], 
-                                       st->expind[st->frame], 1);
-      return True;
-#if 0
-    case 'Z': while (!XPending(st->dpy)) Cycle_frames(st);
-      redraw(st, st->exponents[st->frame], st->expind[st->frame], 1); 
-      return True;
-#endif
-    case 'q':
-    case 'Q': exit(0); return True;
-    case '?':
-    case 'h':
-    case 'H': print_help(st); return True;
-    default:  return False;
-    }
-  }
-
-  return False;
-}
-
 /* Here's where we index into a color map. After the Lyapunov exponent is
  * calculated, it is used to determine what color to use for that point.  I
  * suppose there are a lot of ways to do this. I used the following : if it's
@@ -982,499 +323,50 @@ Getkey(struct state *st, XKeyEvent *event)
  * also greatly effect what details are seen. Play around with this.
  */
 static int
-sendpoint(struct state *st, double expo)
+color_index(struct state *st, double expo)
 {
   double tmpexpo;
 
-  if (st->maxcolor > MAXCOLOR)
-    abort();
-
-#if 0
-  /* The relationship st->minexp <= expo <= maxexp should always be true. This
-     test enforces that. But maybe not enforcing it makes better pictures. */
-  if (expo < st->minexp)
-    expo = st->minexp;
-  else if (expo > maxexp)
-    expo = maxexp;
-#endif
-
-  st->point.x++;
+  // Infinite/escaped orbits must never be converted directly to integer indices.
+  if (!std::isfinite(expo))
+    return std::isnan(expo) ? st->startcolor :
+           ((expo < 0) == (st->negative != 0) ? st->mincolindex : st->startcolor);
   tmpexpo = (st->negative) ? expo : -1.0 * expo;
+  double index;
+  int range, base;
   if (tmpexpo > 0) {
-    if (!mono_p) {
-      st->sendpoint_index = (int)(tmpexpo*st->lowrange/st->maxexp);
-      st->sendpoint_index = ((st->sendpoint_index % st->lowrange) + 
-                             st->startcolor);
-    }
-    else
-      st->sendpoint_index = 0;
+    index = tmpexpo*st->lowrange/st->maxexp;
+    range = st->lowrange;
+    base = st->startcolor;
   }
   else {
-    if (!mono_p) {
-      st->sendpoint_index = (int)(tmpexpo*st->numfreecols/st->minexp);
-      st->sendpoint_index = ((st->sendpoint_index % st->numfreecols)
-                             + st->mincolindex);
-    }
-    else
-      st->sendpoint_index = 1;
+    index = tmpexpo*st->numfreecols/st->minexp;
+    range = st->numfreecols;
+    base = st->mincolindex;
   }
-  BufferPoint(st, st->sendpoint_index, st->point.x, st->point.y);
-  if (st->save) {
-    if (st->frame > MAXFRAMES)
-      abort();
-    st->exponents[st->frame][st->expind[st->frame]++] = expo;
-  }
-  if (st->point.x >= st->width) {
+  if (!std::isfinite(index))
+    return base;
+  // fmod avoids overflowing an integer for a very large finite exponent.
+  st->sendpoint_index = static_cast<int>(std::fmod(index, range)) + base;
+  st->sendpoint_index = (st->sendpoint_index + st->color_offset) % st->numcolors;
+  if (st->sendpoint_index < 0)
+    st->sendpoint_index += st->numcolors;
+  return st->sendpoint_index;
+}
+
+static int
+sendpoint(struct state *st, double expo)
+{
+  st->exponents[st->completed++] = expo;
+  st->art->drawdot(st->point.x, st->point.y, st->colors[color_index(st, expo)]);
+  // Traverse only valid texture pixels, without the stale exponent X11 edge column.
+  if (++st->point.x >= st->width) {
     st->point.y++;
     st->point.x = 0;
-    if (st->save) {
-      st->b += st->b_inc;
-      st->a = st->min_a;
-    }
     if (st->point.y >= st->height)
       return FALSE;
-    else
-      return TRUE;
   }
   return TRUE;
-}
-
-
-static void
-resize(struct state *st)
-{
-  Window r;
-  int n, x, y;
-  unsigned int bw, d, new_w, new_h;
-
-  XGetGeometry(st->dpy,st->canvas,&r,&x,&y,&new_w,&new_h,&bw,&d);
-  if ((new_w == st->width) && (new_h == st->height))
-    return;
-  st->width = new_w; st->height = new_h;
-  XClearWindow(st->dpy, st->canvas);
-#ifdef BACKING_PIXMAP
-  if (st->pixmap)
-    XFreePixmap(st->dpy, st->pixmap);
-  st->pixmap = XCreatePixmap(st->dpy, st->canvas, st->width, st->height, d);
-#endif
-  st->a_inc = st->a_range / (double)st->width;
-  st->b_inc = st->b_range / (double)st->height;
-  st->point.x = -1;
-  st->point.y = 0;
-  st->run = 1;
-  st->a = /*st->rubber_data.p_min = */st->min_a;
-  st->b = /*st->rubber_data.q_min = */st->min_b;
-/*  st->rubber_data.p_max = st->max_a;
-  st->rubber_data.q_max = st->max_b;*/
-  freemem(st);
-  setupmem(st);
-  for (n=0;n<MAXFRAMES;n++)
-    if ((n <= st->maxframe) && (n != st->frame))
-      st->resized[n] = 1;
-  InitBuffer(st);
-  Clear(st);
-  Redraw(st);
-}
-
-static void
-redraw(struct state *st, double *exparray, int index, int cont)
-{
-  int i, x_sav, y_sav;
-
-  x_sav = st->point.x;
-  y_sav = st->point.y;
-
-  st->point.x = -1;
-  st->point.y = 0;
-
-  st->save=0;
-  for (i=0;i<index;i++)
-    sendpoint(st, exparray[i]);
-  st->save=1;
-
-  if (cont) {
-    st->point.x = x_sav;
-    st->point.y = y_sav;
-  }
-  else {
-    st->a = st->point.x * st->a_inc + st->min_a;
-    st->b = st->point.y * st->b_inc + st->min_b;
-  }
-  FlushBuffer(st);
-}
-
-static void
-Redraw(struct state *st)
-{
-  FlushBuffer(st);
-  st->point.x = -1;
-  st->point.y = 0;
-  st->run = 1;
-  st->a = st->min_a;
-  st->b = st->min_b;
-  st->expind[st->frame] = 0;
-  st->resized[st->frame] = 0;
-}
-
-static void
-recalc(struct state *st)
-{
-  int i;
-
-  st->minexp = st->maxexp = 0.0;
-  for (i=0;i<st->expind[st->frame];i++) {
-    if (st->exponents[st->frame][i] < st->minexp)
-      st->minexp = st->exponents[st->frame][i];
-    if (st->exponents[st->frame][i] > st->maxexp)
-      st->maxexp = st->exponents[st->frame][i];
-  }
-}
-
-static void
-Clear(struct state *st)
-{
-  XClearWindow(st->dpy, st->canvas);
-#ifdef BACKING_PIXMAP
-  XCopyArea(st->dpy, st->canvas, st->pixmap, st->Data_GC[0],
-            0, 0, st->width, st->height, 0, 0);
-#endif
-  InitBuffer(st);
-}
-
-static void
-show_defaults(struct state *st)
-{
-
-  printf("Width=%d  Height=%d  numcolors=%d  settle=%d  dwell=%d\n",
-         st->width,st->height,st->numcolors,st->settle,st->dwell);
-  printf("min_a=%f  a_range=%f  max_a=%f\n", st->min_a,st->a_range,st->max_a);
-  printf("min_b=%f  b_range=%f  max_b=%f\n", st->min_b,st->b_range,st->max_b);
-  printf("minlyap=%f  minexp=%f  maxexp=%f\n", st->minlyap,st->minexp,
-         st->maxexp);
-  exit(0);
-}
-
-#if 0
-static void
-CreateXorGC(struct state *st)
-{
-  XGCValues values;
-
-  values.foreground = st->foreground;
-  values.function = GXxor;
-  st->RubberGC = XCreateGC(st->dpy, st->canvas,
-                           GCForeground | GCFunction, &values);
-}
-
-static void
-StartRubberBand(struct state *st, image_data_t *data, XEvent *event)
-{
-  XPoint corners[5];
-
-  st->nostart = 0;
-  data->rubber_band.last_x = data->rubber_band.start_x = event->xbutton.x;
-  data->rubber_band.last_y = data->rubber_band.start_y = event->xbutton.y;
-  SetupCorners(corners, data);
-  XDrawLines(st->dpy, st->canvas, st->RubberGC,
-             corners, sizeof(corners) / sizeof(corners[0]), CoordModeOrigin);
-}
-
-static void
-SetupCorners(XPoint *corners, image_data_t *data)
-{
-  corners[0].x = data->rubber_band.start_x;
-  corners[0].y = data->rubber_band.start_y;
-  corners[1].x = data->rubber_band.start_x;
-  corners[1].y = data->rubber_band.last_y;
-  corners[2].x = data->rubber_band.last_x;
-  corners[2].y = data->rubber_band.last_y;
-  corners[3].x = data->rubber_band.last_x;
-  corners[3].y = data->rubber_band.start_y;
-  corners[4] = corners[0];
-}
-
-static void
-TrackRubberBand(struct state *st, image_data_t *data, XEvent *event)
-{
-  XPoint corners[5];
-  int xdiff, ydiff;
-
-  if (st->nostart)
-    return;
-  SetupCorners(corners, data);
-  XDrawLines(st->dpy, st->canvas, st->RubberGC,
-             corners, sizeof(corners) / sizeof(corners[0]), CoordModeOrigin);
-  ydiff = event->xbutton.y - data->rubber_band.start_y;
-  xdiff = event->xbutton.x - data->rubber_band.start_x;
-  data->rubber_band.last_x = data->rubber_band.start_x + xdiff;
-  data->rubber_band.last_y = data->rubber_band.start_y + ydiff;
-  if (data->rubber_band.last_y < data->rubber_band.start_y ||
-      data->rubber_band.last_x < data->rubber_band.start_x)
-    {
-      data->rubber_band.last_y = data->rubber_band.start_y;
-      data->rubber_band.last_x = data->rubber_band.start_x;
-    }
-  SetupCorners(corners, data);
-  XDrawLines(st->dpy, st->canvas, st->RubberGC,
-             corners, sizeof(corners) / sizeof(corners[0]), CoordModeOrigin);
-}
-
-static void
-EndRubberBand(struct state *st, image_data_t *data, XEvent *event)
-{
-  XPoint corners[5];
-  XPoint top, bot;
-  double delta, diff;
-
-  st->nostart = 1;
-  SetupCorners(corners, data);
-  XDrawLines(st->dpy, st->canvas, st->RubberGC,
-             corners, sizeof(corners) / sizeof(corners[0]), CoordModeOrigin);
-  if (data->rubber_band.start_x >= data->rubber_band.last_x ||
-      data->rubber_band.start_y >= data->rubber_band.last_y)
-    return;
-  top.x = data->rubber_band.start_x;
-  bot.x = data->rubber_band.last_x;
-  top.y = data->rubber_band.start_y;
-  bot.y = data->rubber_band.last_y;
-  diff = data->q_max - data->q_min;
-  delta = (double)top.y / (double)st->height;
-  data->q_min += diff * delta;
-  delta = (double)(st->height - bot.y) / (double)st->height;
-  data->q_max -= diff * delta;
-  diff = data->p_max - data->p_min;
-  delta = (double)top.x / (double)st->width;
-  data->p_min += diff * delta;
-  delta = (double)(st->width - bot.x) / (double)st->width;
-  data->p_max -= diff * delta;
-  set_new_params(st, data);
-}
-
-static void
-set_new_params(struct state *st, image_data_t *data)
-{
-  st->frame = (st->maxframe + 1) % MAXFRAMES;
-  if (st->frame > st->maxframe)
-    st->maxframe = st->frame;
-  st->a_range = data->p_max - data->p_min;
-  st->b_range = data->q_max - data->q_min;
-  st->a_minimums[st->frame] = st->min_a = data->p_min;
-  st->b_minimums[st->frame] = st->min_b = data->q_min;
-  st->a_inc = st->a_range / (double)st->width;
-  st->b_inc = st->b_range / (double)st->height;
-  st->point.x = -1;
-  st->point.y = 0;
-  st->run = 1;
-  st->a = st->min_a;
-  st->b = st->min_b;
-  st->a_maximums[st->frame] = st->max_a = data->p_max;
-  st->b_maximums[st->frame] = st->max_b = data->q_max;
-  st->expind[st->frame] = 0;
-  Clear(st);
-}
-#endif
-
-static void
-go_down(struct state *st)
-{
-  st->frame++;
-  if (st->frame > st->maxframe)
-    st->frame = 0;
-  jumpwin(st);
-}
-
-static void
-go_back(struct state *st)
-{
-  st->frame--;
-  if (st->frame < 0)
-    st->frame = st->maxframe;
-  jumpwin(st);
-}
-
-static void
-jumpwin(struct state *st)
-{
-  /*st->rubber_data.p_min =*/ st->min_a = st->a_minimums[st->frame];
-  /*st->rubber_data.q_min =*/ st->min_b = st->b_minimums[st->frame];
-  /*st->rubber_data.p_max =*/ st->max_a = st->a_maximums[st->frame];
-  /*st->rubber_data.q_max =*/ st->max_b = st->b_maximums[st->frame];
-  st->a_range = st->max_a - st->min_a;
-  st->b_range = st->max_b - st->min_b;
-  st->a_inc = st->a_range / (double)st->width;
-  st->b_inc = st->b_range / (double)st->height;
-  st->point.x = -1;
-  st->point.y = 0;
-  st->a = st->min_a;
-  st->b = st->min_b;
-  Clear(st);
-  if (st->resized[st->frame])
-    Redraw(st);
-  else
-    redraw(st, st->exponents[st->frame], st->expind[st->frame], 0);
-}
-
-static void
-go_init(struct state *st)
-{
-  st->frame = 0;
-  jumpwin(st);
-}
-
-static void
-Destroy_frame(struct state *st)
-{
-  int i;
-
-  for (i=st->frame; i<st->maxframe; i++) {
-    st->exponents[st->frame] = st->exponents[st->frame+1];
-    st->expind[st->frame] = st->expind[st->frame+1];
-    st->a_minimums[st->frame] = st->a_minimums[st->frame+1];
-    st->b_minimums[st->frame] = st->b_minimums[st->frame+1];
-    st->a_maximums[st->frame] = st->a_maximums[st->frame+1];
-    st->b_maximums[st->frame] = st->b_maximums[st->frame+1];
-  }
-  st->maxframe--;
-  go_back(st);
-}
-
-static void
-InitBuffer(struct state *st)
-{
-  int i;
-
-  for (i = 0 ; i < st->maxcolor; ++i)
-    st->Points.npoints[i] = 0;
-}
-
-static void
-BufferPoint(struct state *st, int color, int x, int y)
-{
-  if (st->maxcolor > MAXCOLOR)
-    abort();
-
-  /* Guard against bogus color values. Shouldn't be necessary but paranoia
-     is good. */
-  if (color < 0)
-    color = 0;
-  else if (color >= st->maxcolor)
-    color = st->maxcolor - 1;
-
-  if (st->Points.npoints[color] == MAXPOINTS)
-    {
-      XDrawPoints(st->dpy, st->canvas, st->Data_GC[color],
-                  st->Points.data[color], st->Points.npoints[color], 
-                  CoordModeOrigin);
-#ifdef BACKING_PIXMAP
-      XDrawPoints(st->dpy, st->pixmap, st->Data_GC[color],
-                  st->Points.data[color], st->Points.npoints[color], 
-                  CoordModeOrigin);
-#endif
-      st->Points.npoints[color] = 0;
-    }
-  st->Points.data[color][st->Points.npoints[color]].x = x;
-  st->Points.data[color][st->Points.npoints[color]].y = y;
-  ++st->Points.npoints[color];
-}
-
-static void
-FlushBuffer(struct state *st)
-{
-  int color;
-
-  for (color = 0; color < st->maxcolor; ++color)
-    if (st->Points.npoints[color])
-      {
-        XDrawPoints(st->dpy, st->canvas, st->Data_GC[color],
-                    st->Points.data[color], st->Points.npoints[color],
-                    CoordModeOrigin);
-#ifdef BACKING_PIXMAP
-        XDrawPoints(st->dpy, st->pixmap, st->Data_GC[color],
-                    st->Points.data[color], st->Points.npoints[color],
-                    CoordModeOrigin);
-#endif
-        st->Points.npoints[color] = 0;
-      }
-}
-
-static void
-print_help(struct state *st)
-{
-  printf("During run-time, interactive control can be exerted via : \n");
-  printf("Mouse buttons allow rubber-banding of a zoom box\n");
-  printf("< halves the 'dwell', > doubles the 'dwell'\n");
-  printf("[ halves the 'settle', ] doubles the 'settle'\n");
-  printf("D flushes the drawing buffer\n");
-  printf("e or E recalculates color indices\n");
-  printf("f or F saves exponents to a file\n");
-  printf("h or H or ? displays this message\n");
-  printf("i decrements, I increments the stripe interval\n");
-  printf("KJMN increase/decrease minimum negative exponent\n");
-  printf("m increments the map index, changing maps\n");
-  printf("p or P reverses the colormap for negative/positive exponents\n");
-  printf("r redraws without recalculating\n");
-  printf("R redraws, recalculating with new dwell and settle values\n");
-  printf("s or S spins the colorwheel\n");
-  printf("u pops back up to the last zoom\n");
-  printf("U pops back up to the first picture\n");
-  printf("v or V displays the values of various settings\n");
-  printf("w decrements, W increments the color wheel index\n");
-  printf("x or X clears the window\n");
-  printf("q or Q exits\n");
-}
-
-static void
-print_values(struct state *st)
-{
-  int i;
-  printf("\nminlyap=%f minexp=%f maxexp=%f\n",
-         st->minlyap,st->minexp, st->maxexp);
-  printf("width=%d height=%d\n",st->width,st->height);
-  printf("settle=%d  dwell=%d st->start_x=%f\n",
-         st->settle,st->dwell, st->start_x);
-  printf("min_a=%f  a_rng=%f        max_a=%f\n",
-         st->min_a,st->a_range,st->max_a);
-  printf("min_b=%f  b_rng=%f        max_b=%f\n",
-         st->min_b,st->b_range,st->max_b);
-  if (st->Rflag)
-    printf("pseudo-random forcing\n");
-  else if (st->force) {
-    printf("periodic forcing=");
-    for (i=0;i<st->maxindex;i++)
-      printf("%d",st->forcing[i]);
-    printf("\n");
-  }
-  else
-    printf("periodic forcing=01\n");
-  if (st->Force) {
-    printf("function forcing=");
-    for (i=0;i<st->funcmaxindex;i++) {
-      printf("%d",st->Forcing[i]);
-    }
-    printf("\n");
-  }
-  printf("numcolors=%d\n",st->numcolors-1);
-}
-
-static void
-freemem(struct state *st)
-{
-  int i;
-  for (i=0;i<MAXFRAMES;i++)
-    free(st->exponents[i]);
-}
-
-static void
-setupmem(struct state *st)
-{
-  int i;
-  for (i=0;i<MAXFRAMES;i++) {
-    if((st->exponents[i]=
-        (double *)malloc(sizeof(double)*st->width*(st->height+1)))==NULL){
-      fprintf(stderr,"Error malloc'ing exponent array.\n");
-      exit(-1);
-    }
-  }
 }
 
 static void
@@ -1482,73 +374,13 @@ setforcing(struct state *st)
 {
   int i;
   for (i=0;i<MAXINDEX;i++)
-    st->forcing[i] = (random() > st->prob) ? 0 : 1;
-}
-
-/****************************************************************************/
-
-static void
-do_defaults (struct state *st)
-{
-  int i;
-
-  memset (st->expind,  0, sizeof(st->expind));
-  memset (st->resized, 0, sizeof(st->resized));
-
-  st->aflag = 0;
-  st->bflag = 0;
-  st->hflag = 0;
-  st->wflag = 0;
-  st->minexp = 0;
-  st->mapindex = 0;
-
-# ifdef SIXTEEN_COLORS
-  st->maxcolor=16;
-  st->startcolor=0;
-  st->color_offset=0;
-  st->mincolindex=1;
-  st->dwell=50;
-  st->settle=25;
-  st->xposition=128;
-  st->yposition=128;
-# else  /* !SIXTEEN_COLORS */
-  st->maxcolor=256;
-  st->startcolor=17;
-  st->color_offset=96;
-  st->mincolindex=33;
-  st->dwell=100;
-  st->settle=50;
-# endif /* !SIXTEEN_COLORS */
-
-  st->maxindex = MAXINDEX;
-  st->funcmaxindex = FUNCMAXINDEX;
-  st->min_a=2.0;
-  st->min_b=2.0;
-  st->a_range=2.0;
-  st->b_range=2.0;
-  st->minlyap=1.0;
-  st->max_a=4.0;
-  st->max_b=4.0;
-  st->numcolors=16;
-  st->prob=0.5;
-  st->numwheels=MAXWHEELS;
-  st->negative=1;
-  st->rgb_max=65000;
-  st->nostart=1;
-  st->stripe_interval=7;
-  st->save=1;
-  st->useprod=1;
-  st->spinlength=256;
-  st->run=1;
-
-  for (i = 0; i < countof(st->forcing); i++)
-    st->forcing[i] = (i & 1) ? 1 : 0;
+    st->forcing[i] = (LRAND() / MAXRAND > st->prob) ? 0 : 1;
 }
 
 static void
 do_preset (struct state *st, int builtin)
 {
-  char *ff = 0;
+  const char *ff = 0;
   switch (builtin) {
   case 0:
     st->min_a = 3.75; st->aflag++;
@@ -1761,11 +593,11 @@ do_preset (struct state *st, int builtin)
   }
 
   if (ff) {
-    char *ch;
+    const char *ch;
     int bindex = 0;
     st->maxindex = strlen(ff);
     if (st->maxindex > MAXINDEX)
-      usage(st);
+      abort();
     ch = ff;
     st->force++;
     while (bindex < st->maxindex) {
@@ -1774,165 +606,259 @@ do_preset (struct state *st, int builtin)
       else if (*ch == 'b')
         st->forcing[bindex++] = 1;
       else
-        usage(st);
+        abort();
       ch++;
     }
   }
 }
 
 
-static void *
-xlyap_init (Display *d, Window window)
+} // namespace xlyap
+
+XLyap::XLyap()
+    : Art("XLyap — Lyapunov exponents"), m_state(std::make_unique<xlyap::state>())
 {
-  struct state *st = (struct state *) calloc (1, sizeof(*st));
-  XWindowAttributes xgwa;
-  int builtin = -1;
-  XGetWindowAttributes (d, window, &xgwa);
-  st->dpy = d;
-  st->width = xgwa.width;
-  st->height = xgwa.height;
-  st->visual = xgwa.visual;
-  st->screen = xgwa.screen;
-  st->cmap = xgwa.colormap;
-
-  do_defaults(st);
-  parseargs(st);
-
-  if (get_boolean_resource(st->dpy, "randomize", "Boolean"))
-    builtin = random() % NBUILTINS;
-  else {
-    char *s = get_string_resource(st->dpy, "builtin", "Integer");
-    if (s && *s)
-      builtin = atoi(s);
-    if (s) free (s);
-  }
-    
-  if (builtin >= 0)
-    do_preset (st, builtin);
-
-  st->background = BlackPixelOfScreen(st->screen);
-  setupmem(st);
-  init_data(st);
-  if (!mono_p)
-    st->foreground = st->startcolor;
-  else
-    st->foreground = WhitePixelOfScreen(st->screen);
-
-  /*
-   * Create the window to display the Lyapunov exponents
-   */
-  st->canvas = window;
-  init_color(st);
-
-#ifdef BACKING_PIXMAP
-  st->pixmap = XCreatePixmap(st->dpy, window, st->width, st->height, 
-                             xgwa.depth);
-#endif
-/*  st->rubber_data.band_cursor = XCreateFontCursor(st->dpy, XC_hand2);*/
-/*  CreateXorGC(st);*/
-  Clear(st);
-
-  st->delay  = get_integer_resource(st->dpy, "delay", "Delay");
-  st->linger = get_integer_resource(st->dpy, "linger", "Linger");
-  if (st->linger < 1) st->linger = 1;
-
-  return st;
+    usePlane();
+    apply_preset(static_cast<int>(LRAND() % NBUILTINS));
 }
 
+XLyap::~XLyap() = default;
 
-static unsigned long
-xlyap_draw (Display *dpy, Window window, void *closure)
+std::string XLyap::about() const
 {
-  struct state *st = (struct state *) closure;
-  int i;
+    return "XLyap calculates Lyapunov exponents for periodically forced maps of the unit interval. "
+           "Ron Record wrote Lyap on 3 September 1991; this port retains the original map and derivative "
+           "formulas, exponent iteration loops and preset table from XScreenSaver's xlyap.c.\n\n"
+           "The algorithm came from A. K. Dewdney's September 1991 Scientific American article, crediting "
+           "Mario Markus at the Max Planck Institute. Each pixel chooses parameters a and b. A sequence "
+           "such as abbabaab selects the parameter at each iteration. The orbit first settles, then the "
+           "program averages the logarithm of the absolute derivative in base two. Negative exponents "
+           "indicate stable dynamics; positive exponents indicate sensitivity to initial conditions.\n\n"
+           "Choose any of the original 23 presets or edit the map, forcing, ranges and iteration counts. "
+           "The five maps are logistic, sine hump, left and right skewed logistic, and double logistic. "
+           "Random forcing selects b with the requested probability. Palette controls use Cloudlife's "
+           "shared palettes in place of X11 colormaps. Color changes reuse the calculated exponents. "
+           "The image fills incrementally; completed images regenerate after the linger interval when "
+           "automatic regeneration is enabled. Shuffle chooses a new preset.\n\n"
+           "https://www.jwz.org/xscreensaver/\n"
+           "https://en.wikipedia.org/wiki/Lyapunov_fractal";
+}
 
-  if (!st->run && st->reset_countdown) {
-    st->reset_countdown--;
-    if (st->reset_countdown)
-      return 1000000;
-    else {
-      do_defaults (st);
-      do_preset (st, (random() % NBUILTINS));
-      Clear (st);
-      init_data(st);
-      init_color(st);
-      resize (st);
-      st->frame = 0;
-      st->run = 1;
+void XLyap::apply_preset(int preset)
+{
+    auto* st = m_state.get();
+    // Reset the original resource defaults so presets never inherit a previous preset's settings.
+    const bool randomize = st->randomize;
+    const float linger = st->linger;
+    const bool paused = st->paused;
+    const int width = st->width, height = st->height;
+    *st = xlyap::state{};
+    st->art = this;
+    st->randomize = randomize;
+    st->linger = linger;
+    st->paused = paused;
+    st->width = width;
+    st->height = height;
+    for (int i = 0; i < st->maxindex; ++i)
+        st->forcing[i] = st->forcing_text[i] == 'b';
+    if (preset >= 0)
+        xlyap::do_preset(st, preset);
+    st->preset = preset;
+    if (!st->aflag) st->min_a = xlyap::amins[st->mapindex];
+    if (!st->bflag) st->min_b = xlyap::bmins[st->mapindex];
+    if (!st->wflag) st->a_range = xlyap::aranges[st->mapindex];
+    if (!st->hflag) st->b_range = xlyap::branges[st->mapindex];
+    for (int i = 0; i < st->maxindex; ++i)
+        st->forcing_text[i] = st->forcing[i] ? 'b' : 'a';
+    st->forcing_text[st->maxindex] = '\0';
+    std::strcpy(st->deterministic_text, st->forcing_text);
+    restart();
+}
+
+void XLyap::restart()
+{
+    auto* st = m_state.get();
+    st->map = xlyap::Maps[st->mapindex];
+    st->deriv = xlyap::Derivs[st->mapindex];
+    st->max_a = st->min_a + st->a_range;
+    st->max_b = st->min_b + st->b_range;
+    st->a_inc = st->width > 0 ? st->a_range / st->width : 0.0;
+    st->b_inc = st->height > 0 ? st->b_range / st->height : 0.0;
+    st->point.x = st->point.y = 0;
+    st->completed = st->recolor = 0;
+    st->completed_at = -1.0;
+    st->run = st->width > 0 && st->height > 0;
+    st->exponents.assign(static_cast<size_t>(st->width) * st->height, 0.0);
+    if (st->Rflag)
+        xlyap::setforcing(st);
+    if (st->run)
+        clear();
+}
+
+void XLyap::resize(int width, int height)
+{
+    m_state->width = std::max(0, width);
+    m_state->height = std::max(0, height);
+    restart();
+}
+
+void XLyap::shuffle()
+{
+    apply_preset(static_cast<int>(LRAND() % NBUILTINS));
+}
+
+bool XLyap::render_gui()
+{
+    auto* st = m_state.get();
+    bool restart_needed = false, recolor_needed = false;
+    if (ImGui::BeginCombo("Preset", st->preset < 0 ? "Custom / defaults" :
+                         ("Original " + std::to_string(st->preset)).c_str())) {
+        if (ImGui::Selectable("Defaults", st->preset < 0))
+            apply_preset(-1);
+        for (int i = 0; i < NBUILTINS; ++i) {
+            const std::string label = "Original " + std::to_string(i);
+            if (ImGui::Selectable(label.c_str(), st->preset == i))
+                apply_preset(i);
+        }
+        ImGui::EndCombo();
     }
-  }
-
-  for (i = 0; i < 2000; i++)
-    if (complyap(st) == TRUE)
-      {
-        st->run = 0;
-        st->reset_countdown = st->linger;
-        break;
-      }
-  return st->delay;
-}
-
-static void
-xlyap_reshape (Display *dpy, Window window, void *closure, 
-                 unsigned int w, unsigned int h)
-{
-  struct state *st = (struct state *) closure;
-  resize(st);
-}
-
-static Bool
-xlyap_event (Display *dpy, Window window, void *closure, XEvent *event)
-{
-  struct state *st = (struct state *) closure;
-
-  switch(event->type)
-    {
-    case KeyPress:
-      if (Getkey(st, &event->xkey))
-        return True;
-      break;
-#if 0
-    case ButtonPress:
-      StartRubberBand(st, &st->rubber_data, event);
-      return True;
-    case MotionNotify:
-      TrackRubberBand(st, &st->rubber_data, event);
-      return True;
-    case ButtonRelease:
-      EndRubberBand(st, &st->rubber_data, event);
-      return True;
-#endif
-    default: 
-      break;
+    if (ImGui::Combo("Map", &st->mapindex,
+                     "Logistic\0Sine hump\0Left skewed logistic\0Right skewed logistic\0Double logistic\0")) {
+        st->min_a = xlyap::amins[st->mapindex];
+        st->min_b = xlyap::bmins[st->mapindex];
+        st->a_range = xlyap::aranges[st->mapindex];
+        st->b_range = xlyap::branges[st->mapindex];
+        restart_needed = true;
     }
-
-  if (screenhack_event_helper (dpy, window, event))
-    {
-      Clear(st);
-      return True;
+    ImGui::InputText("Forcing (a/b)", st->forcing_text, sizeof(st->forcing_text));
+    bool valid_forcing = st->forcing_text[0] != '\0';
+    for (const char* ch = st->forcing_text; *ch; ++ch)
+        valid_forcing &= *ch == 'a' || *ch == 'b';
+    if (valid_forcing) {
+        std::strcpy(st->deterministic_text, st->forcing_text);
+        const int length = static_cast<int>(std::strlen(st->forcing_text));
+        bool different = length != st->maxindex;
+        for (int i = 0; i < length; ++i)
+            different |= st->forcing[i] != (st->forcing_text[i] == 'b');
+        if (different && !st->Rflag) {
+            st->maxindex = length;
+            for (int i = 0; i < length; ++i)
+                st->forcing[i] = st->forcing_text[i] == 'b';
+            restart_needed = true;
+        }
+    } else {
+        ImGui::TextUnformatted("Enter 1–64 letters, using only a and b.");
     }
-
-  return False;
+    bool random_force = st->Rflag != 0;
+    if (ImGui::Checkbox("Random forcing", &random_force)) {
+        st->Rflag = random_force;
+        if (!random_force) {
+            if (!valid_forcing)
+                std::strcpy(st->forcing_text, st->deterministic_text);
+            st->maxindex = static_cast<int>(std::strlen(st->forcing_text));
+            for (int i = 0; i < st->maxindex; ++i)
+                st->forcing[i] = st->forcing_text[i] == 'b';
+        } else if (random_force) {
+            st->maxindex = MAXINDEX;
+        }
+        restart_needed = true;
+    }
+    if (random_force) {
+        float prob = static_cast<float>(st->prob);
+        if (ImGui::SliderFloat("Probability of b", &prob, 0.0f, 1.0f)) {
+            st->prob = prob;
+            restart_needed = true;
+        }
+    }
+    restart_needed |= ImGui::SliderInt("Dwell", &st->dwell, 1, 10000);
+    restart_needed |= ImGui::SliderInt("Settle", &st->settle, 0, 10000);
+    bool use_log = !st->useprod;
+    if (ImGui::Checkbox("Sum logarithms", &use_log)) {
+        st->useprod = !use_log;
+        restart_needed = true;
+    }
+    restart_needed |= ImGui::InputDouble("Minimum a", &st->min_a, 0.001, 0.1, "%.9g");
+    restart_needed |= ImGui::InputDouble("Minimum b", &st->min_b, 0.001, 0.1, "%.9g");
+    restart_needed |= ImGui::InputDouble("Range a", &st->a_range, 0.001, 0.1, "%.9g");
+    restart_needed |= ImGui::InputDouble("Range b", &st->b_range, 0.001, 0.1, "%.9g");
+    restart_needed |= ImGui::InputDouble("Start x", &st->start_x, 0.001, 0.01, "%.9g");
+    st->dwell = std::clamp(st->dwell, 1, 10000);
+    st->settle = std::clamp(st->settle, 0, 10000);
+    st->a_range = std::max(1.0e-12, st->a_range);
+    st->b_range = std::max(1.0e-12, st->b_range);
+    if (st->min_a < xlyap::pmins[st->mapindex] ||
+        st->min_a + st->a_range > xlyap::pmaxs[st->mapindex] ||
+        st->min_b < xlyap::pmins[st->mapindex] ||
+        st->min_b + st->b_range > xlyap::pmaxs[st->mapindex])
+        ImGui::TextUnformatted("Parameter range extends outside this map's unit-interval domain.");
+    recolor_needed |= ImGui::InputDouble("Color exponent", &st->minlyap, 0.05, 0.1, "%.4g");
+    st->minlyap = std::max(1.0e-6, std::abs(st->minlyap));
+    st->maxexp = st->minlyap;
+    st->minexp = -st->minlyap;
+    recolor_needed |= ImGui::SliderInt("Colors", &st->numcolors, 3, MAXCOLOR);
+    recolor_needed |= ImGui::SliderInt("Minimum color index", &st->mincolindex, 1, st->numcolors - 1);
+    st->mincolindex = std::clamp(st->mincolindex, 1, st->numcolors - 1);
+    st->lowrange = st->mincolindex - st->startcolor;
+    st->numfreecols = st->numcolors - st->mincolindex;
+    recolor_needed |= ImGui::SliderInt("Color offset", &st->color_offset, 0, st->numcolors - 1);
+    bool negative = st->negative != 0;
+    if (ImGui::Checkbox("Negative exponent palette", &negative)) {
+        st->negative = negative;
+        recolor_needed = true;
+    }
+    ImGui::Checkbox("Pause", &st->paused);
+    ImGui::Checkbox("Automatic regeneration", &st->randomize);
+    ImGui::SliderFloat("Linger (seconds)", &st->linger, 1.0f, 120.0f);
+    if (ImGui::Button("Recalculate"))
+        restart_needed = true;
+    if (restart_needed) {
+        st->preset = -1;
+        restart();
+    } else if (recolor_needed) {
+        st->recolor = 0;
+    }
+    const float progress = st->exponents.empty() ? 0.0f :
+                          static_cast<float>(st->completed) / st->exponents.size();
+    ImGui::ProgressBar(progress, ImVec2(-1.0f, 0.0f));
+    return false;
 }
 
-static void
-xlyap_free (Display *dpy, Window window, void *closure)
+bool XLyap::render(uint32_t*)
 {
-  int i;
-  struct state *st = (struct state *) closure;
-
-  freemem (st);
-
-#ifdef BACKING_PIXMAP
-  XFreePixmap (st->dpy, st->pixmap);
-#endif
-/*  XFreeGC (st->dpy, st->RubberGC);*/
-  for (i = 0; i < st->maxcolor; i++)
-    XFreeGC (st->dpy, st->Data_GC[i]);
-  if (st->outname) free (st->outname);
-
-  free (st);
+    auto* st = m_state.get();
+    if (st->width <= 0 || st->height <= 0)
+        return false;
+    // Shared palette edits recolor cached exponents without recalculating the map.
+    std::array<uint32_t, MAXCOLOR> colors;
+    for (int i = 0; i < MAXCOLOR; ++i)
+        colors[i] = easel->pal.get_colorf(static_cast<float>(std::min(i, st->numcolors - 1)) /
+                                           (st->numcolors - 1));
+    if (colors != st->colors) {
+        st->colors = colors;
+        st->recolor = 0;
+    }
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(8);
+    while (st->recolor < st->completed && std::chrono::steady_clock::now() < deadline) {
+        const size_t index = st->recolor++;
+        drawdot(static_cast<int>(index % st->width), static_cast<int>(index / st->width),
+                st->colors[xlyap::color_index(st, st->exponents[index])]);
+    }
+    if (st->paused || st->recolor < st->completed)
+        return false;
+    if (!st->run) {
+        if (st->randomize && st->completed_at >= 0.0 &&
+            ImGui::GetTime() - st->completed_at >= st->linger)
+            shuffle();
+        return false;
+    }
+    for (int i = 0; i < 2000 && std::chrono::steady_clock::now() < deadline; ++i) {
+        if (xlyap::complyap(st) == TRUE) {
+            st->run = 0;
+            st->completed_at = ImGui::GetTime();
+            break;
+        }
+    }
+    // Newly computed pixels already have the current palette.
+    st->recolor = st->completed;
+    return false;
 }
-
-
-XSCREENSAVER_MODULE ("XLyap", xlyap)

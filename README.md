@@ -123,3 +123,11 @@ documentation.  No representations are made about the suitability of this
 software for any purpose.  It is provided "as is" without express or
 implied warranty.
 ```
+
+### XLyap
+
+Ported from [XScreenSaver's xlyap.c](arχiv/xscreensaver/hacks/xlyap.c),
+written by Ron Record (rr@sco), 3 September 1991 (Lyap 2.3, patchlevel 4).
+Displays Lyapunov exponents for periodically forced nonlinear maps. The
+algorithm follows A. K. Dewdney's September 1991 Scientific American article,
+which credits Mario Markus of the Max Planck Institute.
