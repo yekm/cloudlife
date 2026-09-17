@@ -2,6 +2,9 @@
 
 Xscreensaver hacks and other beautiful programs with Dear ImGui
 
+CPU worker utilities and their ownership rules are documented in
+[docs/concurrency.md](docs/concurrency.md).
+
 ## using with sway
 
 ```

@@ -363,7 +363,7 @@ PrimeUmap3D::PrimeUmap3D()
 }
 
 PrimeUmap3D::~PrimeUmap3D() {
-    cancel_requested.store(true, std::memory_order_relaxed);
+    job_control.cancel();
     if (worker.joinable())
         worker.join();
 }
@@ -383,7 +383,7 @@ void PrimeUmap3D::request_rebuild() {
     parameters_dirty = false;
     ++latest_generation;
     if (worker_active.load(std::memory_order_acquire)) {
-        cancel_requested.store(true, std::memory_order_release);
+        job_control.cancel();
         set_phase(Phase::Cancelling, 0, 0, "Cancelling previous computation");
     }
     service_worker();
@@ -396,7 +396,7 @@ void PrimeUmap3D::launch_pending_worker() {
     const Parameters next_parameters = pending_parameters;
     const uint64_t generation = latest_generation;
     pending_request = false;
-    cancel_requested.store(false, std::memory_order_release);
+    job_control.cancelled.store(false, std::memory_order_release);
     worker_active.store(true, std::memory_order_release);
     set_phase(Phase::Factoring, 0, next_parameters.integer_count,
               "Factoring integers");
@@ -413,17 +413,11 @@ void PrimeUmap3D::service_worker() {
     if (worker.joinable() && !worker_active.load(std::memory_order_acquire))
         worker.join();
 
-    std::vector<float> vertices;
-    uint64_t snapshot_generation = 0;
+    auto snapshot = published_vertices.take();
     uint64_t finished_generation = 0;
     double finished_seconds = 0.0;
     {
         std::lock_guard<std::mutex> lock(worker_mutex);
-        if (published_snapshot_pending) {
-            vertices = std::move(published_vertices);
-            snapshot_generation = published_generation;
-            published_snapshot_pending = false;
-        }
         if (completed_generation != 0) {
             finished_generation = completed_generation;
             finished_seconds = completed_seconds;
@@ -431,8 +425,8 @@ void PrimeUmap3D::service_worker() {
         }
     }
 
-    if (!vertices.empty() && snapshot_generation == latest_generation) {
-        if (evertex3d()->replace_geometry(std::move(vertices))) {
+    if (snapshot && !snapshot->value.empty() && snapshot->generation == latest_generation) {
+        if (evertex3d()->replace_geometry(std::move(snapshot->value))) {
             geometry_ready = true;
         }
     }
@@ -445,8 +439,8 @@ void PrimeUmap3D::service_worker() {
 }
 
 void PrimeUmap3D::publish_embedding(const std::vector<float>& embedding, int count,
-                                    uint64_t generation, bool final_snapshot) {
-    if (cancel_requested.load(std::memory_order_relaxed) || count <= 0)
+                                    uint64_t generation) {
+    if (job_control.cancelled.load(std::memory_order_relaxed) || count <= 0)
         return;
 
     float minimum[3] = {embedding[0], embedding[1], embedding[2]};
@@ -476,13 +470,8 @@ void PrimeUmap3D::publish_embedding(const std::vector<float>& embedding, int cou
             std::max(1, count - 1);
     }
 
-    std::lock_guard<std::mutex> lock(worker_mutex);
-    if (!cancel_requested.load(std::memory_order_relaxed)) {
-        published_vertices = std::move(vertices);
-        published_generation = generation;
-        published_snapshot_pending = true;
-        published_snapshot_final = final_snapshot;
-    }
+    if (!job_control.cancelled.load(std::memory_order_relaxed))
+        published_vertices.publish(generation, std::move(vertices));
 }
 
 void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
@@ -507,7 +496,7 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
         if (!index) {
             set_phase(Phase::Factoring, 0, job.integer_count,
                       "Factoring integers");
-            index = build_prime_index(job.integer_count, job.random_seed, cancel_requested,
+            index = build_prime_index(job.integer_count, job.random_seed, job_control.cancelled,
                 progress_completed, progress_total, [this, &job](bool sorting) {
                     set_phase(Phase::Indexing, 0,
                         sorting ? 0 : job.integer_count,
@@ -518,18 +507,18 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
                 return;
             {
                 std::lock_guard<std::mutex> lock(worker_mutex);
-                if (!cancel_requested.load(std::memory_order_relaxed))
+                if (!job_control.cancelled.load(std::memory_order_relaxed))
                     cached_index = index;
             }
         }
-        if (cancel_requested.load(std::memory_order_relaxed))
+        if (job_control.cancelled.load(std::memory_order_relaxed))
             return;
 
         set_phase(Phase::Neighbors, 0, job.integer_count,
                   "Building exact nearest neighbors");
         auto neighbor_list = build_neighbor_list(*index, job.neighbors,
-            cancel_requested, progress_completed);
-        if (cancel_requested.load(std::memory_order_relaxed))
+            job_control.cancelled, progress_completed);
+        if (job_control.cancelled.load(std::memory_order_relaxed))
             return;
 
         std::vector<float> embedding(job.integer_count * 3);
@@ -553,9 +542,9 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
             : "Initializing UMAP layout (spectral)";
         set_phase(Phase::Initializing, 0, 0, initialization);
         auto umap = umappp::initialize(std::move(neighbor_list), 3, embedding.data(), options);
-        if (cancel_requested.load(std::memory_order_relaxed))
+        if (job_control.cancelled.load(std::memory_order_relaxed))
             return;
-        publish_embedding(embedding, job.integer_count, generation, false);
+        publish_embedding(embedding, job.integer_count, generation);
 
         set_phase(Phase::Optimizing, 0, job.epochs,
                   "Optimizing UMAP layout");
@@ -563,10 +552,9 @@ void PrimeUmap3D::rebuild_embedding(Parameters job, uint64_t generation) {
             const int epoch_limit = std::min(umap.epoch() + 1, umap.num_epochs());
             umap.run(embedding.data(), epoch_limit);
             progress_completed.store(umap.epoch(), std::memory_order_relaxed);
-            if (cancel_requested.load(std::memory_order_relaxed))
+            if (job_control.cancelled.load(std::memory_order_relaxed))
                 return;
-            publish_embedding(embedding, job.integer_count, generation,
-                              umap.epoch() == umap.num_epochs());
+            publish_embedding(embedding, job.integer_count, generation);
         }
 
         const double elapsed = std::chrono::duration<double>(

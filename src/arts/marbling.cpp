@@ -40,6 +40,7 @@
  */
 
 #include "marbling.hpp"
+#include "concurrency/parallel_batch.hpp"
 #include "imgui.h"
 #include "imgui_elements.h"
 #include "random.h"
@@ -47,8 +48,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <condition_variable>
-#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -328,49 +327,16 @@ struct Marbling::State {
     int scale = 10, iterations = 5;
     v_uhi Z = broadcast(0);
     std::vector<uint8_t> pixels;
-    std::vector<std::thread> workers;
-    std::mutex mutex;
-    std::condition_variable wake, done;
-    unsigned generation = 0, remaining = 0;
-    bool stopping = false;
+    concurrency::ParallelBatch batch;
 
     State()
+        : batch(std::max(1u, std::thread::hardware_concurrency()))
     {
-        const unsigned count = std::max(1u, std::thread::hardware_concurrency());
-        for (unsigned id = 0; id < count; ++id) {
-            workers.emplace_back([this, id, count] {
-                unsigned seen = 0;
-                std::unique_lock<std::mutex> lock(mutex);
-                for (;;) {
-                    wake.wait(lock, [&] { return stopping || generation != seen; });
-                    if (stopping) return;
-                    seen = generation;
-                    lock.unlock();
-                    run(id, count);
-                    lock.lock();
-                    if (--remaining == 0) done.notify_one();
-                }
-            });
-        }
-    }
-
-    ~State()
-    {
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            stopping = true;
-        }
-        wake.notify_all();
-        for (auto& worker : workers) worker.join();
     }
 
     void draw()
     {
-        std::unique_lock<std::mutex> lock(mutex);
-        remaining = workers.size();
-        ++generation;
-        wake.notify_all();
-        done.wait(lock, [&] { return remaining == 0; });
+        batch.run([this](size_t id, size_t count) { run(id, count); });
         Z += (int16_t)(0.01 * (1 << noise_in_bits));
     }
 
@@ -459,7 +425,7 @@ bool Marbling::render_gui()
     ScrollableSliderInt("Scale", &m_state->scale, 1, 20, "%d", 1);
     ScrollableSliderInt("Complexity", &m_state->iterations, 1, 10, "%d", 1);
     ScrollableSliderInt("Frame delay (us)", &m_delay, 0, 100000, "%d", 1000);
-    ImGui::Text("CPU workers: %zu", m_state->workers.size());
+    ImGui::Text("CPU workers: %zu", m_state->batch.size());
     return false;
 }
 

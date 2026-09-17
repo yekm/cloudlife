@@ -37,18 +37,17 @@
 
 #include "easelplane.h"
 #include "random.h"
+#include "concurrency/indexed_worker_pool.hpp"
 #include "imgui.h"
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <chrono>
 #include <cmath>
-#include <condition_variable>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <deque>
-#include <mutex>
+#include <exception>
 #include <random>
 #include <thread>
 #include <vector>
@@ -107,36 +106,9 @@ struct computation {
     std::mt19937 random;
 };
 
-struct job {
+struct job : concurrency::JobControl {
     computation parameters;
     int height = 0, threads = 1;
-    std::atomic<bool> cancelled{false}, paused{false};
-    std::mutex pause_mutex;
-    std::condition_variable pause_cv;
-
-    bool checkpoint()
-    {
-        if (cancelled.load(std::memory_order_relaxed))
-            return false;
-        if (paused.load(std::memory_order_relaxed)) {
-            std::unique_lock<std::mutex> lock(pause_mutex);
-            pause_cv.wait(lock, [&] { return cancelled.load() || !paused.load(); });
-        }
-        return !cancelled.load(std::memory_order_relaxed);
-    }
-
-    void set_paused(bool value)
-    {
-        // Synchronize the predicate change with wait to avoid a missed notification.
-        { std::lock_guard<std::mutex> lock(pause_mutex); paused = value; }
-        pause_cv.notify_all();
-    }
-
-    void cancel()
-    {
-        { std::lock_guard<std::mutex> lock(pause_mutex); cancelled = true; }
-        pause_cv.notify_all();
-    }
 };
 
 static void setforcing(struct computation *st);
@@ -405,147 +377,73 @@ setforcing(struct computation *st)
     st->forcing[i] = (double(st->random()) / std::mt19937::max() > st->prob) ? 0 : 1;
 }
 
-// A fixed pool is reused across generations. Jobs/results never reference Art or OpenGL.
-class worker_pool {
+struct tile_result {
+    size_t first = 0;
+    std::vector<double> exponents;
+};
+
+// Tile partitioning and orbit behavior belong to XLyap, independently of the
+// persistent workers, generation replacement and bounded publication queue.
+struct tile_policy {
+    static size_t total(const job& work) noexcept
+    {
+        return size_t(work.parameters.width) * work.height;
+    }
+
+    static bool eligible(const job& work, size_t worker_index) noexcept
+    {
+        return worker_index < size_t(work.threads) &&
+               (!work.parameters.Rflag || worker_index == 0);
+    }
+
+    static size_t span_size(const job& work, size_t first) noexcept
+    {
+        // Row-aligned spans make right-edge reuse local. Avoid a one-pixel
+        // final span, which would need the preceding span's exponent.
+        const size_t remaining = work.parameters.width - first % work.parameters.width;
+        return remaining == 129 ? 129 : std::min(size_t(128), remaining);
+    }
+
+    static size_t capacity(const job& work) noexcept
+    {
+        return size_t(std::max(4, work.threads * 2));
+    }
+
+    static void initialize(const job& work, computation& orbit)
+    {
+        orbit = work.parameters;
+    }
+
+    static bool compute(job& work, computation& orbit, size_t first, size_t count,
+                        tile_result& tile)
+    {
+        tile.first = first;
+        tile.exponents.reserve(count);
+        for (size_t offset = 0; offset < count; ++offset) {
+            const size_t index = first + offset;
+            const int x = static_cast<int>(index % orbit.width);
+            const int y = static_cast<int>(index / orbit.width);
+            if (!work.checkpoint())
+                break;
+            if (!(orbit.width > 1 && x == orbit.width - 1) &&
+                !complyap(&orbit, x, y, work))
+                break;
+            tile.exponents.push_back(orbit.lyapunov);
+        }
+        return tile.exponents.size() == count;
+    }
+};
+
+class worker_pool : public concurrency::IndexedWorkerPool<job, tile_result, computation, tile_policy> {
 public:
-    struct result {
-        std::shared_ptr<job> generation;
-        size_t first = 0;
-        std::vector<double> exponents;
-    };
+    using IndexedWorkerPool::IndexedWorkerPool;
+    using result = tile_result;
 
     static int maximum_threads()
     {
         const unsigned cores = std::thread::hardware_concurrency();
         return static_cast<int>(std::min(32u, cores > 1 ? cores - 1 : 1u));
     }
-
-    explicit worker_pool(int count)
-    {
-        try {
-            for (int i = 0; i < count; ++i)
-                m_threads.emplace_back([this, i] { run(i); });
-        } catch (...) {
-            // A partially constructed vector of joinable threads cannot unwind.
-            { std::lock_guard<std::mutex> lock(m_mutex); m_stopping = true; }
-            m_cv.notify_all();
-            for (auto& thread : m_threads)
-                thread.join();
-            throw;
-        }
-    }
-
-    ~worker_pool()
-    {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_stopping = true;
-            if (m_job)
-                m_job->cancel();
-        }
-        m_cv.notify_all();
-        for (auto& thread : m_threads)
-            thread.join();
-    }
-
-    void start(std::shared_ptr<job> work)
-    {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            if (m_job)
-                m_job->cancel();
-            m_job = std::move(work);
-            m_next = 0;
-            m_results.clear();
-        }
-        m_cv.notify_all();
-    }
-
-    void set_paused(bool paused)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_job)
-            m_job->set_paused(paused);
-        m_cv.notify_all();
-    }
-
-    bool take(result& tile)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_results.empty())
-            return false;
-        tile = std::move(m_results.front());
-        m_results.pop_front();
-        m_cv.notify_all();
-        return true;
-    }
-
-private:
-    void run(int worker_index)
-    {
-        std::shared_ptr<job> previous;
-        computation orbit;
-        for (;;) {
-            std::shared_ptr<job> work;
-            size_t first, count;
-            {
-                std::unique_lock<std::mutex> lock(m_mutex);
-                m_cv.wait(lock, [&] {
-                    return m_stopping || (m_job && !m_job->paused.load() &&
-                        worker_index < m_job->threads &&
-                        (!m_job->parameters.Rflag || worker_index == 0) &&
-                        m_next < size_t(m_job->parameters.width) * m_job->height);
-                });
-                if (m_stopping)
-                    return;
-                work = m_job;
-                first = m_next;
-                // Row-aligned spans make right-edge reuse local. Avoid a one-pixel
-                // final span, which would need the preceding span's exponent.
-                const size_t remaining = work->parameters.width - first % work->parameters.width;
-                count = remaining == 129 ? 129 : std::min(size_t(128), remaining);
-                m_next += count;
-            }
-            if (previous != work) {
-                orbit = work->parameters;
-                previous = work;
-            }
-            result tile{work, first, {}};
-            tile.exponents.reserve(count);
-            for (size_t offset = 0; offset < count; ++offset) {
-                const size_t index = first + offset;
-                const int x = static_cast<int>(index % orbit.width);
-                const int y = static_cast<int>(index / orbit.width);
-                if (!work->checkpoint())
-                    break;
-                if (!(orbit.width > 1 && x == orbit.width - 1) &&
-                    !complyap(&orbit, x, y, *work))
-                    break;
-                tile.exponents.push_back(orbit.lyapunov);
-            }
-            if (tile.exponents.size() != count)
-                continue;
-            {
-                std::unique_lock<std::mutex> lock(m_mutex);
-                m_cv.wait(lock, [&] {
-                    return m_stopping || m_job != work ||
-                        m_results.size() < size_t(std::max(4, work->threads * 2));
-                });
-                if (m_stopping)
-                    return;
-                if (m_job == work)
-                    m_results.push_back(std::move(tile));
-            }
-        }
-    }
-
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
-    bool m_stopping = false;
-    size_t m_next = 0;
-    std::shared_ptr<job> m_job;
-    std::deque<result> m_results;
-    std::vector<std::thread> m_threads;
 };
 
 static void
@@ -1055,6 +953,18 @@ bool XLyap::render(uint32_t*)
         if (st->ready[index])
             drawdot(static_cast<int>(index % st->width), static_cast<int>(index / st->width),
                     st->colors[xlyap::color_index(st, st->exponents[index])]);
+    }
+    if (m_workers) {
+        if (auto error = m_workers->take_error()) {
+            st->run = 0;
+            try {
+                std::rethrow_exception(error);
+            } catch (const std::exception& exception) {
+                fprintf(stderr, "XLyap worker failed: %s\n", exception.what());
+            } catch (...) {
+                fprintf(stderr, "XLyap worker failed with an unknown exception\n");
+            }
+        }
     }
     // Tiles may finish out of order. Each arriving exponent gets the current
     // palette immediately, independently of the cached-image recolor cursor.

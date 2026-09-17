@@ -3,6 +3,8 @@
 // https://johnhw.github.io/umap_primes/index.md.html
 
 #include "art.hpp"
+#include "concurrency/job_control.hpp"
+#include "concurrency/latest_snapshot.hpp"
 
 #include <atomic>
 #include <cstdint>
@@ -98,7 +100,7 @@ private:
     void launch_pending_worker();
     void rebuild_embedding(Parameters parameters, uint64_t generation);
     void publish_embedding(const std::vector<float>& embedding, int count,
-                           uint64_t generation, bool final_snapshot);
+                           uint64_t generation);
     void set_phase(Phase phase, uint64_t completed, uint64_t total,
                    const std::string& message);
 
@@ -115,17 +117,14 @@ private:
 
     std::thread worker;
     std::atomic<bool> worker_active{false};
-    std::atomic<bool> cancel_requested{false};
+    concurrency::JobControl job_control;
     std::atomic<Phase> phase{Phase::Idle};
     std::atomic<uint64_t> progress_completed{0};
     std::atomic<uint64_t> progress_total{0};
 
     std::mutex worker_mutex;
     std::shared_ptr<PrimeIndexData> cached_index;
-    std::vector<float> published_vertices;
-    uint64_t published_generation = 0;
-    bool published_snapshot_pending = false;
-    bool published_snapshot_final = false;
+    concurrency::LatestSnapshot<std::vector<float>> published_vertices;
     uint64_t completed_generation = 0;
     double completed_seconds = 0.0;
     double rebuild_seconds = 0.0;
