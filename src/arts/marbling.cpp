@@ -229,7 +229,7 @@ grad (v_uhi hash, v_uhi x, v_uhi y, v_uhi z)
   u = PICK(h<8, x, y);
   v1 = PICK((h & ~2) == 12, x, z);
   v = PICK(h<4, y, v1);
-  return (((h&1) != 0) ^ u) + (((h&2) != 0) ^ v);
+  return (v_hi)((((h&1) != 0) ^ u) + (((h&2) != 0) ^ v));
 #endif
 }
 
