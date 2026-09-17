@@ -46,8 +46,8 @@ int main()
     expect_art(factory, 11, "AcidWorm");
     expect_art(factory, 16, "Physarum");
     factory.cycle_art();
-    require(std::strcmp(factory.get_art()->name(), default_name) == 0,
-            "cycling must wrap past unsupported compute entries");
+    require(std::strcmp(factory.get_art()->name(), "Marbling") == 0,
+            "cycling must skip unsupported entries to reach Marbling");
     factory.set_art(4);
     factory.cycle_art();
     require(std::strcmp(factory.get_art()->name(), "thornbird --- continuously varying Thornbird set") == 0,

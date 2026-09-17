@@ -105,3 +105,21 @@ Multi-coloured mode added by Jack Grahl <j.grahl@ucl.ac.uk>, Jan 2007
  *              (Birmingham, England)
 
 ```
+
+### Marbling
+
+Ported from [XScreenSaver's marbling.c](arχiv/xscreensaver/hacks/marbling.c).
+Initial version by Jamie Zawinski; pthreads and CPU-specific vector operations
+by Dave Odell <dmo2118@gmail.com>.
+
+```
+marbling, Copyright © 2021-2022 Jamie Zawinski <jwz@jwz.org>
+
+Permission to use, copy, modify, distribute, and sell this software and its
+documentation for any purpose is hereby granted without fee, provided that
+the above copyright notice appear in all copies and that both that
+copyright notice and this permission notice appear in supporting
+documentation.  No representations are made about the suitability of this
+software for any purpose.  It is provided "as is" without express or
+implied warranty.
+```

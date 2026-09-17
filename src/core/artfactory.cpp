@@ -24,6 +24,7 @@
 #include "attractor.h"
 #include "test3d.hpp"
 #include "physarum.hpp"
+#include "marbling.hpp"
 #ifndef __APPLE__
 #include "acidwarpgpt56terra.h"
 #include "acidwarpgpt56luna.h"
@@ -92,6 +93,7 @@ ArtFactory::ArtFactory() {
     add_unavailable_art("PhysarumGPU", OPENGL_43_COMPUTE_REQUIREMENT);
 #endif
     add_art<PrimeUmap3D>("Prime UMAP 3D", has_opengl_33, OPENGL_33_REQUIREMENT);
+    add_art<Marbling>("Marbling");
 
     vc = VectorCombo("Art", art_items);
     if (!select_available_art(DEFAULT_ART_ID) && !available_art_ids.empty())

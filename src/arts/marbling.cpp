@@ -39,11 +39,20 @@
  * ops added by Dave Odell <dmo2118@gmail.com>.  Here be parallel monsters.
  */
 
-#include "screenhack.h"
-#include "colors.h"
-#include "thread_util.h"
-#include "xshm.h"
+#include "marbling.hpp"
+#include "imgui.h"
+#include "imgui_elements.h"
+#include "random.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+namespace {
 #if defined __GNUC__ || defined __clang__ || \
   defined __STDC_VERSION__ && __STDC_VERSION__ > 199901L
 # define INLINE inline
@@ -124,29 +133,6 @@ typedef int16_t v_hi;
 #else
 # define VEC_INDEX(v, i) ((v)[i])
 #endif
-
-struct state {
-  Display *dpy;
-  Window window;
-  XImage *image;
-  XShmSegmentInfo shm_info;
-  GC gc;
-  int delay;
-  Colormap cmap;
-  int ncolors;
-  XColor *colors;
-  unsigned int grid_size, w, h;
-  int scale, iterations;
-  v_uhi Z;
-  struct threadpool threadpool;
-};
-
-
-struct thread {
-  struct state *st;
-  unsigned thread_id;
-};
-
 
 /* Perlin Noise
  */
@@ -335,300 +321,166 @@ fbm (v_uhi x, v_uhi y, v_uhi z)
 }
 
 
-static void
-marbling_recolor (struct state *st)
-{
-  XWindowAttributes xgwa;
-  XGetWindowAttributes (st->dpy, st->window, &xgwa);
-  st->ncolors = 256;
-  if (st->colors) free (st->colors);
-  st->colors = (XColor *) calloc(st->ncolors, sizeof(*st->colors));
-  make_smooth_colormap (xgwa.screen, xgwa.visual, st->cmap,
-                        st->colors, &st->ncolors,
-                        True, 0, False);
-}
+} // namespace
 
-static void marbling_thread_run (void *t_raw);
+struct Marbling::State {
+    unsigned w = 0, h = 0;
+    int scale = 10, iterations = 5;
+    v_uhi Z = broadcast(0);
+    std::vector<uint8_t> pixels;
+    std::vector<std::thread> workers;
+    std::mutex mutex;
+    std::condition_variable wake, done;
+    unsigned generation = 0, remaining = 0;
+    bool stopping = false;
 
-static void
-marbling_reset (struct state *st)
-{
-  XWindowAttributes xgwa;
-  unsigned align = thread_memory_alignment (st->dpy) * 8 - 1;
-  unsigned bpp;
-  unsigned g = st->grid_size;
-
-  XGetWindowAttributes (st->dpy, st->window, &xgwa);
-  bpp = visual_pixmap_depth (xgwa.screen, xgwa.visual);
-  if (st->image)
-    destroy_xshm_image (st->dpy, st->image, &st->shm_info);
-  st->w = ((((xgwa.width + g - 1) / g) + (VSIZE - 1)) & ~(VSIZE - 1));
-  st->h = xgwa.height + g - 1;
-  st->h = st->h / g;
-  st->image = create_xshm_image (st->dpy, xgwa.visual, xgwa.depth, ZPixmap,
-                                 &st->shm_info,
-                                 ((st->w * g * bpp + align) & ~align) / bpp,
-                                 st->h * g);
-}
-
-
-static int
-marbling_thread_create (void *t_raw, struct threadpool *threadpool,
-                        unsigned int id)
-{
-  struct thread *t = (struct thread *) t_raw;
-  t->st = GET_PARENT_OBJ(struct state, threadpool, threadpool);
-  t->thread_id = id;
-  return 0;
-}
-
-
-static void
-marbling_thread_destroy (void *t_raw)
-{
-}
-
-
-static void
-marbling_thread_run (void *t_raw)
-{
-  const struct thread *t = (const struct thread *) t_raw;
-  struct state *st = t->st;
-  unsigned g = st->grid_size;
-  void *scanline = st->image->data +
-    st->image->bytes_per_line * t->thread_id * g;
-  ptrdiff_t skip = st->image->bytes_per_line * st->threadpool.count * g;
-  int i, j, x, y;
-
-  float S = st->scale << noise_in_bits;
-
-  for (y = t->thread_id; y < st->h; y += st->threadpool.count)
+    State()
     {
-      char *scanline1;
+        const unsigned count = std::max(1u, std::thread::hardware_concurrency());
+        for (unsigned id = 0; id < count; ++id) {
+            workers.emplace_back([this, id, count] {
+                unsigned seen = 0;
+                std::unique_lock<std::mutex> lock(mutex);
+                for (;;) {
+                    wake.wait(lock, [&] { return stopping || generation != seen; });
+                    if (stopping) return;
+                    seen = generation;
+                    lock.unlock();
+                    run(id, count);
+                    lock.lock();
+                    if (--remaining == 0) done.notify_one();
+                }
+            });
+        }
+    }
 
-      v_uhi Y = broadcast((float) y / st->h * S);
+    ~State()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            stopping = true;
+        }
+        wake.notify_all();
+        for (auto& worker : workers) worker.join();
+    }
+
+    void draw()
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        remaining = workers.size();
+        ++generation;
+        wake.notify_all();
+        done.wait(lock, [&] { return remaining == 0; });
+        Z += (int16_t)(0.01 * (1 << noise_in_bits));
+    }
+
+    void run(unsigned thread_id, unsigned count)
+    {
+        unsigned x, y;
+        float S = scale << noise_in_bits;
+
+        for (y = thread_id; y < h; y += count)
+          {
+            v_uhi Y = broadcast((float) y / h * S);
 
 #if VSIZE == 1
-      uint32_t X = 0, Xd = 0x10000 / st->w * S;
+            uint32_t X = 0, Xd = 0x10000 / w * S;
 #else
-      v_uhi X, Xd = broadcast((float) VSIZE / st->w * S);
-      for (x = 0; x != VSIZE; x++)
-        VEC_INDEX(X, x) = (float) x / st->w * S;
+            v_uhi X, Xd = broadcast((float) VSIZE / w * S);
+            for (x = 0; x != VSIZE; x++)
+              VEC_INDEX(X, x) = (float) x / w * S;
 #endif
 
-      for (x = 0; x < st->w; x += VSIZE)
-        {
-          int i;
+            for (x = 0; x < w; x += VSIZE)
+              {
+                int i;
 #if VSIZE == 1
-          uint16_t X0 = X >> 16;
+                uint16_t X0 = X >> 16;
 #else
-          v_uhi X0 = X;
+                v_uhi X0 = X;
 #endif
+                v_uhi p = broadcast(0);
+                for (i = 0; i < iterations; i++)
+                  p = fbm (p+X0, p+Y, p+Z);
 
-#if 0
-          v_uhi p = noise (X0, Y, st->Z) >> (noise_out_bits - noise_in_bits);
-#else
-          v_uhi p = broadcast(0);
-          for (i = 0; i < st->iterations; i++)
-            p = fbm (p+X0, p+Y, p+st->Z);
-#endif
-
-          /* Optimizing for 32bpp seems vaguely faster. */
-          if (st->image->bits_per_pixel == 32)
-            {
-              uint32_t *out = (uint32_t *) scanline + x * g;
-              for (i = 0; i != VSIZE; ++i)
-                {
-                  *out =
-                    st->colors[((VEC_INDEX(p, i) &
-                                 ((1 << noise_in_bits) - 1)) *
-                                st->ncolors)
-                               >> noise_in_bits].pixel;
-                  out += g;
-                }
-
-              for (j = 1; j != g; ++j)
-                {
-                  out = (uint32_t *) scanline + x * g + j;
-                  for (i = 0; i != VSIZE; ++i)
-                    {
-                      out[0] = out[-1];
-                      out += g;
-                    }
-                }
-            }
-          else
-            {
-              for (i = 0; i != VSIZE; ++i)
-                {
-                  int c = st->colors[((VEC_INDEX(p, i) &
-                                       ((1 << noise_in_bits) - 1)) *
-                                      st->ncolors)
-                                     >> noise_in_bits].pixel;
-                  for (j = 0; j != g; ++j)
-                    XPutPixel (st->image, (x + i) * g + j, y * g, c);
-                }
-            }
-
-          X += Xd;
-        }
-
-      scanline1 = (char *) scanline;
-      for (i = 1; i != g; ++i)
-        {
-          scanline1 += st->image->bytes_per_line;
-          memcpy(scanline1, scanline, st->image->bytes_per_line);
-        }
-      scanline = (uint32_t *)((char *) scanline + skip);
+                for (i = 0; i != VSIZE; ++i)
+                  pixels[(size_t)y * w + x + i] =
+                    VEC_INDEX(p, i) & ((1 << noise_in_bits) - 1);
+                X += Xd;
+              }
+          }
     }
-}
-
-
-static void *
-marbling_init (Display *dpy, Window window)
-{
-  static const struct threadpool_class cls = {
-    sizeof (struct thread),
-    marbling_thread_create,
-    marbling_thread_destroy
-  };
-
-  struct state *st = (struct state *) calloc (1, sizeof(*st));
-  XWindowAttributes xgwa;
-  XGCValues gcv;
-
-  st->dpy = dpy;
-  st->window = window;
-  st->delay = get_integer_resource (st->dpy, "delay", "Integer");
-  st->grid_size = get_integer_resource(dpy, "gridsize", "Integer");
-  st->scale = get_integer_resource(dpy, "gridScale", "Integer");
-  st->iterations = get_integer_resource(dpy, "iterations", "Integer");
-  if (st->delay < 0) st->delay = 0;
-  if (! st->gc)
-    st->gc = XCreateGC (st->dpy, st->window, 0, &gcv);
-
-  if (st->grid_size < 1) st->grid_size = 1;
-  if (st->scale < 1) st->scale = 1;
-  if (st->iterations < 1) st->iterations = 1;
-
-  XGetWindowAttributes (st->dpy, st->window, &xgwa);
-  st->cmap = xgwa.colormap;
-  st->Z = broadcast(0);
-  marbling_recolor (st);
-  threadpool_create (&st->threadpool, &cls, dpy, hardware_concurrency (dpy));
-  marbling_reset (st);
-  return st;
-}
-
-
-static unsigned long
-marbling_draw (Display *dpy, Window window, void *closure)
-{
-  struct state *st = (struct state *) closure;
-
-  threadpool_run (&st->threadpool, marbling_thread_run);
-  threadpool_wait (&st->threadpool);
-  st->Z += (int16_t)(0.01 * (1 << noise_in_bits));
-
-  put_xshm_image (st->dpy, st->window, st->gc, st->image,
-                  0, 0, 0, 0, st->image->width, st->image->height,
-                  &st->shm_info);
-
-  return st->delay;
-}
-
-
-static const char *marbling_defaults [] = {
-  "*delay:	10000",
-  "*background:	black",
-  "*gridsize:	2",
-  "*gridScale:	10",   /* using "scale" screws up fps fonts */
-  "*iterations:	5",
-#ifdef HAVE_MOBILE
-  "*ignoreRotation: True",
-#endif
-  THREAD_DEFAULTS
-  0
 };
 
-static XrmOptionDescRec marbling_options [] = {
-  { "-delay",		".delay",	XrmoptionSepArg, 0 },
-  { "-gridsize",	".gridsize",	XrmoptionSepArg, 0 },
-  { "-scale",		".gridScale",	XrmoptionSepArg, 0 },
-  { "-iterations",	".iterations",	XrmoptionSepArg, 0 },
-  THREAD_OPTIONS
-  { 0, 0, 0, 0 }
-};
-
-static void
-marbling_reshape (Display *dpy, Window window, void *closure, 
-                 unsigned int w, unsigned int h)
+Marbling::Marbling() : Art("Marbling"), m_state(std::make_unique<State>())
 {
-  struct state *st = (struct state *) closure;
-  marbling_reset (st);
+    usePlane();
+    easel->pal.rescale(256);
 }
 
-static Bool
-marbling_event (Display *dpy, Window window, void *closure, XEvent *event)
+Marbling::~Marbling() = default;
+
+void Marbling::resize(int width, int height)
 {
-  struct state *st = (struct state *) closure;
-  if (event->xany.type == KeyPress)
-    {
-      KeySym keysym;
-      char c = 0;
-      XLookupString (&event->xkey, &c, 1, &keysym, 0);
-      if (c == '+' || c == '=' || keysym == XK_Up)
-        {
-          st->scale++;
-          return True;
-        }
-      else if (c == '-' || c == '_' || keysym == XK_Down)
-        {
-          st->scale--;
-          if (st->scale <= 0)
-            {
-              st->scale = 1;
-              return False;
-            }
-          else
-            return True;
-        }
-      else if (c == '>' || c == '.' || keysym == XK_Right)
-        {
-          st->iterations++;
-          return True;
-        }
-      else if (c == '<' || c == ',' || keysym == XK_Left)
-        {
-          st->iterations--;
-          if (st->iterations < 1)
-            {
-              st->iterations = 1;
-              return False;
-            }
-          else
-            return True;
-        }
+    default_resize(width, height);
+    // Preserve the original SIMD alignment and sample-coordinate normalization.
+    m_state->w = (((width + m_grid_size - 1) / m_grid_size + VSIZE - 1) & ~(VSIZE - 1));
+    m_state->h = (height + m_grid_size - 1) / m_grid_size;
+    m_state->pixels.resize((size_t)m_state->w * m_state->h);
+    m_next_frame = 0;
+}
+
+bool Marbling::render(uint32_t*)
+{
+    if (!m_state->w || !m_state->h) return false;
+    const double now = ImGui::GetTime();
+    if (now < m_next_frame) return false;
+    m_state->draw();
+    std::array<uint32_t, 256> colors;
+    const uint32_t color_count = easel->pal.get_color_count();
+    for (unsigned i = 0; i < colors.size(); ++i) {
+        // Quantize the full noise range into the selected palette size.
+        const uint32_t color_index = ((i + m_color_offset) & 255) * color_count / 256;
+        colors[i] = easel->pal.get_color(color_index);
     }
-
-  if (screenhack_event_helper (dpy, window, event))
-    {
-      marbling_recolor (st);
-      return True;
+    for (int y = 0; y < easel->h; ++y) {
+        const auto* row = m_state->pixels.data() + (size_t)(y / m_grid_size) * m_state->w;
+        for (int x = 0; x < easel->w; ++x)
+            drawdot(x, y, colors[row[x / m_grid_size]]);
     }
-  return False;
+    m_next_frame = ImGui::GetTime() + m_delay / 1000000.0;
+    return false;
 }
 
-static void
-marbling_free (Display *dpy, Window window, void *closure)
+bool Marbling::render_gui()
 {
-  struct state *st = (struct state *) closure;
-  XFreeGC (st->dpy, st->gc);
-  destroy_xshm_image (st->dpy, st->image, &st->shm_info);
-  free_colors (DefaultScreenOfDisplay (st->dpy), st->cmap,
-               st->colors, st->ncolors);
-  threadpool_destroy (&st->threadpool);
-  free (st);
+    if (ScrollableSliderInt("Magnification", &m_grid_size, 1, 20, "%d", 1))
+        resize(easel->w, easel->h);
+    ScrollableSliderInt("Scale", &m_state->scale, 1, 20, "%d", 1);
+    ScrollableSliderInt("Complexity", &m_state->iterations, 1, 10, "%d", 1);
+    ScrollableSliderInt("Frame delay (us)", &m_delay, 0, 100000, "%d", 1000);
+    ImGui::Text("CPU workers: %zu", m_state->workers.size());
+    return false;
 }
 
-XSCREENSAVER_MODULE ("Marbling", marbling)
+void Marbling::shuffle()
+{
+    // The shared palette picker replaces XScreenSaver's random smooth colormap.
+    m_color_offset = LRAND() % 256;
+    m_next_frame = 0;
+}
+
+std::string Marbling::about() const
+{
+    return "Marbling by Jamie Zawinski and Dave Odell, 2021-2022, from XScreenSaver.\n\n"
+           "Fixed-point Perlin noise is combined in two octaves of Fractal Brownian Motion. "
+           "Each complexity iteration feeds the result back into all three coordinates, "
+           "creating warped clouds and marble striations. Advancing the third coordinate "
+           "animates the field. The original CPU SIMD and parallel row calculation are retained.\n\n"
+           "Magnification sets the pixel block size; scale sets spatial density; complexity "
+           "sets the number of domain-warping iterations. Frame delay is the pause after each "
+           "computed frame. Use the palette picker to recolor, or Shuffle to rotate its colors.\n\n"
+           "https://mrl.cs.nyu.edu/~perlin/noise/\n"
+           "https://thebookofshaders.com/13/\n"
+           "https://www.jwz.org/xscreensaver/";
+}

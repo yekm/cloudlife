@@ -45,6 +45,7 @@ public:
     bool RenderGui() override;
 
     void rescale(uint32_t ncolours);
+    uint32_t get_color_count() const { return color_max; }
     uint32_t get_color(uint32_t color_n);
     uint32_t get_colorf(float color_n) const;
     float get_color_index(uint32_t color_n) const;

@@ -164,6 +164,7 @@ set(CLOUDS_SOURCES
     src/arts/primeumap3d.cpp
     src/arts/attractor.cpp
     src/arts/physarum.cpp
+    src/arts/marbling.cpp
 )
 
 # Compute shaders require OpenGL 4.3+ (not available on macOS)
