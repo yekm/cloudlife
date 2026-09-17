@@ -131,3 +131,9 @@ written by Ron Record (rr@sco), 3 September 1991 (Lyap 2.3, patchlevel 4).
 Displays Lyapunov exponents for periodically forced nonlinear maps. The
 algorithm follows A. K. Dewdney's September 1991 Scientific American article,
 which credits Mario Markus of the Max Planck Institute.
+
+Deterministic forcing is calculated in background tiles by an adjustable CPU
+worker pool. Completed tiles appear incrementally, and palette changes reuse
+cached exponents. Random forcing uses one background worker to retain its
+sequential forcing behavior without sharing the application's random generator.
+Its private generator produces a different random stream from earlier versions.

@@ -4,7 +4,7 @@
 
 #include <memory>
 
-namespace xlyap { struct state; }
+namespace xlyap { struct state; class worker_pool; }
 
 class XLyap : public Art {
 public:
@@ -21,4 +21,5 @@ private:
     void apply_preset(int preset);
     void restart();
     std::unique_ptr<xlyap::state> m_state;
+    std::unique_ptr<xlyap::worker_pool> m_workers;
 };

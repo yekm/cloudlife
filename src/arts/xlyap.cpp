@@ -39,11 +39,18 @@
 #include "random.h"
 #include "imgui.h"
 
+#include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
+#include <mutex>
+#include <random>
+#include <thread>
 #include <vector>
 
 // The imported mathematical routines and preset table retain their original formatting.
@@ -61,7 +68,6 @@ namespace xlyap {
 typedef double (*PFD)(double,double);
 
 struct state {
-    XLyap* art = nullptr;
     PFD map = nullptr, deriv = nullptr;
     int dwell = 50, settle = 50;
     int width = 0, height = 0;
@@ -84,13 +90,56 @@ struct state {
     double completed_at = -1.0;
     char forcing_text[MAXINDEX + 1] = "abbabaab";
     char deterministic_text[MAXINDEX + 1] = "abbabaab";
+    int threads = 1;
     std::vector<double> exponents;
+    std::vector<unsigned char> ready;
     size_t completed = 0, recolor = 0;
     std::array<uint32_t, MAXCOLOR> colors = {};
 };
 
-static void setforcing(struct state *st);
-static int sendpoint(struct state *st, double expo);
+// Workers own this small orbit state; UI settings and cached image data stay on the render thread.
+struct computation {
+    PFD map = nullptr, deriv = nullptr;
+    int dwell = 0, settle = 0, width = 0, maxindex = 0, Rflag = 0, useprod = 1;
+    int forcing[MAXINDEX] = {};
+    double min_a = 0.0, min_b = 0.0, a_inc = 0.0, b_inc = 0.0;
+    double a = 0.0, b = 0.0, start_x = 0.0, lyapunov = 0.0, prob = 0.5;
+    std::mt19937 random;
+};
+
+struct job {
+    computation parameters;
+    int height = 0, threads = 1;
+    std::atomic<bool> cancelled{false}, paused{false};
+    std::mutex pause_mutex;
+    std::condition_variable pause_cv;
+
+    bool checkpoint()
+    {
+        if (cancelled.load(std::memory_order_relaxed))
+            return false;
+        if (paused.load(std::memory_order_relaxed)) {
+            std::unique_lock<std::mutex> lock(pause_mutex);
+            pause_cv.wait(lock, [&] { return cancelled.load() || !paused.load(); });
+        }
+        return !cancelled.load(std::memory_order_relaxed);
+    }
+
+    void set_paused(bool value)
+    {
+        // Synchronize the predicate change with wait to avoid a missed notification.
+        { std::lock_guard<std::mutex> lock(pause_mutex); paused = value; }
+        pause_cv.notify_all();
+    }
+
+    void cancel()
+    {
+        { std::lock_guard<std::mutex> lock(pause_mutex); cancelled = true; }
+        pause_cv.notify_all();
+    }
+};
+
+static void setforcing(struct computation *st);
 
 static const double pmins[NUMMAPS] = { 2.0, 0.0, 0.0, 0.0, 0.0 };
 static const double pmaxs[NUMMAPS] = { 4.0, 1.0, 6.75, 6.75, 16.0 };
@@ -128,22 +177,17 @@ static const PFD Derivs[NUMMAPS] = { dlogistic, dcircle, dleftlog,
  * speed up is achieved by utilizing the fact that log(a*b) = log(a) + log(b).
  */
 static int
-complyap(struct state *st)
+complyap(struct computation *st, int pixel_x, int pixel_y, struct job& work)
 {
   int i, bindex;
   double total, prod, x, dx, r;
 
-  if (st->maxcolor > MAXCOLOR)
-    abort();
-
-  if (!st->run)
-    return TRUE;
-  if (st->width > 1 && st->point.x == st->width - 1)
-    return sendpoint(st, st->lyapunov) == TRUE ? FALSE : TRUE;
-  // The original increments a before evaluating and reuses the last exponent
-  // at the right edge. Keep those samples while drawing only valid pixels.
-  st->a = st->min_a + std::min(st->point.x + 1, st->width - 1) * st->a_inc;
-  st->b = st->min_b + st->point.y * st->b_inc;
+  if (!work.checkpoint())
+    return FALSE;
+  // The original increments a before evaluating. The caller copies the last
+  // sample into the right edge instead of evaluating that column again.
+  st->a = st->min_a + std::min(pixel_x + 1, st->width - 1) * st->a_inc;
+  st->b = st->min_b + pixel_y * st->b_inc;
   prod = 1.0;
   total = 0.0;
   bindex = 0;
@@ -154,6 +198,8 @@ complyap(struct state *st)
   map = Maps[st->Forcing[findex]];
 #endif
   for (i=0;i<st->settle;i++) {     /* Here's where we let the thing */
+    if ((i & 63) == 0 && !work.checkpoint())
+      return FALSE;
     x = st->map (x, r);  /* "settle down". There is usually */
     if (++bindex >= st->maxindex) { /* some initial "noise" in the */
       bindex = 0;    /* iterations. How can we optimize */
@@ -172,6 +218,8 @@ complyap(struct state *st)
 #endif
   if (st->useprod) {      /* using log(a*b) */
     for (i=0;i<st->dwell;i++) {
+      if ((i & 63) == 0 && !work.checkpoint())
+        return FALSE;
       x = st->map (x, r);
       dx = st->deriv (x, r); /* ABS is a macro, so don't be fancy */
       dx = ABS(dx);
@@ -204,6 +252,8 @@ complyap(struct state *st)
   }
   else {        /* use log(a) + log(b) */
     for (i=0;i<st->dwell;i++) {
+      if ((i & 63) == 0 && !work.checkpoint())
+        return FALSE;
       x = st->map (x, r);
       dx = st->deriv (x, r); /* ABS is a macro, so don't be fancy */
       dx = ABS(dx);
@@ -229,14 +279,7 @@ complyap(struct state *st)
     st->lyapunov = (total * M_LOG2E) / (double)i;
   }
 
-  if (sendpoint(st, st->lyapunov) == TRUE)
-    return FALSE;
-  else {
-
-    /*    if (savefile)
-          save_to_file();*/
-    return TRUE;
-  }
+  return TRUE;
 }
 
 static double
@@ -354,28 +397,156 @@ color_index(struct state *st, double expo)
   return st->sendpoint_index;
 }
 
-static int
-sendpoint(struct state *st, double expo)
-{
-  st->exponents[st->completed++] = expo;
-  st->art->drawdot(st->point.x, st->point.y, st->colors[color_index(st, expo)]);
-  // Traverse only valid texture pixels, without the stale exponent X11 edge column.
-  if (++st->point.x >= st->width) {
-    st->point.y++;
-    st->point.x = 0;
-    if (st->point.y >= st->height)
-      return FALSE;
-  }
-  return TRUE;
-}
-
 static void
-setforcing(struct state *st)
+setforcing(struct computation *st)
 {
   int i;
   for (i=0;i<MAXINDEX;i++)
-    st->forcing[i] = (LRAND() / MAXRAND > st->prob) ? 0 : 1;
+    st->forcing[i] = (double(st->random()) / std::mt19937::max() > st->prob) ? 0 : 1;
 }
+
+// A fixed pool is reused across generations. Jobs/results never reference Art or OpenGL.
+class worker_pool {
+public:
+    struct result {
+        std::shared_ptr<job> generation;
+        size_t first = 0;
+        std::vector<double> exponents;
+    };
+
+    static int maximum_threads()
+    {
+        const unsigned cores = std::thread::hardware_concurrency();
+        return static_cast<int>(std::min(32u, cores > 1 ? cores - 1 : 1u));
+    }
+
+    explicit worker_pool(int count)
+    {
+        try {
+            for (int i = 0; i < count; ++i)
+                m_threads.emplace_back([this, i] { run(i); });
+        } catch (...) {
+            // A partially constructed vector of joinable threads cannot unwind.
+            { std::lock_guard<std::mutex> lock(m_mutex); m_stopping = true; }
+            m_cv.notify_all();
+            for (auto& thread : m_threads)
+                thread.join();
+            throw;
+        }
+    }
+
+    ~worker_pool()
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_stopping = true;
+            if (m_job)
+                m_job->cancel();
+        }
+        m_cv.notify_all();
+        for (auto& thread : m_threads)
+            thread.join();
+    }
+
+    void start(std::shared_ptr<job> work)
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (m_job)
+                m_job->cancel();
+            m_job = std::move(work);
+            m_next = 0;
+            m_results.clear();
+        }
+        m_cv.notify_all();
+    }
+
+    void set_paused(bool paused)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_job)
+            m_job->set_paused(paused);
+        m_cv.notify_all();
+    }
+
+    bool take(result& tile)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_results.empty())
+            return false;
+        tile = std::move(m_results.front());
+        m_results.pop_front();
+        m_cv.notify_all();
+        return true;
+    }
+
+private:
+    void run(int worker_index)
+    {
+        std::shared_ptr<job> previous;
+        computation orbit;
+        for (;;) {
+            std::shared_ptr<job> work;
+            size_t first, count;
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_cv.wait(lock, [&] {
+                    return m_stopping || (m_job && !m_job->paused.load() &&
+                        worker_index < m_job->threads &&
+                        (!m_job->parameters.Rflag || worker_index == 0) &&
+                        m_next < size_t(m_job->parameters.width) * m_job->height);
+                });
+                if (m_stopping)
+                    return;
+                work = m_job;
+                first = m_next;
+                // Row-aligned spans make right-edge reuse local. Avoid a one-pixel
+                // final span, which would need the preceding span's exponent.
+                const size_t remaining = work->parameters.width - first % work->parameters.width;
+                count = remaining == 129 ? 129 : std::min(size_t(128), remaining);
+                m_next += count;
+            }
+            if (previous != work) {
+                orbit = work->parameters;
+                previous = work;
+            }
+            result tile{work, first, {}};
+            tile.exponents.reserve(count);
+            for (size_t offset = 0; offset < count; ++offset) {
+                const size_t index = first + offset;
+                const int x = static_cast<int>(index % orbit.width);
+                const int y = static_cast<int>(index / orbit.width);
+                if (!work->checkpoint())
+                    break;
+                if (!(orbit.width > 1 && x == orbit.width - 1) &&
+                    !complyap(&orbit, x, y, *work))
+                    break;
+                tile.exponents.push_back(orbit.lyapunov);
+            }
+            if (tile.exponents.size() != count)
+                continue;
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_cv.wait(lock, [&] {
+                    return m_stopping || m_job != work ||
+                        m_results.size() < size_t(std::max(4, work->threads * 2));
+                });
+                if (m_stopping)
+                    return;
+                if (m_job == work)
+                    m_results.push_back(std::move(tile));
+            }
+        }
+    }
+
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    bool m_stopping = false;
+    size_t m_next = 0;
+    std::shared_ptr<job> m_job;
+    std::deque<result> m_results;
+    std::vector<std::thread> m_threads;
+};
 
 static void
 do_preset (struct state *st, int builtin)
@@ -619,6 +790,7 @@ XLyap::XLyap()
     : Art("XLyap — Lyapunov exponents"), m_state(std::make_unique<xlyap::state>())
 {
     usePlane();
+    m_state->threads = xlyap::worker_pool::maximum_threads();
     apply_preset(static_cast<int>(LRAND() % NBUILTINS));
 }
 
@@ -638,7 +810,10 @@ std::string XLyap::about() const
            "The five maps are logistic, sine hump, left and right skewed logistic, and double logistic. "
            "Random forcing selects b with the requested probability. Palette controls use Cloudlife's "
            "shared palettes in place of X11 colormaps. Color changes reuse the calculated exponents. "
-           "The image fills incrementally; completed images regenerate after the linger interval when "
+           "Background CPU workers fill image tiles while the UI stays responsive; the CPU workers "
+           "control selects the parallelism. Random forcing runs sequentially on one worker with a "
+           "private random generator, so its random stream differs from earlier versions. "
+           "Completed images regenerate after the linger interval when "
            "automatic regeneration is enabled. Shuffle chooses a new preset.\n\n"
            "https://www.jwz.org/xscreensaver/\n"
            "https://en.wikipedia.org/wiki/Lyapunov_fractal";
@@ -651,12 +826,12 @@ void XLyap::apply_preset(int preset)
     const bool randomize = st->randomize;
     const float linger = st->linger;
     const bool paused = st->paused;
-    const int width = st->width, height = st->height;
+    const int width = st->width, height = st->height, threads = st->threads;
     *st = xlyap::state{};
-    st->art = this;
     st->randomize = randomize;
     st->linger = linger;
     st->paused = paused;
+    st->threads = threads;
     st->width = width;
     st->height = height;
     for (int i = 0; i < st->maxindex; ++i)
@@ -689,10 +864,40 @@ void XLyap::restart()
     st->completed_at = -1.0;
     st->run = st->width > 0 && st->height > 0;
     st->exponents.assign(static_cast<size_t>(st->width) * st->height, 0.0);
-    if (st->Rflag)
-        xlyap::setforcing(st);
-    if (st->run)
+    st->ready.assign(st->exponents.size(), 0);
+    st->recolor = st->exponents.size();
+    if (st->run) {
         clear();
+        if (!m_workers)
+            m_workers = std::make_unique<xlyap::worker_pool>(xlyap::worker_pool::maximum_threads());
+        auto work = std::make_shared<xlyap::job>();
+        auto& parameters = work->parameters;
+        parameters.map = st->map;
+        parameters.deriv = st->deriv;
+        parameters.dwell = st->dwell;
+        parameters.settle = st->settle;
+        parameters.width = st->width;
+        parameters.maxindex = st->maxindex;
+        parameters.Rflag = st->Rflag;
+        parameters.useprod = st->useprod;
+        std::copy(std::begin(st->forcing), std::end(st->forcing), std::begin(parameters.forcing));
+        parameters.min_a = st->min_a;
+        parameters.min_b = st->min_b;
+        parameters.a_inc = st->a_inc;
+        parameters.b_inc = st->b_inc;
+        parameters.start_x = st->start_x;
+        parameters.prob = st->prob;
+        if (st->Rflag) {
+            parameters.random.seed(static_cast<unsigned>(LRAND()));
+            xlyap::setforcing(&parameters);
+        }
+        work->height = st->height;
+        work->threads = st->Rflag ? 1 : st->threads;
+        work->paused = st->paused;
+        m_workers->start(std::move(work));
+    } else if (m_workers) {
+        m_workers->start(nullptr);
+    }
 }
 
 void XLyap::resize(int width, int height)
@@ -806,7 +1011,12 @@ bool XLyap::render_gui()
         st->negative = negative;
         recolor_needed = true;
     }
-    ImGui::Checkbox("Pause", &st->paused);
+    restart_needed |= ImGui::SliderInt("CPU workers", &st->threads, 1,
+                                       xlyap::worker_pool::maximum_threads());
+    if (st->Rflag)
+        ImGui::TextUnformatted("Random forcing uses one worker to preserve sequential forcing.");
+    if (ImGui::Checkbox("Pause", &st->paused) && m_workers)
+        m_workers->set_paused(st->paused);
     ImGui::Checkbox("Automatic regeneration", &st->randomize);
     ImGui::SliderFloat("Linger (seconds)", &st->linger, 1.0f, 120.0f);
     if (ImGui::Button("Recalculate"))
@@ -815,7 +1025,7 @@ bool XLyap::render_gui()
         st->preset = -1;
         restart();
     } else if (recolor_needed) {
-        st->recolor = 0;
+        st->recolor = st->completed == 0 ? st->exponents.size() : 0;
     }
     const float progress = st->exponents.empty() ? 0.0f :
                           static_cast<float>(st->completed) / st->exponents.size();
@@ -835,30 +1045,36 @@ bool XLyap::render(uint32_t*)
                                            (st->numcolors - 1));
     if (colors != st->colors) {
         st->colors = colors;
-        st->recolor = 0;
+        st->recolor = st->completed == 0 ? st->exponents.size() : 0;
     }
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(8);
-    while (st->recolor < st->completed && std::chrono::steady_clock::now() < deadline) {
+    const auto started = std::chrono::steady_clock::now();
+    const auto deadline = started + std::chrono::milliseconds(8);
+    const auto recolor_deadline = started + std::chrono::milliseconds(4);
+    while (st->recolor < st->exponents.size() && std::chrono::steady_clock::now() < recolor_deadline) {
         const size_t index = st->recolor++;
-        drawdot(static_cast<int>(index % st->width), static_cast<int>(index / st->width),
-                st->colors[xlyap::color_index(st, st->exponents[index])]);
+        if (st->ready[index])
+            drawdot(static_cast<int>(index % st->width), static_cast<int>(index / st->width),
+                    st->colors[xlyap::color_index(st, st->exponents[index])]);
     }
-    if (st->paused || st->recolor < st->completed)
-        return false;
-    if (!st->run) {
-        if (st->randomize && st->completed_at >= 0.0 &&
-            ImGui::GetTime() - st->completed_at >= st->linger)
-            shuffle();
-        return false;
-    }
-    for (int i = 0; i < 2000 && std::chrono::steady_clock::now() < deadline; ++i) {
-        if (xlyap::complyap(st) == TRUE) {
-            st->run = 0;
-            st->completed_at = ImGui::GetTime();
-            break;
+    // Tiles may finish out of order. Each arriving exponent gets the current
+    // palette immediately, independently of the cached-image recolor cursor.
+    xlyap::worker_pool::result tile;
+    while (m_workers && std::chrono::steady_clock::now() < deadline && m_workers->take(tile)) {
+        for (size_t offset = 0; offset < tile.exponents.size(); ++offset) {
+            const size_t index = tile.first + offset;
+            st->exponents[index] = tile.exponents[offset];
+            st->ready[index] = 1;
+            drawdot(static_cast<int>(index % st->width), static_cast<int>(index / st->width),
+                    st->colors[xlyap::color_index(st, st->exponents[index])]);
         }
+        st->completed += tile.exponents.size();
     }
-    // Newly computed pixels already have the current palette.
-    st->recolor = st->completed;
+    if (st->run && st->completed == st->exponents.size()) {
+        st->run = 0;
+        st->completed_at = ImGui::GetTime();
+    }
+    if (!st->paused && !st->run && st->randomize && st->completed_at >= 0.0 &&
+        ImGui::GetTime() - st->completed_at >= st->linger)
+        shuffle();
     return false;
 }
