@@ -152,6 +152,21 @@ Maps stable and chaotic regions of periodically forced nonlinear systems using L
 Ported from [XScreenSaver's xlyap.c](arχiv/xscreensaver/hacks/xlyap.c),
 written by Ron Record (rr@sco), 3 September 1991 (Lyap 2.3, patchlevel 4).
 
+### Substrate
+
+Crystalline cracks grow into city-like structures with softly sand-painted regions,
+using the original Pollock-derived palette on white. Controls include initial and
+maximum cracks, sand grains, circular cracks, wireframe, seamless wrapping, growth
+delay, regeneration cycles, pause, and restart.
+Controls update the running drawing without clearing existing marks. Initial cracks
+applies on the next restart; circle percentage affects newly started paths. Lowering
+the maximum crack count retires excess moving tips while keeping their trails.
+
+Ported from [XScreenSaver's substrate.c](arχiv/xscreensaver/hacks/substrate.c).
+Original Substrate by Jared Tarbell (2004), XScreenSaver port by Mike Kershaw,
+and circular cracks by David Agraz (2005). The archived source is retained unchanged;
+the Cloudlife adaptation uses CPU rendering on macOS and Linux.
+
 
 ### Hopalong 3D
 
@@ -191,4 +206,3 @@ place a window in current workspace on certain output in sway config?
 
 https://gist.github.com/pschmitt/909f880e8c7924fab056d42a3d30f9a5
 https://gist.github.com/mkalinski/ec112091dc9aa1e9f5e039ed7dd4b1fe#file-sway-track-pseudo-maximize-placeholder-sh
-

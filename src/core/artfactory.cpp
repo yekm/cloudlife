@@ -26,6 +26,7 @@
 #include "physarum.hpp"
 #include "marbling.hpp"
 #include "xlyap.hpp"
+#include "substrate.hpp"
 #ifndef __APPLE__
 #include "acidwarpgpt56terra.h"
 #include "acidwarpgpt56luna.h"
@@ -96,6 +97,7 @@ ArtFactory::ArtFactory() {
     add_art<PrimeUmap3D>("Prime UMAP 3D", has_opengl_33, OPENGL_33_REQUIREMENT);
     add_art<Marbling>("Marbling");
     add_art<XLyap>("XLyap");
+    add_art<Substrate>("Substrate");
 
     vc = VectorCombo("Art", art_items);
     if (!select_available_art(DEFAULT_ART_ID) && !available_art_ids.empty())

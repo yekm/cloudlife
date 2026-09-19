@@ -29,8 +29,20 @@
  * implied warranty.
  */
 
+#include "substrate.hpp"
+#include "random.h"
+
+#include "imgui.h"
+
 #include <math.h>
-#include "screenhack.h"
+#include <cstdio>
+#include <cstdlib>
+
+// Keep the imported random calls and algorithm local to this translation unit.
+#define random() LRAND()
+#define frand(n) (LRAND() / MAXRAND * (n))
+
+namespace {
 
 /* this program goes faster if some functions are inline.  The following is
  * borrowed from ifs.c */
@@ -94,8 +106,8 @@ typedef struct {
 } crack;
 
 struct field {
-    unsigned int height;
-    unsigned int width;
+    int height;
+    int width;
 
     unsigned int initial_cracks;
     
@@ -126,24 +138,16 @@ struct field {
 };
 
 struct state {
-  Display *dpy;
-  Window window;
-
+  Art *art;
   struct field *f;
-  unsigned int max_cycles;
-  int growth_delay;
-  GC fgc;
-  XWindowAttributes xgwa;
-  XGCValues gcv;
 };
-
 
 static void 
 *xrealloc(void *p, size_t size)
 {
     void *ret;
     if ((ret = realloc(p, size)) == NULL) {
-	fprintf(stderr, "%s: out of memory\n", progname);
+	fprintf(stderr, "%s: out of memory\n", "Substrate");
 	exit(1);
     }
     return ret;
@@ -152,7 +156,7 @@ static void
 static struct field 
 *init_field(void)
 {
-    struct field *f = xrealloc(NULL, sizeof(struct field));
+    struct field *f = (struct field *) xrealloc(NULL, sizeof(struct field));
     f->height = 0;
     f->width = 0;
     f->initial_cracks = 0;
@@ -282,64 +286,17 @@ static inline void make_crack(struct field *f)
     }
 }
 
-static inline void point2rgb(int depth, unsigned long c, int *r, int *g, int *b) 
+// EaselPlane uses packed RGBA bytes, independently of the X11 visual depth.
+static inline void point2rgb(int, unsigned long c, int *r, int *g, int *b)
 {
-    switch(depth) {
-        case 32:
-        case 24:
-#ifdef HAVE_JWXYZ
-            /* This program idiotically does not go through a color map, so
-               we have to hardcode in knowledge of how jwxyz.a packs pixels!
-               Fix it to go through st->colors[st->ncolors] instead!
-             */
-            *r = (c & 0x00ff0000) >> 16; 
-            *g = (c & 0x0000ffff) >>  8;
-            *b = (c & 0x000000ff); 
-#else
-            *g = (c & 0xff00) >> 8; 
-            *r = (c & 0xff0000) >> 16; 
-            *b = c & 0xff; 
-#endif
-            break;
-        case 16:
-            *g = ((c >> 5) & 0x3f) << 2;
-            *r = ((c >> 11) & 0x1f) << 3; 
-            *b = (c & 0x1f) << 3; 
-            break;
-        case 15:
-            *g = ((c >> 5) & 0x1f) << 3;
-            *r = ((c >> 10) & 0x1f) << 3;
-            *b = (c & 0x1f) << 3;
-            break;
-    }
+    *r = (c >> IM_COL32_R_SHIFT) & 255;
+    *g = (c >> IM_COL32_G_SHIFT) & 255;
+    *b = (c >> IM_COL32_B_SHIFT) & 255;
 }
 
-static inline unsigned long rgb2point(int depth, int r, int g, int b) 
+static inline unsigned long rgb2point(int, int r, int g, int b)
 {
-    unsigned long ret = 0;
-
-    switch(depth) {
-        case 32:
-        case 24:
-#ifdef HAVE_JWXYZ
-            /* This program idiotically does not go through a color map, so
-               we have to hardcode in knowledge of how jwxyz.a packs pixels!
-               Fix it to go through st->colors[st->ncolors] instead!
-             */
-            ret = 0xFF000000 | (r << 16) | (g << 8) | b;
-#else
-            ret |= (r << 16) | (g << 8) | b;
-#endif
-            break;
-        case 16:
-            ret = ((r>>3) << 11) | ((g>>2)<<5) | (b>>3);
-            break;
-        case 15:
-            ret = ((r>>3) << 10) | ((g>>3)<<5) | (b>>3);
-            break;
-    }
-
-    return ret;
+    return IM_COL32(r, g, b, 255);
 }
 
 /* alpha blended point drawing -- this is Not Right and will likely fail on 
@@ -353,17 +310,17 @@ trans_point(struct state *st,
         if (a >= 1.0) {
             ref_pixel(f, x1, y1) = myc;
         } else {
-            int or = 0, og = 0, ob = 0;
+            int old_r = 0, og = 0, ob = 0;
             int r = 0, g = 0, b = 0;
             int nr, ng, nb;
             unsigned long c;
 
             c = ref_pixel(f, x1, y1);
 
-            point2rgb(f->visdepth, c, &or, &og, &ob);
+            point2rgb(f->visdepth, c, &old_r, &og, &ob);
             point2rgb(f->visdepth, myc, &r, &g, &b);
 
-            nr = or + (r - or) * a;
+            nr = old_r + (r - old_r) * a;
             ng = og + (g - og) * a;
             nb = ob + (b - ob) * a;
 
@@ -379,7 +336,7 @@ trans_point(struct state *st,
 }
 
 static inline void 
-region_color(struct state *st, GC fgc, struct field *f, crack *cr) 
+region_color(struct state *st, struct field *f, crack *cr) 
 {
     /* synthesis of Crack::regionColor() and SandPainter::render() */
 
@@ -393,7 +350,9 @@ region_color(struct state *st, GC fgc, struct field *f, crack *cr)
     float drawx, drawy;
     unsigned long c;
 
-    while (openspace) {
+    // On a seamless image a ray can wrap forever without meeting a crack.
+    int remaining = 2 * (f->width + f->height);
+    while (openspace && remaining-- > 0) {
         /* move perpendicular to crack */
         rx += (0.81 * sin(cr->t * M_PI/180));
         ry -= (0.81 * cos(cr->t * M_PI/180));
@@ -401,8 +360,8 @@ region_color(struct state *st, GC fgc, struct field *f, crack *cr)
         cx = (int) rx;
         cy = (int) ry;
         if (f->seamless) {
-            cx %= f->width;
-            cy %= f->height;
+            cx = (cx % f->width + f->width) % f->width;
+            cy = (cy % f->height + f->height) % f->height;
         }
 
         if ((cx >= 0) && (cx < f->width) && (cy >= 0) && (cy < f->height)) {
@@ -438,16 +397,14 @@ region_color(struct state *st, GC fgc, struct field *f, crack *cr)
         drawx = (cr->x + (rx - cr->x) * sin(cr->sandp + sin((float) i * w)));
         drawy = (cr->y + (ry - cr->y) * sin(cr->sandp + sin((float) i * w)));
         if (f->seamless) {
-            drawx = fmod(drawx + f->width, f->width);
-            drawy = fmod(drawy + f->height, f->height);
+            drawx = fmod(fmod(drawx, f->width) + f->width, f->width);
+            drawy = fmod(fmod(drawy, f->height) + f->height, f->height);
         }
 
         /* Draw sand bit */
         c = trans_point(st, drawx, drawy, cr->sandcolor, (0.1 - i / (grains * 10.0)), f);
 
-        XSetForeground(st->dpy, fgc, c);
-        XDrawPoint(st->dpy, st->window, fgc, (int) drawx, (int) drawy);
-        XSetForeground(st->dpy, fgc, f->fgcolor);
+        st->art->drawdot((int) drawx, (int) drawy, c);
     }
 }
 
@@ -495,7 +452,7 @@ static void build_substrate(struct field *f)
 
 
 static inline void
-movedrawcrack(struct state *st, GC fgc, struct field *f, int cracknum) 
+movedrawcrack(struct state *st, struct field *f, int cracknum) 
 {
     /* Basically Crack::move() */
 
@@ -527,18 +484,18 @@ movedrawcrack(struct state *st, GC fgc, struct field *f, int cracknum)
     cx = (int) (cr->x + (frand(0.66) - 0.33));
     cy = (int) (cr->y + (frand(0.66) - 0.33));
     if (f->seamless) {
-        cx %= f->width;
-        cy %= f->height;
+        cx = (cx % f->width + f->width) % f->width;
+        cy = (cy % f->height + f->height) % f->height;
     }
 
     if ((cx >= 0) && (cx < f->width) && (cy >= 0) && (cy < f->height)) {
         /* draw sand painter if we're not wireframe */
         if (!f->wireframe)
-            region_color(st, fgc, f, cr);
+            region_color(st, f, cr);
 
         /* draw fgcolor crack */
         ref_pixel(f, cx, cy) = f->fgcolor;
-        XDrawPoint(st->dpy, st->window, fgc, cx, cy);
+        st->art->drawdot(cx, cy, f->fgcolor);
 
         if ( cr->curved && (cr->degrees_drawn > 360) ) {
             /* completed the circle, stop cracking */
@@ -570,210 +527,201 @@ movedrawcrack(struct state *st, GC fgc, struct field *f, int cracknum)
 }
 
 
-static void build_img(Display *dpy, Window window, XWindowAttributes xgwa, GC fgc, 
-               struct field *f) 
+static void build_img(struct field *f)
 {
-    if (f->off_img) {
-        free(f->off_img);
-        f->off_img = NULL;
-    }
-
-    f->off_img = (unsigned long *) xrealloc(f->off_img, sizeof(unsigned long) * 
+    if (f->off_img) free(f->off_img);
+    f->off_img = (unsigned long *) xrealloc(NULL, sizeof(unsigned long) *
                                             f->width * f->height);
-
-    memset(f->off_img, f->bgcolor, sizeof(unsigned long) * f->width * f->height);
+    std::fill_n(f->off_img, (size_t) f->width * f->height, f->bgcolor);
 }
 
+} // namespace
 
-static void *
-substrate_init (Display *dpy, Window window)
-{
-    struct state *st = (struct state *) calloc (1, sizeof(*st));
-    XColor tmpcolor;
+#undef random
+#undef frand
+#undef STEP
+#undef ref_pixel
+#undef ref_cgrid
 
-    st->dpy = dpy;
-    st->window = window;
-    st->f = init_field();
-
-    st->growth_delay = (get_integer_resource(st->dpy, "growthDelay", "Integer"));
-    st->max_cycles = (get_integer_resource(st->dpy, "maxCycles", "Integer"));
-    st->f->initial_cracks = (get_integer_resource(st->dpy, "initialCracks", "Integer"));
-    st->f->max_num = (get_integer_resource(st->dpy, "maxCracks", "Integer"));
-    st->f->wireframe = (get_boolean_resource(st->dpy, "wireFrame", "Boolean"));
-    st->f->grains = (get_integer_resource(st->dpy, "sandGrains", "Integer"));
-    st->f->circle_percent = (get_integer_resource(st->dpy, "circlePercent", "Integer"));
-    st->f->seamless = (get_boolean_resource(st->dpy, "seamless", "Boolean"));
-
-    if (st->f->initial_cracks <= 2) {
-        fprintf(stderr, "%s: Initial cracks must be greater than 2\n", progname);
-        exit (1);
-    }
-
-    if (st->f->max_num <= 10) {
-        fprintf(stderr, "%s: Maximum number of cracks must be less than 10\n", 
-                progname);
-        exit (1);
-    }
-
-    if (st->f->circle_percent < 0) {
-        fprintf(stderr, "%s: circle percent must be at least 0\n", progname);
-        exit (1);
-    }
-
-    if (st->f->circle_percent > 100) {
-        fprintf(stderr, "%s: circle percent must be less than 100\n", progname);
-        exit (1);
-    }
-    
-    XGetWindowAttributes(st->dpy, st->window, &st->xgwa);
-
-    st->f->height = st->xgwa.height;
-    st->f->width = st->xgwa.width;
-    st->f->visdepth = st->xgwa.depth;
- 
-    /* Count the colors in our map and assign them in a horrifically inefficient 
-     * manner but it only happens once */
-    while (rgb_colormap[st->f->numcolors] != NULL) {
-        st->f->parsedcolors = (unsigned long *) xrealloc(st->f->parsedcolors, 
-                                                     sizeof(unsigned long) * 
-                                                     (st->f->numcolors + 1));
-        if (!XParseColor(st->dpy, st->xgwa.colormap, rgb_colormap[st->f->numcolors], &tmpcolor)) {
-            fprintf(stderr, "%s: couldn't parse color %s\n", progname,
-                    rgb_colormap[st->f->numcolors]);
-            exit(1);
-        }
-
-        if (!XAllocColor(st->dpy, st->xgwa.colormap, &tmpcolor)) {
-            fprintf(stderr, "%s: couldn't allocate color %s\n", progname,
-                    rgb_colormap[st->f->numcolors]);
-            exit(1);
-        }
-
-        st->f->parsedcolors[st->f->numcolors] = tmpcolor.pixel;
-
-        st->f->numcolors++;
-    }
-
-    st->gcv.foreground = get_pixel_resource(st->dpy, st->xgwa.colormap,
-                                        "foreground", "Foreground");
-    st->gcv.background = get_pixel_resource(st->dpy, st->xgwa.colormap,
-                                        "background", "Background");
-    st->fgc = XCreateGC(st->dpy, st->window, GCForeground, &st->gcv);
-
-    st->f->fgcolor = st->gcv.foreground;
-    st->f->bgcolor = st->gcv.background;
-
-    /* Initialize stuff */
-    build_img(st->dpy, st->window, st->xgwa, st->fgc, st->f);
-    build_substrate(st->f);
-    
-    return st;
-}
-
-static unsigned long
-substrate_draw (Display *dpy, Window window, void *closure)
-{
-  struct state *st = (struct state *) closure;
-  int tempx;
-
-  if ((st->f->cycles % 10) == 0) {
-
-    /* Restart if the window size changes */
-    XGetWindowAttributes(st->dpy, st->window, &st->xgwa);
-
-    if (st->f->height != st->xgwa.height || st->f->width != st->xgwa.width) {
-      st->f->height = st->xgwa.height;
-      st->f->width = st->xgwa.width;
-      st->f->visdepth = st->xgwa.depth;
-
-      build_substrate(st->f);
-      build_img(st->dpy, st->window, st->xgwa, st->fgc, st->f);
-      XSetForeground(st->dpy, st->fgc, st->gcv.background);
-      XFillRectangle(st->dpy, st->window, st->fgc, 0, 0, st->xgwa.width, st->xgwa.height);
-      XSetForeground(st->dpy, st->fgc, st->gcv.foreground);
-    }
-  }
-
-  for (tempx = 0; tempx < st->f->num; tempx++) {
-    movedrawcrack(st, st->fgc, st->f, tempx);
-  }
-
-  st->f->cycles++;
-
-  if (st->f->cycles >= st->max_cycles && st->max_cycles != 0) {
-    build_substrate(st->f);
-    build_img(st->dpy, st->window, st->xgwa, st->fgc, st->f);
-    XSetForeground(st->dpy, st->fgc, st->gcv.background);
-    XFillRectangle(st->dpy, st->window, st->fgc, 0, 0, st->xgwa.width, st->xgwa.height);
-    XSetForeground(st->dpy, st->fgc, st->gcv.foreground);
-  }
-
-  /* #### mi->recursion_depth = st->f->cycles; */
-  return st->growth_delay;
-}
-
-
-static void
-substrate_reshape (Display *dpy, Window window, void *closure, 
-                 unsigned int w, unsigned int h)
-{
-}
-
-static Bool
-substrate_event (Display *dpy, Window window, void *closure, XEvent *event)
-{
-  struct state *st = (struct state *) closure;
-  if (screenhack_event_helper (dpy, window, event))
+struct Substrate::State : state {
+    State()
     {
-      st->f->cycles = st->max_cycles;
-      return True;
+        art = nullptr;
+        f = init_field();
+        f->fgcolor = IM_COL32(0, 0, 0, 255);
+        f->bgcolor = IM_COL32(255, 255, 255, 255);
+        f->visdepth = 32;
+        while (rgb_colormap[f->numcolors] != nullptr) {
+            f->parsedcolors = (unsigned long *) xrealloc(f->parsedcolors,
+                sizeof(unsigned long) * (f->numcolors + 1));
+            const unsigned long rgb = strtoul(rgb_colormap[f->numcolors] + 1, nullptr, 16);
+            f->parsedcolors[f->numcolors++] = rgb2point(32,
+                (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255);
+        }
     }
-  return False;
-}
 
-static void
-substrate_free (Display *dpy, Window window, void *closure)
+    ~State()
+    {
+        free(f->cgrid);
+        free(f->cracks);
+        free(f->off_img);
+        free(f->parsedcolors);
+        free(f);
+    }
+};
+
+Substrate::Substrate() : Art("Substrate"), m_state(std::make_unique<State>())
 {
-  struct state *st = (struct state *) closure;
-  if (st->f->cgrid) free(st->f->cgrid);
-  if (st->f->cracks) free(st->f->cracks);
-  if (st->f->off_img) free(st->f->off_img);
-  if (st->f->parsedcolors) free(st->f->parsedcolors);
-  XFreeGC (dpy, st->fgc);
-  free (st->f);
-  free (st);
+    usePlane();
+    m_state->art = this;
 }
 
-static const char *substrate_defaults[] = {
-    ".background: white",
-    ".foreground: black",
-    "*fpsSolid:	true",
-    "*wireFrame: false",
-    "*seamless: false",
-    "*maxCycles: 10000",
-    "*growthDelay: 18000",
-    "*initialCracks: 3",
-    "*maxCracks: 100",
-    "*sandGrains: 64",
-    "*circlePercent: 33",
-#ifdef HAVE_MOBILE
-  "*ignoreRotation: True",
-#endif
-    0
-};
+Substrate::~Substrate() = default;
 
-static XrmOptionDescRec substrate_options[] = {
-    {"-background", ".background", XrmoptionSepArg, 0},
-    {"-foreground", ".foreground", XrmoptionSepArg, 0},
-    {"-wireframe", ".wireFrame", XrmoptionNoArg, "true"},
-    {"-seamless", ".seamless", XrmoptionNoArg, "true"},
-    {"-max-cycles", ".maxCycles", XrmoptionSepArg, 0},
-    {"-growth-delay", ".growthDelay", XrmoptionSepArg, 0},
-    {"-initial-cracks", ".initialCracks", XrmoptionSepArg, 0},
-    {"-max-cracks", ".maxCracks", XrmoptionSepArg, 0},
-    {"-sand-grains", ".sandGrains", XrmoptionSepArg, 0},
-    {"-circle-percent", ".circlePercent", XrmoptionSepArg, 0},
-    {0, 0, 0, 0}
-};
+void Substrate::resize(int width, int height)
+{
+    default_resize(width, height);
+    m_state->f->width = std::max(0, width);
+    m_state->f->height = std::max(0, height);
+    restart();
+}
 
-XSCREENSAVER_MODULE ("Substrate", substrate)
+void Substrate::restart()
+{
+    auto* f = m_state->f;
+    if (f->width <= 0 || f->height <= 0) return;
+    f->initial_cracks = m_initial_cracks;
+    f->max_num = m_max_cracks;
+    f->grains = m_grains;
+    f->circle_percent = m_circle_percent;
+    f->wireframe = m_wireframe;
+    f->seamless = m_seamless;
+    build_img(f);
+    build_substrate(f);
+    for (int y = 0; y < f->height; ++y)
+        for (int x = 0; x < f->width; ++x)
+            drawdot(x, y, f->bgcolor);
+    m_next_frame = 0;
+}
+
+bool Substrate::render(uint32_t*)
+{
+    auto* f = m_state->f;
+    if (m_paused || f->width <= 0 || f->height <= 0 || ImGui::GetTime() < m_next_frame)
+        return false;
+    // Preserve the original loop: cracks born this cycle also advance this cycle.
+    for (unsigned tempx = 0; tempx < f->num; tempx++)
+        movedrawcrack(m_state.get(), f, tempx);
+    f->cycles++;
+    if (m_max_cycles != 0 && f->cycles >= (unsigned) m_max_cycles)
+        restart();
+    m_next_frame = ImGui::GetTime() + m_growth_delay / 1000000.0;
+    return false;
+}
+
+bool Substrate::render_gui()
+{
+    const auto tooltip = [](const char* text) {
+        if (ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 32.0f);
+            ImGui::TextUnformatted(text);
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+    };
+    auto* f = m_state->f;
+    ImGui::SliderInt("Initial cracks (next restart)", &m_initial_cracks, 3, 15);
+    tooltip("The number of moving crack tips used to seed a fresh drawing. Each tip traces a line or arc, "
+            "then starts another path when it reaches a boundary or another crack. More initial tips "
+            "start growth in more places at once; fewer let a small number of structures develop first.\n\n"
+            "Applies on the next restart and does not change the current drawing.");
+    if (ImGui::SliderInt("Maximum cracks", &m_max_cracks, 16, 500)) {
+        f->max_num = m_max_cracks;
+        // Retire excess moving tips without erasing their cracks or shading.
+        f->num = std::min(f->num, f->max_num);
+    }
+    tooltip("Limits the number of crack tips that can grow simultaneously, not the number of lines already "
+            "on the paper. Collisions, edge encounters, and completed circles can spawn additional tips "
+            "until this limit is reached. Higher limits allow more simultaneous growth and require more work per cycle.\n\n"
+            "Lowering the limit immediately retires excess tips but keeps their marks. Raising it allows "
+            "future spawning rather than creating all the extra tips at once.");
+    ImGui::SliderInt("Sand grains", &m_grains, 16, 128);
+    tooltip("The number of translucent color samples deposited by each moving tip during a growth step. "
+            "Samples spread sideways from the crack toward the next boundary, building the soft, sandy "
+            "shading between lines. More grains generally produce denser, smoother shading; fewer leave "
+            "a sparser, grainier texture and cost less to draw.\n\n"
+            "Changes affect new deposits immediately. Existing shading stays as painted. "
+            "This setting has no visible effect while Wireframe only is enabled.");
+    ImGui::SliderInt("Circle percentage", &m_circle_percent, 0, 100);
+    tooltip("The probability, in percent, that a newly started crack follows a circular arc instead of "
+            "a straight line. At 0, all new paths are straight; at 100, all are curved. Arc radius and "
+            "turn direction are chosen randomly. Cracks may collide before completing a circle, so "
+            "this is not the percentage of complete circles in the image.\n\n"
+            "Applies when a tip starts or restarts a path. Existing paths keep their current shape.");
+    ImGui::Checkbox("Wireframe only", &m_wireframe);
+    tooltip("Draws only the dark crack lines, without depositing colored sand beside them. This reveals "
+            "the branching and collision structure and reduces the work needed for shading.\n\n"
+            "Takes effect immediately, but previously painted color remains. Restart with this enabled "
+            "for a clean line-only drawing; turn it off to resume sand painting along the moving tips.");
+    ImGui::Checkbox("Seamless", &m_seamless);
+    tooltip("Connects opposite edges of the canvas: tips and sand deposits that cross one edge wrap "
+            "around to the other. With this disabled, the edges stop paths and cause tips to start "
+            "again elsewhere. Wrapping lets structures continue across the canvas boundaries.\n\n"
+            "Changes future movement immediately. Existing edge marks are not repaired or redrawn; "
+            "enable this before restarting to use wrapping throughout the drawing.");
+    f->grains = m_grains;
+    f->circle_percent = m_circle_percent;
+    f->wireframe = m_wireframe;
+    f->seamless = m_seamless;
+    if (ImGui::SliderInt("Growth delay (us)", &m_growth_delay, 0, 100000))
+        m_next_frame = 0;
+    tooltip("The minimum pause between growth cycles, in microseconds (1,000 us = 1 ms). Each cycle "
+            "advances the moving tips and deposits their sand. A larger delay slows the drawing; zero "
+            "allows a cycle on every rendered frame. Actual speed also depends on rendering and simulation cost.\n\n"
+            "Changes pacing immediately without changing the distance a tip moves per cycle or clearing the image.");
+    ImGui::SliderInt("Maximum cycles (0 = unlimited)", &m_max_cycles, 0, 25000);
+    tooltip("How many growth cycles a drawing runs before automatically clearing the paper and starting "
+            "a new composition. Larger values give cracks and shading more time to accumulate. This is "
+            "a cycle count, not a duration in seconds; Growth delay and rendering speed affect its duration.\n\n"
+            "Zero disables automatic restarting. Lowering this below the current cycle count triggers "
+            "a restart after the next growth cycle. Pausing stops the counter.");
+    ImGui::Checkbox("Pause", &m_paused);
+    tooltip("Stops tip movement, sand deposits, and the cycle counter while keeping the current picture "
+            "visible. Resume to continue from the same paths.\n\n"
+            "You can adjust settings while paused; their effects appear when growth resumes. "
+            "Restart still clears and reseeds the drawing while paused.");
+    if (ImGui::Button("Restart")) restart();
+    tooltip("Clears all cracks and shading back to white paper, resets the cycle counter, and creates "
+            "a fresh random composition using the current settings, including Initial cracks. "
+            "The previous drawing is discarded.\n\n"
+            "Settings and pause state are preserved. The shared Shuffle button also starts a fresh drawing.");
+    ImGui::Text("Cracks: %u / %d   Cycles: %u", m_state->f->num, m_max_cracks, m_state->f->cycles);
+    ImGui::TextWrapped("Uses the original Pollock palette on white paper. Live changes preserve existing marks. "
+                       "Initial cracks applies on the next restart.");
+    return false;
+}
+
+void Substrate::shuffle()
+{
+    restart();
+}
+
+std::string Substrate::about() const
+{
+    return "Substrate by Jared Tarbell (2004), ported to XScreenSaver by Mike Kershaw, "
+           "with circular cracks by David Agraz.\n\n"
+           "Cracks start approximately perpendicular to existing cracks, grow until they meet "
+           "another crack or the image boundary, and spawn new cracks. Curved cracks trace arcs. "
+           "A sand painter deposits translucent grains between each crack and the next boundary, "
+           "using the original Pollock-derived palette on white.\n\n"
+           "Initial and maximum cracks control population; sand grains controls shading density; "
+           "circle percentage chooses curved growth. Seamless wraps the image boundaries. "
+           "Sand grains, wireframe, seamless, and the crack limit change live, preserving existing marks. "
+           "Lowering the crack limit retires excess moving tips; raising it permits further spawning. "
+           "Circle percentage affects new paths, while initial cracks applies on the next restart. "
+           "Growth delay controls pacing, and maximum cycles controls regeneration (zero disables it). "
+           "Shuffle and Restart begin a fresh drawing; Pause preserves the current image.\n\n"
+           "http://complexification.net/gallery/machines/substrate/\n"
+           "https://www.jwz.org/xscreensaver/";
+}

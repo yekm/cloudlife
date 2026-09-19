@@ -166,6 +166,7 @@ set(CLOUDS_SOURCES
     src/arts/physarum.cpp
     src/arts/marbling.cpp
     src/arts/xlyap.cpp
+    src/arts/substrate.cpp
 )
 
 # Compute shaders require OpenGL 4.3+ (not available on macOS)
