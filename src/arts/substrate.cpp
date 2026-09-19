@@ -30,6 +30,7 @@
  */
 
 #include "substrate.hpp"
+#include "easelplane.h"
 #include "random.h"
 
 #include "imgui.h"
@@ -121,9 +122,6 @@ struct field {
     std::vector<crack> cracks; /* grid of cracks */
     std::vector<int> cgrid; /* grid of actual crack placement */
 
-    /* Raw map of pixels we need to keep for alpha blending */
-    std::vector<uint32_t> off_img;
-   
     /* color parms */
     int numcolors;
     std::vector<uint32_t> parsedcolors;
@@ -138,12 +136,11 @@ struct field {
 };
 
 struct state {
-  Art *art = nullptr;
+  EaselPlane *plane = nullptr;
   struct field f{};
 };
 
-/* Quick references to pixels in the offscreen map and in the crack grid */
-#define ref_pixel(f, x, y)   ((f)->off_img[(y) * (f)->width + (x)])
+/* Quick reference to pixels in the crack grid */
 #define ref_cgrid(f, x, y)   ((f)->cgrid[(y) * (f)->width + (x)])
 
 static inline void start_crack(struct field *f, crack *cr) 
@@ -263,8 +260,7 @@ static inline unsigned long rgb2point(int, int r, int g, int b)
     return IM_COL32(r, g, b, 255);
 }
 
-/* alpha blended point drawing -- this is Not Right and will likely fail on 
- * non-intel platforms as it is now, needs fixing */
+// Blend against EaselPlane's current CPU pixel; the caller draws the result.
 static inline unsigned long
 trans_point(struct state *st,
             int x1, int y1, unsigned long myc, float a, 
@@ -272,14 +268,14 @@ trans_point(struct state *st,
 {
     if ((x1 >= 0) && (x1 < f->width) && (y1 >= 0) && (y1 < f->height)) {
         if (a >= 1.0) {
-            ref_pixel(f, x1, y1) = myc;
+            return myc;
         } else {
             int old_r = 0, og = 0, ob = 0;
             int r = 0, g = 0, b = 0;
             int nr, ng, nb;
             unsigned long c;
 
-            c = ref_pixel(f, x1, y1);
+            c = st->plane->read_pixel(x1, y1);
 
             point2rgb(f->visdepth, c, &old_r, &og, &ob);
             point2rgb(f->visdepth, myc, &r, &g, &b);
@@ -289,8 +285,6 @@ trans_point(struct state *st,
             nb = ob + (b - ob) * a;
 
             c = rgb2point(f->visdepth, nr, ng, nb);
-
-            ref_pixel(f, x1, y1) = c;
 
             return c;
         }
@@ -368,7 +362,7 @@ region_color(struct state *st, struct field *f, crack *cr)
         /* Draw sand bit */
         c = trans_point(st, drawx, drawy, cr->sandcolor, (0.1 - i / (grains * 10.0)), f);
 
-        st->art->drawdot((int) drawx, (int) drawy, c);
+        st->plane->drawdot((int) drawx, (int) drawy, c);
     }
 }
 
@@ -444,8 +438,7 @@ movedrawcrack(struct state *st, struct field *f, int cracknum)
             region_color(st, f, cr);
 
         /* draw fgcolor crack */
-        ref_pixel(f, cx, cy) = f->fgcolor;
-        st->art->drawdot(cx, cy, f->fgcolor);
+        st->plane->drawdot(cx, cy, f->fgcolor);
 
         if ( cr->curved && (cr->degrees_drawn > 360) ) {
             /* completed the circle, stop cracking */
@@ -477,17 +470,11 @@ movedrawcrack(struct state *st, struct field *f, int cracknum)
 }
 
 
-static void build_img(struct field *f)
-{
-    f->off_img.assign(static_cast<size_t>(f->width) * f->height, f->bgcolor);
-}
-
 } // namespace
 
 #undef random
 #undef frand
 #undef STEP
-#undef ref_pixel
 #undef ref_cgrid
 
 struct Substrate::State : state {
@@ -510,7 +497,7 @@ struct Substrate::State : state {
 Substrate::Substrate() : Art("Substrate"), m_state(std::make_unique<State>())
 {
     usePlane();
-    m_state->art = this;
+    m_state->plane = eplane();
 }
 
 Substrate::~Substrate() = default;
@@ -533,7 +520,6 @@ void Substrate::restart()
     f->circle_percent = m_circle_percent;
     f->wireframe = m_wireframe;
     f->seamless = m_seamless;
-    build_img(f);
     build_substrate(f);
     for (int y = 0; y < f->height; ++y)
         for (int x = 0; x < f->width; ++x)

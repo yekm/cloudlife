@@ -12,6 +12,8 @@ public:
 
     //void append(Pixel && p);
     void drawdot(int32_t x, int32_t y, uint32_t c) override;
+    // Read the persistent CPU image without GPU readback. Out-of-bounds reads return 0.
+    uint32_t read_pixel(int32_t x, int32_t y) const;
 
     virtual void render() override;
     virtual void clear() override;

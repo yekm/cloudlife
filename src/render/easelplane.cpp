@@ -128,6 +128,14 @@ void EaselPlane::drawdot(int32_t x, int32_t y, uint32_t c)
     ++pixels_drawn;
 }
 
+uint32_t EaselPlane::read_pixel(int32_t x, int32_t y) const
+{
+    if (x < 0 || y < 0 || x >= w || y >= h || image_data_vector.empty())
+        return 0;
+
+    return image_data_vector[static_cast<size_t>(y) * static_cast<size_t>(w) + x];
+}
+
 void EaselPlane::gui()
 {
     pal.RenderGui();
