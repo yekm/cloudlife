@@ -35,8 +35,8 @@
 #include "imgui.h"
 
 #include <math.h>
-#include <cstdio>
 #include <cstdlib>
+#include <vector>
 
 // Keep the imported random calls and algorithm local to this translation unit.
 #define random() LRAND()
@@ -118,15 +118,15 @@ struct field {
 
     int circle_percent;
 
-    crack *cracks; /* grid of cracks */
-    int *cgrid; /* grid of actual crack placement */
+    std::vector<crack> cracks; /* grid of cracks */
+    std::vector<int> cgrid; /* grid of actual crack placement */
 
     /* Raw map of pixels we need to keep for alpha blending */
-    unsigned long int *off_img;
+    std::vector<uint32_t> off_img;
    
     /* color parms */
     int numcolors;
-    unsigned long *parsedcolors;
+    std::vector<uint32_t> parsedcolors;
     unsigned long fgcolor;
     unsigned long bgcolor;
     int visdepth;
@@ -138,45 +138,9 @@ struct field {
 };
 
 struct state {
-  Art *art;
-  struct field *f;
+  Art *art = nullptr;
+  struct field f{};
 };
-
-static void 
-*xrealloc(void *p, size_t size)
-{
-    void *ret;
-    if ((ret = realloc(p, size)) == NULL) {
-	fprintf(stderr, "%s: out of memory\n", "Substrate");
-	exit(1);
-    }
-    return ret;
-}
-
-static struct field 
-*init_field(void)
-{
-    struct field *f = (struct field *) xrealloc(NULL, sizeof(struct field));
-    f->height = 0;
-    f->width = 0;
-    f->initial_cracks = 0;
-    f->num = 0;
-    f->max_num = 0;
-    f->cracks = NULL;
-    f->cgrid = NULL;
-    f->off_img = NULL;
-    f->numcolors = 0;
-    f->parsedcolors = NULL;
-    f->cycles = 0;
-    f->wireframe = 0;
-    f->seamless = 0;
-    f->fgcolor = 0;
-    f->bgcolor = 0;
-    f->visdepth = 0;
-    f->grains = 0;
-    f->circle_percent = 0;
-    return f;
-}
 
 /* Quick references to pixels in the offscreen map and in the crack grid */
 #define ref_pixel(f, x, y)   ((f)->off_img[(y) * (f)->width + (x)])
@@ -262,7 +226,7 @@ static inline void make_crack(struct field *f)
 
     if (f->num < f->max_num) {
         /* make a new crack */
-        f->cracks = (crack *) xrealloc(f->cracks, sizeof(crack) * (f->num + 1));
+        f->cracks.emplace_back();
 
         cr = &(f->cracks[f->num]);
         /* assign colors */
@@ -410,31 +374,17 @@ region_color(struct state *st, struct field *f, crack *cr)
 
 static void build_substrate(struct field *f) 
 {
-    int tx;
+    unsigned int tx;
     /* int ty; */
 
     f->cycles = 0;
 
-    if (f->cgrid) {
-        free(f->cgrid);
-        f->cgrid = NULL;
-    }
-
-    if (f->cracks) {
-        free(f->cracks);
-        f->cracks = NULL;
-    }
-
+    f->cracks.clear();
+    f->cracks.reserve(f->max_num);
     f->num = 0;
 
     /* erase the crack grid */
-    f->cgrid = (int *) xrealloc(f->cgrid, sizeof(int) * f->height * f->width);
-    {
-        int j;
-        int *p = f->cgrid;
-        for (j = 0; j < f->height * f->width; j++)
-            *p++ = 10001;
-    }
+    f->cgrid.assign(static_cast<size_t>(f->height) * f->width, 10001);
 
     /* Not necessary now that make_crack ensures we have usable default
      *  values in start_crack's timeout case 
@@ -529,10 +479,7 @@ movedrawcrack(struct state *st, struct field *f, int cracknum)
 
 static void build_img(struct field *f)
 {
-    if (f->off_img) free(f->off_img);
-    f->off_img = (unsigned long *) xrealloc(NULL, sizeof(unsigned long) *
-                                            f->width * f->height);
-    std::fill_n(f->off_img, (size_t) f->width * f->height, f->bgcolor);
+    f->off_img.assign(static_cast<size_t>(f->width) * f->height, f->bgcolor);
 }
 
 } // namespace
@@ -546,28 +493,18 @@ static void build_img(struct field *f)
 struct Substrate::State : state {
     State()
     {
-        art = nullptr;
-        f = init_field();
+        auto* f = &this->f;
         f->fgcolor = IM_COL32(0, 0, 0, 255);
         f->bgcolor = IM_COL32(255, 255, 255, 255);
         f->visdepth = 32;
         while (rgb_colormap[f->numcolors] != nullptr) {
-            f->parsedcolors = (unsigned long *) xrealloc(f->parsedcolors,
-                sizeof(unsigned long) * (f->numcolors + 1));
             const unsigned long rgb = strtoul(rgb_colormap[f->numcolors] + 1, nullptr, 16);
-            f->parsedcolors[f->numcolors++] = rgb2point(32,
-                (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255);
+            f->parsedcolors.push_back(rgb2point(32,
+                (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255));
+            f->numcolors++;
         }
     }
 
-    ~State()
-    {
-        free(f->cgrid);
-        free(f->cracks);
-        free(f->off_img);
-        free(f->parsedcolors);
-        free(f);
-    }
 };
 
 Substrate::Substrate() : Art("Substrate"), m_state(std::make_unique<State>())
@@ -581,14 +518,14 @@ Substrate::~Substrate() = default;
 void Substrate::resize(int width, int height)
 {
     default_resize(width, height);
-    m_state->f->width = std::max(0, width);
-    m_state->f->height = std::max(0, height);
+    m_state->f.width = std::max(0, width);
+    m_state->f.height = std::max(0, height);
     restart();
 }
 
 void Substrate::restart()
 {
-    auto* f = m_state->f;
+    auto* f = &m_state->f;
     if (f->width <= 0 || f->height <= 0) return;
     f->initial_cracks = m_initial_cracks;
     f->max_num = m_max_cracks;
@@ -606,7 +543,7 @@ void Substrate::restart()
 
 bool Substrate::render(uint32_t*)
 {
-    auto* f = m_state->f;
+    auto* f = &m_state->f;
     if (m_paused || f->width <= 0 || f->height <= 0 || ImGui::GetTime() < m_next_frame)
         return false;
     // Preserve the original loop: cracks born this cycle also advance this cycle.
@@ -630,7 +567,7 @@ bool Substrate::render_gui()
             ImGui::EndTooltip();
         }
     };
-    auto* f = m_state->f;
+    auto* f = &m_state->f;
     ImGui::SliderInt("Initial cracks (next restart)", &m_initial_cracks, 3, 15);
     tooltip("The number of moving crack tips used to seed a fresh drawing. Each tip traces a line or arc, "
             "then starts another path when it reaches a boundary or another crack. More initial tips "
@@ -640,6 +577,8 @@ bool Substrate::render_gui()
         f->max_num = m_max_cracks;
         // Retire excess moving tips without erasing their cracks or shading.
         f->num = std::min(f->num, f->max_num);
+        f->cracks.resize(f->num);
+        f->cracks.reserve(f->max_num);
     }
     tooltip("Limits the number of crack tips that can grow simultaneously, not the number of lines already "
             "on the paper. Collisions, edge encounters, and completed circles can spawn additional tips "
@@ -696,7 +635,7 @@ bool Substrate::render_gui()
             "a fresh random composition using the current settings, including Initial cracks. "
             "The previous drawing is discarded.\n\n"
             "Settings and pause state are preserved. The shared Shuffle button also starts a fresh drawing.");
-    ImGui::Text("Cracks: %u / %d   Cycles: %u", m_state->f->num, m_max_cracks, m_state->f->cycles);
+    ImGui::Text("Cracks: %u / %d   Cycles: %u", m_state->f.num, m_max_cracks, m_state->f.cycles);
     ImGui::TextWrapped("Uses the original Pollock palette on white paper. Live changes preserve existing marks. "
                        "Initial cracks applies on the next restart.");
     return false;
