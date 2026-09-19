@@ -27,6 +27,7 @@ private:
     int m_max_cycles = 10000;
     bool m_wireframe = false;
     bool m_seamless = false;
+    bool m_autorestart = false;
     bool m_paused = false;
     double m_next_frame = 0;
 };

@@ -536,8 +536,12 @@ bool Substrate::render(uint32_t*)
     for (unsigned tempx = 0; tempx < f->num; tempx++)
         movedrawcrack(m_state.get(), f, tempx);
     f->cycles++;
-    if (m_max_cycles != 0 && f->cycles >= (unsigned) m_max_cycles)
-        restart();
+    if (m_max_cycles != 0 && f->cycles >= (unsigned) m_max_cycles) {
+        if (m_autorestart)
+            restart();
+        else
+            m_paused = true;
+    }
     m_next_frame = ImGui::GetTime() + m_growth_delay / 1000000.0;
     return false;
 }
@@ -605,16 +609,25 @@ bool Substrate::render_gui()
             "advances the moving tips and deposits their sand. A larger delay slows the drawing; zero "
             "allows a cycle on every rendered frame. Actual speed also depends on rendering and simulation cost.\n\n"
             "Changes pacing immediately without changing the distance a tip moves per cycle or clearing the image.");
-    ImGui::SliderInt("Maximum cycles (0 = unlimited)", &m_max_cycles, 0, 25000);
-    tooltip("How many growth cycles a drawing runs before automatically clearing the paper and starting "
-            "a new composition. Larger values give cracks and shading more time to accumulate. This is "
+    ImGui::SliderInt("Maximum cycles (0 = unlimited)", &m_max_cycles, 0, 250000);
+    tooltip("How many growth cycles a drawing runs before pausing and preserving the finished picture. "
+            "With Autorestart enabled, reaching the limit instead clears the paper and starts a new "
+            "composition. Larger values give cracks and shading more time to accumulate. This is "
             "a cycle count, not a duration in seconds; Growth delay and rendering speed affect its duration.\n\n"
-            "Zero disables automatic restarting. Lowering this below the current cycle count triggers "
-            "a restart after the next growth cycle. Pausing stops the counter.");
+            "Zero disables the limit. Lowering this below the current cycle count pauses or restarts "
+            "after the next growth cycle. To continue a drawing paused at the limit, raise the limit "
+            "or set it to zero, then uncheck Pause.");
+    ImGui::Checkbox("Autorestart", &m_autorestart);
+    tooltip("Automatically clears the paper and starts a fresh random composition whenever Maximum cycles "
+            "is reached. Enable this to cycle through drawings continuously. Leave it off to pause at "
+            "the limit and keep the finished picture.\n\n"
+            "Off by default. Has no effect when Maximum cycles is zero. Changing this does not clear "
+            "the picture or resume a paused drawing; it controls what happens when growth next reaches the limit.");
     ImGui::Checkbox("Pause", &m_paused);
     tooltip("Stops tip movement, sand deposits, and the cycle counter while keeping the current picture "
             "visible. Resume to continue from the same paths.\n\n"
             "You can adjust settings while paused; their effects appear when growth resumes. "
+            "If the cycle limit caused the pause, raise it or set it to zero before resuming to keep growing. "
             "Restart still clears and reseeds the drawing while paused.");
     if (ImGui::Button("Restart")) restart();
     tooltip("Clears all cracks and shading back to white paper, resets the cycle counter, and creates "
@@ -645,7 +658,8 @@ std::string Substrate::about() const
            "Sand grains, wireframe, seamless, and the crack limit change live, preserving existing marks. "
            "Lowering the crack limit retires excess moving tips; raising it permits further spawning. "
            "Circle percentage affects new paths, while initial cracks applies on the next restart. "
-           "Growth delay controls pacing, and maximum cycles controls regeneration (zero disables it). "
+           "Growth delay controls pacing. Maximum cycles pauses the drawing at the limit (zero disables it); "
+           "Autorestart instead starts a new composition at the limit and is off by default. "
            "Shuffle and Restart begin a fresh drawing; Pause preserves the current image.\n\n"
            "http://complexification.net/gallery/machines/substrate/\n"
            "https://www.jwz.org/xscreensaver/";
